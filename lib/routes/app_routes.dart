@@ -1,7 +1,7 @@
 import 'package:go_router/go_router.dart';
 import '../features/splash/screens/splash_screen.dart';
 import '../features/auth/screens/login_screen.dart';
-import '../features/home/screens/home_screen.dart';
+import '../features/main/screens/main_screen.dart';
 
 class AppRoutes {
   // Route names
@@ -26,7 +26,7 @@ class AppRoutes {
       GoRoute(
         path: home,
         name: 'home',
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => const MainScreen(),
       ),
     ],
   );
