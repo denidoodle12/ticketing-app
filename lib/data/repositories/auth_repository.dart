@@ -2,7 +2,7 @@ import '../models/user_model.dart';
 import '../datasources/local/local_storage.dart';
 import '../datasources/mock/auth_mock_datasource.dart';
 import '../datasources/remote/auth_remote_datasource.dart';
-import '../../core/constants/app_constants.dart';
+import '../../core/constants/api_config.dart';
 import '../../core/errors/exceptions.dart';
 import '../../core/errors/failures.dart';
 
@@ -20,7 +20,7 @@ class Result<T> {
 
 /// Auth repository interface
 abstract class AuthRepository {
-  Future<Result<User>> login(String email, String password);
+  Future<Result<User>> login(String identifier, String password);
   Future<Result<String>> register(String name, String email, String password);
   Future<bool> isLoggedIn();
   Future<void> logout();
@@ -41,47 +41,78 @@ class AuthRepositoryImpl implements AuthRepository {
         _mockDatasource = mockDatasource,
         _localStorage = localStorage;
 
-  /// Login with email and password
+  /// Login with identifier (email or username) and password
   @override
-  Future<Result<User>> login(String email, String password) async {
+  Future<Result<User>> login(String identifier, String password) async {
     try {
-      // Use mock or real datasource based on app constants
-      final response = AppConstants.useMockData
-          ? await _mockDatasource!.login(email, password)
-          : await _remoteDatasource!.login(email, password);
+      // Use mock or real datasource based on config
+      if (ApiConfig.useMockData) {
+        // Mock datasource returns ApiResponse<LoginResponse>
+        final response = await _mockDatasource!.login(identifier, password);
 
-      if (response.success && response.data != null) {
-        // Save tokens
+        if (response.success && response.data != null) {
+          final loginData = response.data!;
+
+          // Save tokens
+          await _localStorage.saveTokens(
+            accessToken: loginData.accessToken ?? loginData.token,
+            refreshToken: loginData.refreshToken ?? loginData.token,
+          );
+
+          // Save user data
+          final user = loginData.user;
+          await _localStorage.saveUserData(
+            userId: user.id.toString(),
+            email: user.email,
+            username: user.username,
+            fullName: user.fullName,
+            role: user.role,
+          );
+
+          return Result.success(user);
+        } else {
+          return Result.failure(ServerFailure(response.message));
+        }
+      } else {
+        // Real API datasource returns LoginResponse directly (not wrapped in ApiResponse)
+        final loginResponse = await _remoteDatasource!.login(identifier, password);
+
+        // Save token (single token from API)
         await _localStorage.saveTokens(
-          accessToken: response.data!.accessToken,
-          refreshToken: response.data!.refreshToken,
+          accessToken: loginResponse.token,
+          refreshToken: loginResponse.token,
         );
 
         // Save user data
-        final user = response.data!.user;
+        final user = loginResponse.user;
         await _localStorage.saveUserData(
-          userId: user.id,
+          userId: user.id.toString(),
           email: user.email,
+          username: user.username,
           fullName: user.fullName,
           role: user.role,
-          avatarUrl: user.avatarUrl,
         );
 
         return Result.success(user);
-      } else {
-        return Result.failure(
-          ServerFailure(response.message),
-        );
       }
     } on UnauthorizedException catch (e) {
-      return Result.failure(UnauthorizedFailure(e.message));
+      // Provide user-friendly message for login failure
+      final message = e.message.toLowerCase().contains('unauthorized') ||
+                      e.message.toLowerCase().contains('invalid')
+          ? 'Email/username atau password salah'
+          : e.message;
+      return Result.failure(UnauthorizedFailure(message));
     } on NetworkException catch (e) {
       return Result.failure(NetworkFailure(e.message));
     } on ServerException catch (e) {
       return Result.failure(ServerFailure(e.message));
+    } on ValidationException catch (e) {
+      return Result.failure(ValidationFailure(e.message, e.errors));
     } catch (e) {
+      print('❌ REPOSITORY - Unexpected error: $e');
+      print('❌ Error type: ${e.runtimeType}');
       return Result.failure(
-        ServerFailure('An unexpected error occurred: ${e.toString()}'),
+        ServerFailure('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.'),
       );
     }
   }
@@ -94,10 +125,9 @@ class AuthRepositoryImpl implements AuthRepository {
     String password,
   ) async {
     try {
-      // Use mock or real datasource based on app constants
-      final response = AppConstants.useMockData
-          ? await _mockDatasource!.register(name, email, password)
-          : await _remoteDatasource!.register(name, email, password);
+      // Currently only mock registration is implemented
+      // Real API registration endpoint will be added in Sprint 2
+      final response = await _mockDatasource!.register(name, email, password);
 
       if (response.success && response.data != null) {
         return Result.success(response.message);
@@ -136,19 +166,20 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<User?> getCurrentUser() async {
     final userId = _localStorage.getUserId();
     final email = _localStorage.getUserEmail();
+    final username = _localStorage.getUserUsername();
     final fullName = _localStorage.getUserFullName();
     final role = _localStorage.getUserRole();
 
-    if (userId == null || email == null || fullName == null || role == null) {
+    if (userId == null || email == null || username == null || fullName == null || role == null) {
       return null;
     }
 
     return User(
-      id: userId,
+      id: int.parse(userId),
       email: email,
+      username: username,
       fullName: fullName,
       role: role,
-      avatarUrl: _localStorage.getUserAvatarUrl(),
     );
   }
 }

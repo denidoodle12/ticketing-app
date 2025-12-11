@@ -53,12 +53,14 @@ class LocalStorage {
   Future<void> saveUserData({
     required String userId,
     required String email,
+    required String username,
     required String fullName,
     required String role,
     String? avatarUrl,
   }) async {
     await _prefs.setString(StorageKeys.userId, userId);
     await _prefs.setString(StorageKeys.userEmail, email);
+    await _prefs.setString(StorageKeys.userUsername, username);
     await _prefs.setString(StorageKeys.userFullName, fullName);
     await _prefs.setString(StorageKeys.userRole, role);
     if (avatarUrl != null) {
@@ -74,6 +76,11 @@ class LocalStorage {
   /// Get user email
   String? getUserEmail() {
     return _prefs.getString(StorageKeys.userEmail);
+  }
+
+  /// Get username
+  String? getUserUsername() {
+    return _prefs.getString(StorageKeys.userUsername);
   }
 
   /// Get user full name
@@ -95,6 +102,7 @@ class LocalStorage {
   Future<void> clearUserData() async {
     await _prefs.remove(StorageKeys.userId);
     await _prefs.remove(StorageKeys.userEmail);
+    await _prefs.remove(StorageKeys.userUsername);
     await _prefs.remove(StorageKeys.userFullName);
     await _prefs.remove(StorageKeys.userRole);
     await _prefs.remove(StorageKeys.userAvatarUrl);

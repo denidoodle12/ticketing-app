@@ -6,6 +6,7 @@ class StorageKeys {
   // Shared Preferences Keys (untuk cache & preferences)
   static const String userId = 'user_id';
   static const String userEmail = 'user_email';
+  static const String userUsername = 'user_username';
   static const String userFullName = 'user_full_name';
   static const String userRole = 'user_role';
   static const String userAvatarUrl = 'user_avatar_url';

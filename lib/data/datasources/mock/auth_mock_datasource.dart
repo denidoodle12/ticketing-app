@@ -11,49 +11,43 @@ class AuthMockDatasource {
   // Mock user database
   final List<Map<String, dynamic>> _mockUsers = [
     {
-      'id': 'user-001',
+      'id': 1,
       'email': 'test@example.com',
+      'username': 'testuser',
       'password': 'test123',
       'full_name': 'Test User',
       'role': 'customer',
-      'phone_number': '081234567890',
-      'avatar_url': null,
-      'stat_tickets_created_count': 5,
-      'stat_tickets_resolved_count': 3,
     },
     {
-      'id': 'user-002',
+      'id': 2,
       'email': 'deny@enigma.com',
+      'username': 'denymobile',
       'password': 'deny123',
       'full_name': 'Deny Mobile Dev',
       'role': 'customer',
-      'phone_number': '081987654321',
-      'avatar_url': null,
-      'stat_tickets_created_count': 10,
-      'stat_tickets_resolved_count': 7,
     },
   ];
 
-  /// Mock login
+  /// Mock login with identifier (email or username)
   Future<ApiResponse<LoginResponse>> login(
-    String email,
+    String identifier,
     String password,
   ) async {
     await Future.delayed(_mockDelay);
 
-    // Find user by email
+    // Find user by email or username
     final userMap = _mockUsers.firstWhere(
-      (user) => user['email'] == email,
+      (user) => user['email'] == identifier || user['username'] == identifier,
       orElse: () => {},
     );
 
     if (userMap.isEmpty) {
-      throw UnauthorizedException('Invalid email or password');
+      throw UnauthorizedException('Invalid credentials');
     }
 
     // Check password
     if (userMap['password'] != password) {
-      throw UnauthorizedException('Invalid email or password');
+      throw UnauthorizedException('Invalid credentials');
     }
 
     // Create user object
@@ -61,20 +55,17 @@ class AuthMockDatasource {
       id: userMap['id'],
       fullName: userMap['full_name'],
       email: userMap['email'],
-      phoneNumber: userMap['phone_number'],
-      avatarUrl: userMap['avatar_url'],
+      username: userMap['username'],
       role: userMap['role'],
-      statTicketsCreatedCount: userMap['stat_tickets_created_count'],
-      statTicketsResolvedCount: userMap['stat_tickets_resolved_count'],
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
 
     // Create login response
     final loginResponse = LoginResponse(
+      token: 'mock_access_token_${userMap['id']}',
       accessToken: 'mock_access_token_${userMap['id']}',
       refreshToken: 'mock_refresh_token_${userMap['id']}',
-      expiresIn: 3600,
       user: user,
     );
 
@@ -161,11 +152,8 @@ class AuthMockDatasource {
       id: userMap['id'],
       fullName: userMap['full_name'],
       email: userMap['email'],
-      phoneNumber: userMap['phone_number'],
-      avatarUrl: userMap['avatar_url'],
+      username: userMap['username'],
       role: userMap['role'],
-      statTicketsCreatedCount: userMap['stat_tickets_created_count'],
-      statTicketsResolvedCount: userMap['stat_tickets_resolved_count'],
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );

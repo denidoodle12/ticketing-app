@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/themes/app_theme.dart';
 import 'core/constants/app_constants.dart';
+import 'core/constants/api_config.dart';
 import 'data/datasources/local/local_storage.dart';
 import 'data/datasources/mock/auth_mock_datasource.dart';
 import 'data/datasources/remote/auth_remote_datasource.dart';
@@ -33,8 +34,8 @@ class MyApp extends StatelessWidget {
         // Provide AuthRepository
         Provider<AuthRepository>(
           create: (context) => AuthRepositoryImpl(
-            remoteDatasource: AppConstants.useMockData ? null : AuthRemoteDatasource(),
-            mockDatasource: AppConstants.useMockData ? AuthMockDatasource() : null,
+            remoteDatasource: ApiConfig.useMockData ? null : AuthRemoteDatasource(),
+            mockDatasource: ApiConfig.useMockData ? AuthMockDatasource() : null,
             localStorage: context.read<LocalStorage>(),
           ),
         ),

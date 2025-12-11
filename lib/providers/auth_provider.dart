@@ -47,24 +47,40 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Login with email and password
-  Future<bool> login(String email, String password) async {
+  /// Login with identifier (email or username) and password
+  Future<bool> login(String identifier, String password) async {
+    print('\n🟦🟦🟦 PROVIDER - Starting login 🟦🟦🟦');
+    print('📧 Identifier: $identifier');
     _setState(AuthState.loading);
 
     try {
-      final result = await _authRepository.login(email, password);
+      print('🔄 PROVIDER - Calling repository.login...');
+      final result = await _authRepository.login(identifier, password);
+
+      print('✅ PROVIDER - Repository returned result');
+      print('📊 Is Success: ${result.isSuccess}');
+      print('📊 Is Failure: ${result.isFailure}');
 
       if (result.isSuccess) {
         _currentUser = result.data;
+        print('✅ PROVIDER - Login successful!');
+        print('👤 User: ${_currentUser?.email}');
         _setState(AuthState.authenticated);
         return true;
       } else {
-        _setError(result.failure!.message);
+        final errorMsg = result.failure!.message;
+        print('❌ PROVIDER - Login failed: $errorMsg');
+        _setError(errorMsg);
         _setState(AuthState.error);
         return false;
       }
-    } catch (e) {
-      _setError('An unexpected error occurred');
+    } catch (e, stackTrace) {
+      print('❌❌❌ PROVIDER EXCEPTION ❌❌❌');
+      print('Error Type: ${e.runtimeType}');
+      print('Error: $e');
+      print('Stack Trace:');
+      print(stackTrace);
+      _setError('An unexpected error occurred: ${e.toString()}');
       _setState(AuthState.error);
       return false;
     }
