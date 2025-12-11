@@ -109,8 +109,6 @@ class AuthRepositoryImpl implements AuthRepository {
     } on ValidationException catch (e) {
       return Result.failure(ValidationFailure(e.message, e.errors));
     } catch (e) {
-      print('❌ REPOSITORY - Unexpected error: $e');
-      print('❌ Error type: ${e.runtimeType}');
       return Result.failure(
         ServerFailure('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.'),
       );

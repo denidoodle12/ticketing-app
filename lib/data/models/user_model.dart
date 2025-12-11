@@ -20,10 +20,6 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
-    print('═══════════════════════════════════');
-    print('🔄 USER MODEL - Starting parsing');
-    print('📦 JSON Input: $json');
-
     try {
       final id = json['id'];
       final name = json['name'];
@@ -31,31 +27,19 @@ class User {
       final username = json['username'];
       final roleField = json['role'];
 
-      print('🔍 Field values:');
-      print('  - id: $id (${id.runtimeType})');
-      print('  - name: $name (${name.runtimeType})');
-      print('  - email: $email (${email.runtimeType})');
-      print('  - username: $username (${username.runtimeType})');
-      print('  - role: $roleField (${roleField.runtimeType})');
-
       if (id == null) {
-        print('❌ USER ERROR: id is NULL');
         throw Exception('User id is null');
       }
       if (name == null) {
-        print('❌ USER ERROR: name is NULL');
         throw Exception('User name is null');
       }
       if (email == null) {
-        print('❌ USER ERROR: email is NULL');
         throw Exception('User email is null');
       }
       if (username == null) {
-        print('❌ USER ERROR: username is NULL');
         throw Exception('User username is null');
       }
       if (roleField == null) {
-        print('❌ USER ERROR: role is NULL');
         throw Exception('User role is null');
       }
 
@@ -63,19 +47,13 @@ class User {
       String roleName;
       if (roleField is String) {
         roleName = roleField;
-        print('✅ Role is String: $roleName');
       } else if (roleField is Map) {
         roleName = roleField['name'] as String;
-        print('✅ Role is Map, extracted name: $roleName');
       } else {
-        print('❌ Unknown role format: ${roleField.runtimeType}');
         throw Exception('Unknown role format: ${roleField.runtimeType}');
       }
 
-      print('✅ USER MODEL - All fields validated');
-      print('🏗️ Creating User object...');
-
-      final user = User(
+      return User(
         id: id as int,
         fullName: name as String,
         email: email as String,
@@ -88,20 +66,7 @@ class User {
             ? DateTime.parse(json['updated_at'] as String)
             : null,
       );
-
-      print('✅ USER MODEL - Successfully created!');
-      print('👤 User: ${user.email} (ID: ${user.id})');
-      print('═══════════════════════════════════');
-      return user;
     } catch (e, stackTrace) {
-      print('═══════════════════════════════════');
-      print('❌❌❌ USER MODEL ERROR ❌❌❌');
-      print('Error Type: ${e.runtimeType}');
-      print('Error: $e');
-      print('JSON that caused error: $json');
-      print('Stack Trace:');
-      print(stackTrace);
-      print('═══════════════════════════════════');
       rethrow;
     }
   }
