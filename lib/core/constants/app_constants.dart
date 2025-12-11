@@ -1,6 +1,6 @@
 class AppConstants {
   // App Info
-  static const String appName = 'OmegaDesk';
+  static const String appName = 'EnigTicket';
   static const String appTagline = 'Secure Enterprise Ticketing';
   static const String poweredBy = 'Powered by EnigmaCamp';
   static const String appVersion = '0.1.0';
