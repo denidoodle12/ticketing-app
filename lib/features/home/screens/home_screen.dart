@@ -19,7 +19,7 @@ class HomeScreen extends StatelessWidget {
     final date = MockTicketData.getFormattedDate();
 
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
+      backgroundColor: AppColors.white,
       appBar: AppBar(
         backgroundColor: AppColors.primary500,
         foregroundColor: AppColors.white,

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/app_constants.dart';
+import 'package:ticketing_app/core/constants/asset_paths.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../routes/app_routes.dart';
 
@@ -50,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primary600,
+      backgroundColor: AppColors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -62,14 +63,16 @@ class _SplashScreenState extends State<SplashScreen> {
                   children: [
                     // Circle Logo
                     Container(
-                      width: 120,
-                      height: 120,
+                      width: 150,
+                      height: 150,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.white,
-                          width: 12,
-                        ),
+                        color: AppColors.white,
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: Image.asset(
+                        AssetPaths.appLogo,
+                        fit: BoxFit.contain,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -78,7 +81,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     Text(
                       AppConstants.appName,
                       style: AppTextStyles.h2.copyWith(
-                        color: AppColors.white,
+                        color: AppColors.primary600,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
                       ),
@@ -89,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     Text(
                       AppConstants.appTagline,
                       style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.white.withValues(alpha: 0.9),
+                        color: AppColors.primary600.withValues(alpha: 0.9),
                         fontSize: 14,
                         letterSpacing: 0.3,
                       ),
@@ -111,7 +114,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     child: CircularProgressIndicator(
                       strokeWidth: 3,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.white,
+                        AppColors.primary,
                       ),
                     ),
                   ),
@@ -121,7 +124,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   Text(
                     'INITIALIZING SECURE SESSION...',
                     style: AppTextStyles.caption.copyWith(
-                      color: AppColors.white.withValues(alpha: 0.8),
+                      color: AppColors.black.withValues(alpha: 0.8),
                       fontSize: 11,
                       letterSpacing: 1.2,
                       fontWeight: FontWeight.w500,
@@ -133,7 +136,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   Text(
                     AppConstants.poweredBy,
                     style: AppTextStyles.caption.copyWith(
-                      color: AppColors.white.withValues(alpha: 0.6),
+                      color: AppColors.black.withValues(alpha: 0.6),
                       fontSize: 11,
                       letterSpacing: 0.5,
                     ),

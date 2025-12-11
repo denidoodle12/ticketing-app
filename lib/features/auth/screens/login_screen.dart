@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/constants/asset_paths.dart';
 import '../../../core/utils/validators.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/custom_button.dart';
 import '../../../shared/widgets/custom_text_field.dart';
@@ -18,12 +20,12 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -35,21 +37,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.login(
-      _emailController.text.trim(),
+      _identifierController.text.trim(),
       _passwordController.text,
     );
 
     if (!mounted) return;
 
     if (success) {
+      SnackbarHelper.showSuccess(context, 'Login successful!');
       context.go(AppRoutes.home);
     } else {
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.errorMessage ?? 'Login failed'),
-          backgroundColor: AppColors.error,
-        ),
+      // Show error message with beautiful snackbar
+      SnackbarHelper.showError(
+        context,
+        authProvider.errorMessage ?? 'Failed to login, please try again.',
       );
     }
   }
@@ -57,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
+      backgroundColor: AppColors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -68,19 +69,19 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const SizedBox(height: 48),
 
-                // Logo Placeholder
+                // App Logo
                 Center(
                   child: Container(
-                    width: 100,
-                    height: 100,
+                    width: 120,
+                    height: 120,
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Icon(
-                      Icons.support_agent,
-                      size: 56,
-                      color: AppColors.white,
+                    padding: const EdgeInsets.all(16),
+                    child: Image.asset(
+                      AssetPaths.appLogo,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
@@ -88,26 +89,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 // Title
                 Text(
-                  'Selamat Datang!',
+                  'Welcome!',
                   style: AppTextStyles.h2,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Masuk untuk melanjutkan',
+                  'Sign-In to continue to your account',
                   style: AppTextStyles.bodyLarge.copyWith(
                     color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 32),
 
-                // Email Field
+                // Email/Username Field
                 CustomTextField(
-                  controller: _emailController,
-                  label: 'Email',
-                  hint: 'Masukkan email Anda',
-                  keyboardType: TextInputType.emailAddress,
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  validator: Validators.email,
+                  controller: _identifierController,
+                  label: 'Email/Username',
+                  hint: 'Enter your email or username',
+                  keyboardType: TextInputType.text,
+                  prefixIcon: const Icon(Icons.account_circle_outlined),
+                  validator: Validators.emailOrUsername,
                 ),
                 const SizedBox(height: 16),
 
@@ -115,7 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 CustomTextField(
                   controller: _passwordController,
                   label: 'Password',
-                  hint: 'Masukkan password Anda',
+                  hint: 'Enter your password',
                   obscureText: true,
                   prefixIcon: const Icon(Icons.lock_outline),
                   validator: Validators.password,
@@ -126,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Consumer<AuthProvider>(
                   builder: (context, authProvider, _) {
                     return CustomButton(
-                      text: 'Masuk',
+                      text: 'Login',
                       onPressed: _handleLogin,
                       isLoading: authProvider.isLoading,
                     );
@@ -166,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Email: test@example.com\nPassword: test123',
+                        'Username: admin_one\nEmail: customer1@test.com\nPassword: CustomerPass123!',
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.info,
                         ),

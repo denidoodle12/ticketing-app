@@ -36,7 +36,7 @@ class RecentTicketItem extends StatelessWidget {
       case 'open':
         return AppColors.primary100;
       case 'in progress':
-        return AppColors.warning100;
+        return AppColors.warning;
       case 'resolved':
         return AppColors.success100;
       case 'closed':

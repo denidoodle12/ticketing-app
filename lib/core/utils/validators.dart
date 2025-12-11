@@ -18,6 +18,28 @@ class Validators {
     return null;
   }
 
+  /// Email or Username validation
+  static String? emailOrUsername(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Email/Username tidak boleh kosong';
+    }
+
+    // Check if it's an email
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+',
+    );
+
+    // Check if it's a username (alphanumeric and underscore, 3-20 characters)
+    final usernameRegex = RegExp(r'^[a-zA-Z0-9_]{3,20}$');
+
+    // Valid if it matches either email or username pattern
+    if (!emailRegex.hasMatch(value) && !usernameRegex.hasMatch(value)) {
+      return 'Format email/username tidak valid';
+    }
+
+    return null;
+  }
+
   /// Password validation
   static String? password(String? value) {
     if (value == null || value.isEmpty) {
