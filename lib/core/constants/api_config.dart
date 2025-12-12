@@ -3,8 +3,16 @@ class ApiConfig {
   static const bool useMockData = false; // Set to true for testing without backend
 
   // Base URLs for different services
-  static const String authServiceUrl = 'http://10.10.100.116:8080';
-  static const String userServiceUrl = 'http://10.10.100.116:8081';
+  // static const String authServiceUrl = 'http://10.10.100.116:8080';
+  // static const String userServiceUrl = 'http://10.10.100.116:8081';
+
+  // Base URL - Production (Gateway)
+  // All request go through API Gateway
+  static const String baseUrl = 'https://magang.damarbrawijaya.my.id';
+
+  // For backward compatibility (both point to gateway)
+  static const String authServiceUrl = baseUrl;
+  static const String userServiceUrl = baseUrl;
 
   // Timeout configurations
   static const Duration connectTimeout = Duration(seconds: 30);
