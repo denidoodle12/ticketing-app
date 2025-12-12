@@ -22,11 +22,6 @@ class AuthRemoteDatasource {
     String identifier,
     String password,
   ) async {
-    print('════════════════════════════════════════');
-    print('🚀 DATASOURCE - Starting login request');
-    print('📧 Identifier: $identifier');
-    print('🌐 URL: ${ApiEndpoints.authLogin}');
-
     try {
       final response = await _dioAuth.post(
         ApiEndpoints.authLogin,
@@ -36,60 +31,28 @@ class AuthRemoteDatasource {
         },
       );
 
-      print('✅ DATASOURCE - Response received');
-      print('📊 Status Code: ${response.statusCode}');
-      print('📦 Response Data Type: ${response.data.runtimeType}');
-      print('📦 Response Data: ${response.data}');
-
       // API Response format: { "data": { "token": "...", "user": {...} } }
       if (response.data == null) {
-        print('❌ DATASOURCE - Response data is NULL!');
         throw Exception('Response data is null');
       }
 
       final responseData = response.data as Map<String, dynamic>;
-      print('🔍 DATASOURCE - Response keys: ${responseData.keys}');
 
       if (!responseData.containsKey('data')) {
-        print('❌ DATASOURCE - Missing "data" field!');
-        print('❌ Available keys: ${responseData.keys}');
         throw Exception('Response does not contain "data" field');
       }
 
       final data = responseData['data'] as Map<String, dynamic>;
-      print('🔍 DATASOURCE - Data field keys: ${data.keys}');
-      print('🔍 DATASOURCE - Token: ${data['token']}');
-      print('🔍 DATASOURCE - User: ${data['user']}');
-
-      print('🔄 DATASOURCE - Parsing LoginResponse...');
       final loginResponse = LoginResponse.fromJson(data);
-      print('✅ DATASOURCE - LoginResponse parsed successfully');
-      print('👤 User ID: ${loginResponse.user.id}');
-      print('👤 User Email: ${loginResponse.user.email}');
-      print('════════════════════════════════════════');
 
       return loginResponse;
     } on DioException catch (e, stackTrace) {
-      print('════════════════════════════════════════');
-      print('❌❌❌ DATASOURCE ERROR ❌❌❌');
-      print('Error Type: ${e.runtimeType}');
-      print('DioException Type: ${e.type}');
-      print('Error Message: $e');
-      print('Error Object: ${e.error}');
-      print('Error Object Type: ${e.error.runtimeType}');
-
       // Extract custom exception from DioException.error (set by ApiInterceptor)
       if (e.error is AppException) {
-        print('🔄 DATASOURCE - Throwing extracted exception: ${e.error}');
-        print('════════════════════════════════════════');
         throw e.error as AppException;
       }
 
       // If not a custom exception, handle DioException types
-      print('⚠️ DATASOURCE - No custom exception found, handling DioException type');
-      print('Stack Trace:');
-      print(stackTrace);
-      print('════════════════════════════════════════');
 
       switch (e.type) {
         case DioExceptionType.connectionTimeout:
@@ -113,14 +76,6 @@ class AuthRemoteDatasource {
           throw ServerException('An unexpected error occurred');
       }
     } catch (e, stackTrace) {
-      print('════════════════════════════════════════');
-      print('❌❌❌ DATASOURCE UNEXPECTED ERROR ❌❌❌');
-      print('Error Type: ${e.runtimeType}');
-      print('Error Message: $e');
-      print('Stack Trace:');
-      print(stackTrace);
-      print('════════════════════════════════════════');
-
       // If it's already our custom exception, rethrow
       if (e is AppException) {
         rethrow;
