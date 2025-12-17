@@ -1,35 +1,35 @@
 class MockTicketData {
-  // Ticket Statistics
-  static const int allTicketsCount = 3;
+  // Ticket Statistics (matching Figma design)
+  static const int allTicketsCount = 10;
   static const int openCount = 1;
-  static const int inProgressCount = 1;
-  static const int resolvedCount = 1;
+  static const int inProgressCount = 3;
+  static const int resolvedCount = 6;
 
-  // Recent Tickets (mock data)
+  // Recent Tickets (mock data with assigned date format)
   static final List<Map<String, dynamic>> recentTickets = [
     {
-      'id': 'TIX-202411-001',
+      'id': 'TIK-2024-001',
       'title': 'Laptop Won\'t Boot',
       'status': 'Open',
       'statusColor': 'blue',
-      'timeAgo': '2 hours ago',
-      'createdAt': DateTime.now().subtract(const Duration(hours: 2)),
+      'timeAgo': '15/03/2025',
+      'createdAt': DateTime(2025, 3, 15),
     },
     {
-      'id': 'TIX-202411-002',
-      'title': 'Network Connection Issues',
+      'id': 'TIK-2024-001',
+      'title': 'Laptop Won\'t Boot',
       'status': 'In Progress',
       'statusColor': 'amber',
-      'timeAgo': 'Yesterday',
-      'createdAt': DateTime.now().subtract(const Duration(days: 1)),
+      'timeAgo': '15/03/2025',
+      'createdAt': DateTime(2025, 3, 15),
     },
     {
-      'id': 'TIX-202411-003',
-      'title': 'Software Installation Request',
+      'id': 'TIK-2024-001',
+      'title': 'Laptop Won\'t Boot',
       'status': 'Resolved',
       'statusColor': 'green',
-      'timeAgo': '2 days ago',
-      'createdAt': DateTime.now().subtract(const Duration(days: 2)),
+      'timeAgo': '15/03/2025',
+      'createdAt': DateTime(2025, 3, 15),
     },
   ];
 

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 import 'text_styles.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
+      fontFamily: GoogleFonts.figtree().fontFamily,
       useMaterial3: true,
       colorScheme: ColorScheme.light(
         primary: AppColors.primary,
@@ -141,18 +143,20 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
         ),
       ),
-      textTheme: const TextTheme(
-        displayLarge: AppTextStyles.h1,
-        displayMedium: AppTextStyles.h2,
-        displaySmall: AppTextStyles.h3,
-        headlineMedium: AppTextStyles.h4,
-        headlineSmall: AppTextStyles.h5,
-        bodyLarge: AppTextStyles.bodyLarge,
-        bodyMedium: AppTextStyles.bodyMedium,
-        bodySmall: AppTextStyles.bodySmall,
-        labelLarge: AppTextStyles.labelLarge,
-        labelMedium: AppTextStyles.labelMedium,
-        labelSmall: AppTextStyles.labelSmall,
+      textTheme: GoogleFonts.figtreeTextTheme(
+        const TextTheme(
+          displayLarge: AppTextStyles.h1,
+          displayMedium: AppTextStyles.h2,
+          displaySmall: AppTextStyles.h3,
+          headlineMedium: AppTextStyles.h4,
+          headlineSmall: AppTextStyles.h5,
+          bodyLarge: AppTextStyles.bodyLarge,
+          bodyMedium: AppTextStyles.bodyMedium,
+          bodySmall: AppTextStyles.bodySmall,
+          labelLarge: AppTextStyles.labelLarge,
+          labelMedium: AppTextStyles.labelMedium,
+          labelSmall: AppTextStyles.labelSmall,
+        ),
       ),
     );
   }

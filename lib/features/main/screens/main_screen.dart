@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/themes/app_colors.dart';
+import '../../../core/themes/text_styles.dart';
 import '../../home/screens/home_screen.dart';
 import '../../tickets/screens/tickets_screen.dart';
 import '../../profile/screens/profile_screen.dart';
@@ -30,31 +32,88 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onTabTapped,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primary500,
-        unselectedItemColor: AppColors.secondary500,
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          // boxShadow: [
+          //   BoxShadow(
+          //     color: AppColors.shadow.withAlpha(25),
+          //     blurRadius: 10,
+          //     offset: const Offset(0, -2),
+          //   ),
+          // ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  index: 0,
+                  label: 'Home',
+                  iconPath: 'assets/icons/ic_home.svg',
+                  activeIconPath: 'assets/icons/ic_home_filled.svg',
+                ),
+                _buildNavItem(
+                  index: 1,
+                  label: 'Tickets',
+                  iconPath: 'assets/icons/ic_ticket.svg',
+                  activeIconPath: 'assets/icons/ic_ticket_filled.svg',
+                ),
+                _buildNavItem(
+                  index: 2,
+                  label: 'Profile',
+                  iconPath: 'assets/icons/ic_profile.svg',
+                  activeIconPath: 'assets/icons/ic_profile_filled.svg',
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.confirmation_number_outlined),
-            activeIcon: Icon(Icons.confirmation_number),
-            label: 'Tickets',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required String label,
+    required String iconPath,
+    required String activeIconPath,
+  }) {
+    final isSelected = _currentIndex == index;
+    final color = isSelected ? AppColors.primaryDark : AppColors.textSecondary;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => _onTabTapped(index),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(
+                isSelected ? activeIconPath : iconPath,
+                width: 24,
+                height: 24,
+                colorFilter: ColorFilter.mode(
+                  color,
+                  BlendMode.srcIn,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: color,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+        ),
       ),
     );
   }
