@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/storage_keys.dart';
 import 'package:ticketing_app/core/constants/asset_paths.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../routes/app_routes.dart';
@@ -29,6 +31,11 @@ class _SplashScreenState extends State<SplashScreen> {
     // Check if widget is still mounted
     if (!mounted) return;
 
+    // Check onboarding completion status
+    final prefs = await SharedPreferences.getInstance();
+    final hasCompletedOnboarding =
+        prefs.getBool(StorageKeys.hasCompletedOnboarding) ?? false;
+
     // Check auth status
     final authProvider = context.read<AuthProvider>();
     await authProvider.checkAuthStatus();
@@ -38,10 +45,12 @@ class _SplashScreenState extends State<SplashScreen> {
       const Duration(milliseconds: AppConstants.splashDurationMs),
     );
 
-    // Navigate based on auth status
+    // Navigate based on onboarding and auth status
     if (!mounted) return;
 
-    if (authProvider.isAuthenticated) {
+    if (!hasCompletedOnboarding) {
+      context.go(AppRoutes.onboarding);
+    } else if (authProvider.isAuthenticated) {
       context.go(AppRoutes.home);
     } else {
       context.go(AppRoutes.login);

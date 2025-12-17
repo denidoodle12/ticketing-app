@@ -14,4 +14,5 @@ class StorageKeys {
   // App Preferences
   static const String isFirstLaunch = 'is_first_launch';
   static const String isDarkMode = 'is_dark_mode';
+  static const String hasCompletedOnboarding = 'has_completed_onboarding';
 }
