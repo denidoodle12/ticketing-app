@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import '../../models/user_model.dart';
 import '../../models/auth_models.dart';
 import '../../../core/constants/api_endpoints.dart';
@@ -46,7 +45,7 @@ class AuthRemoteDatasource {
       final loginResponse = LoginResponse.fromJson(data);
 
       return loginResponse;
-    } on DioException catch (e, stackTrace) {
+    } on DioException catch (e) {
       // Extract custom exception from DioException.error (set by ApiInterceptor)
       if (e.error is AppException) {
         throw e.error as AppException;
@@ -75,7 +74,7 @@ class AuthRemoteDatasource {
         default:
           throw ServerException('An unexpected error occurred');
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       // If it's already our custom exception, rethrow
       if (e is AppException) {
         rethrow;

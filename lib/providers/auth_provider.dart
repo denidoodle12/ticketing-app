@@ -64,7 +64,7 @@ class AuthProvider extends ChangeNotifier {
         _setState(AuthState.error);
         return false;
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       _setError('An unexpected error occurred: ${e.toString()}');
       _setState(AuthState.error);
       return false;

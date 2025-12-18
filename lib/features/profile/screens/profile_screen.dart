@@ -15,10 +15,10 @@ class ProfileScreen extends StatelessWidget {
     final user = authProvider.currentUser;
 
     return Scaffold(
+      backgroundColor: AppColors.white,
       appBar: AppBar(
         title: const Text('Profile'),
-        backgroundColor: AppColors.primary500,
-        foregroundColor: AppColors.white,
+        backgroundColor: AppColors.white
       ),
       body: Center(
         child: Padding(

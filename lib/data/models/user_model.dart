@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 
 class User {
   final int id;
@@ -66,7 +65,7 @@ class User {
             ? DateTime.parse(json['updated_at'] as String)
             : null,
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       rethrow;
     }
   }

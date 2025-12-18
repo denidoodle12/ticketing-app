@@ -8,10 +8,10 @@ class TicketsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.white,
       appBar: AppBar(
         title: const Text('Tickets'),
-        backgroundColor: AppColors.primary500,
-        foregroundColor: AppColors.white,
+        backgroundColor: AppColors.white
       ),
       body: Center(
         child: Column(
@@ -31,7 +31,7 @@ class TicketsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Coming soon in Sprint 2',
+              'Coming soon.....',
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
