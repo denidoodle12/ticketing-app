@@ -3,6 +3,7 @@ import '../datasources/local/local_storage.dart';
 import '../datasources/mock/auth_mock_datasource.dart';
 import '../datasources/remote/auth_remote_datasource.dart';
 import '../../core/constants/api_config.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/errors/exceptions.dart';
 import '../../core/errors/failures.dart';
 
@@ -52,6 +53,14 @@ class AuthRepositoryImpl implements AuthRepository {
 
         if (response.success && response.data != null) {
           final loginData = response.data!;
+          final user = loginData.user;
+
+          // Validate user role - only allow customers
+          if (user.role.toLowerCase() != AppConstants.allowedRole) {
+            return Result.failure(
+              ForbiddenFailure('Access denied. This application is for customers only.'),
+            );
+          }
 
           // Save tokens
           await _localStorage.saveTokens(
@@ -60,7 +69,6 @@ class AuthRepositoryImpl implements AuthRepository {
           );
 
           // Save user data
-          final user = loginData.user;
           await _localStorage.saveUserData(
             userId: user.id.toString(),
             email: user.email,
@@ -76,6 +84,14 @@ class AuthRepositoryImpl implements AuthRepository {
       } else {
         // Real API datasource returns LoginResponse directly (not wrapped in ApiResponse)
         final loginResponse = await _remoteDatasource!.login(identifier, password);
+        final user = loginResponse.user;
+
+        // Validate user role - only allow customers
+        if (user.role.toLowerCase() != AppConstants.allowedRole) {
+          return Result.failure(
+            ForbiddenFailure('Access denied. This application is for customers only.'),
+          );
+        }
 
         // Save token (single token from API)
         await _localStorage.saveTokens(
@@ -84,7 +100,6 @@ class AuthRepositoryImpl implements AuthRepository {
         );
 
         // Save user data
-        final user = loginResponse.user;
         await _localStorage.saveUserData(
           userId: user.id.toString(),
           email: user.email,
@@ -99,7 +114,7 @@ class AuthRepositoryImpl implements AuthRepository {
       // Provide user-friendly message for login failure
       final message = e.message.toLowerCase().contains('unauthorized') ||
                       e.message.toLowerCase().contains('invalid')
-          ? 'Email/username atau password salah'
+          ? 'Incorrect email/username or password.'
           : e.message;
       return Result.failure(UnauthorizedFailure(message));
     } on NetworkException catch (e) {
@@ -110,7 +125,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return Result.failure(ValidationFailure(e.message, e.errors));
     } catch (e) {
       return Result.failure(
-        ServerFailure('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.'),
+        ServerFailure('An unexpected error has occurred. Please try again.'),
       );
     }
   }

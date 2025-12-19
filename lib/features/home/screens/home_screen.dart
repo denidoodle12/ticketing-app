@@ -51,7 +51,8 @@ class HomeScreen extends StatelessWidget {
 
                   // Recent Tickets Section
                   _buildRecentTicketsSection(context),
-                  const SizedBox(height: 24),
+                  // Extra padding for bottom navigation bar
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -192,7 +193,7 @@ class HomeScreen extends StatelessWidget {
       ),
       child: TextField(
         decoration: InputDecoration(
-          hintText: 'Cari ticket',
+          hintText: 'Find your ticket...',
           hintStyle: AppTextStyles.bodyMedium.copyWith(
             color: AppColors.textSecondary,
           ),

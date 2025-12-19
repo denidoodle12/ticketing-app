@@ -32,42 +32,56 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_currentIndex],
+      extendBody: true,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: AppColors.white,
-          // boxShadow: [
-          //   BoxShadow(
-          //     color: AppColors.shadow.withAlpha(25),
-          //     blurRadius: 10,
-          //     offset: const Offset(0, -2),
-          //   ),
-          // ],
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.black.withAlpha(25),
+              blurRadius: 20,
+              spreadRadius: -5,
+              offset: const Offset(0, -8),
+            ),
+          ],
         ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  index: 0,
-                  label: 'Home',
-                  iconPath: 'assets/icons/ic_home.svg',
-                  activeIconPath: 'assets/icons/ic_home_filled.svg',
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+          child: Container(
+            color: AppColors.white,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(
+                      index: 0,
+                      label: 'Home',
+                      iconPath: 'assets/icons/ic_home.svg',
+                      activeIconPath: 'assets/icons/ic_home_filled.svg',
+                    ),
+                    _buildNavItem(
+                      index: 1,
+                      label: 'Tickets',
+                      iconPath: 'assets/icons/ic_ticket.svg',
+                      activeIconPath: 'assets/icons/ic_ticket_filled.svg',
+                    ),
+                    _buildNavItem(
+                      index: 2,
+                      label: 'Profile',
+                      iconPath: 'assets/icons/ic_profile.svg',
+                      activeIconPath: 'assets/icons/ic_profile_filled.svg',
+                    ),
+                  ],
                 ),
-                _buildNavItem(
-                  index: 1,
-                  label: 'Tickets',
-                  iconPath: 'assets/icons/ic_ticket.svg',
-                  activeIconPath: 'assets/icons/ic_ticket_filled.svg',
-                ),
-                _buildNavItem(
-                  index: 2,
-                  label: 'Profile',
-                  iconPath: 'assets/icons/ic_profile.svg',
-                  activeIconPath: 'assets/icons/ic_profile_filled.svg',
-                ),
-              ],
+              ),
             ),
           ),
         ),

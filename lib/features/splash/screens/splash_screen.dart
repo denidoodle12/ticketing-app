@@ -36,6 +36,9 @@ class _SplashScreenState extends State<SplashScreen> {
     final hasCompletedOnboarding =
         prefs.getBool(StorageKeys.hasCompletedOnboarding) ?? false;
 
+    // Check if widget is still mounted after async operation
+    if (!mounted) return;
+
     // Check auth status
     final authProvider = context.read<AuthProvider>();
     await authProvider.checkAuthStatus();

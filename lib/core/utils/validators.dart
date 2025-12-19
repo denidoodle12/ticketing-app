@@ -4,7 +4,7 @@ class Validators {
   /// Email validation
   static String? email(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Email tidak boleh kosong';
+      return 'Email cannot be empty';
     }
 
     final emailRegex = RegExp(
@@ -12,7 +12,7 @@ class Validators {
     );
 
     if (!emailRegex.hasMatch(value)) {
-      return 'Format email tidak valid';
+      return 'Invalid email format';
     }
 
     return null;
@@ -21,7 +21,7 @@ class Validators {
   /// Email or Username validation
   static String? emailOrUsername(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Email/Username tidak boleh kosong';
+      return 'Email/Username cannot be empty';
     }
 
     // Check if it's an email
@@ -34,7 +34,7 @@ class Validators {
 
     // Valid if it matches either email or username pattern
     if (!emailRegex.hasMatch(value) && !usernameRegex.hasMatch(value)) {
-      return 'Format email/username tidak valid';
+      return 'Invalid email/username format';
     }
 
     return null;
@@ -43,11 +43,21 @@ class Validators {
   /// Password validation
   static String? password(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Password tidak boleh kosong';
+      return 'Password cannot be blank';
     }
 
     if (value.length < AppConstants.minPasswordLength) {
-      return 'Password minimal ${AppConstants.minPasswordLength} karakter';
+      return 'Password must be at least ${AppConstants.minPasswordLength} characters long';
+    }
+
+    // Check for at least one uppercase letter
+    if (!RegExp(r'[A-Z]').hasMatch(value)) {
+      return 'Passwords must contain at least 1 capital letter';
+    }
+
+    // Check for at least one number
+    if (!RegExp(r'[0-9]').hasMatch(value)) {
+      return 'Passwords must contain at least 1 number';
     }
 
     return null;
@@ -56,7 +66,7 @@ class Validators {
   /// Required field validation
   static String? required(String? value, String fieldName) {
     if (value == null || value.isEmpty) {
-      return '$fieldName tidak boleh kosong';
+      return '$fieldName cannot be empty';
     }
     return null;
   }
@@ -64,11 +74,11 @@ class Validators {
   /// Name validation
   static String? name(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Nama tidak boleh kosong';
+      return 'Name cannot be empty';
     }
 
     if (value.length > AppConstants.maxNameLength) {
-      return 'Nama maksimal ${AppConstants.maxNameLength} karakter';
+      return 'Name must be at most ${AppConstants.maxNameLength} characters';
     }
 
     return null;
@@ -83,7 +93,7 @@ class Validators {
     final phoneRegex = RegExp(r'^(\+62|62|0)[0-9]{9,12}$');
 
     if (!phoneRegex.hasMatch(value)) {
-      return 'Format nomor telepon tidak valid';
+      return 'Invalid phone number format';
     }
 
     return null;
@@ -92,11 +102,11 @@ class Validators {
   /// Confirm password validation
   static String? confirmPassword(String? value, String originalPassword) {
     if (value == null || value.isEmpty) {
-      return 'Konfirmasi password tidak boleh kosong';
+      return 'Confirm password cannot be empty';
     }
 
     if (value != originalPassword) {
-      return 'Password tidak sama';
+      return 'Passwords do not match';
     }
 
     return null;
