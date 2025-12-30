@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
+import 'core/network/connectivity_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +16,9 @@ Future<void> main() async {
     ),
   );
 
+  // Initialize connectivity service
+  await ConnectivityService().initialize();
+
   // Initialize shared preferences
   final prefs = await SharedPreferences.getInstance();
 
@@ -26,3 +30,4 @@ Future<void> main() async {
     secureStorage: secureStorage,
   ));
 }
+

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/splash/screens/splash_screen.dart';
 import '../features/auth/screens/login_screen.dart';
@@ -11,8 +12,12 @@ class AppRoutes {
   static const String login = '/login';
   static const String home = '/home';
 
+  // Navigator key for global access
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   // GoRouter configuration
   static final GoRouter router = GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: splash,
     routes: [
       GoRoute(

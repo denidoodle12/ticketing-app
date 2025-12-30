@@ -6,7 +6,7 @@ import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/asset_paths.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/validators.dart';
-import '../../../core/utils/snackbar_helper.dart';
+import '../../../core/utils/toast_helper.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/custom_button.dart';
 import '../../../shared/widgets/custom_text_field.dart';
@@ -45,13 +45,18 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      SnackbarHelper.showSuccess(context, 'Login successful!');
+      ToastHelper.showSuccess(
+        context,
+        'Success',
+        description: 'Login successful!',
+      );
       context.go(AppRoutes.home);
     } else {
-      // Show error message with beautiful snackbar
-      SnackbarHelper.showError(
+      ToastHelper.showError(
         context,
-        authProvider.errorMessage ?? 'Failed to login, please try again.',
+        'Error',
+        description:
+            authProvider.errorMessage ?? 'Failed to login, please try again.',
       );
     }
   }

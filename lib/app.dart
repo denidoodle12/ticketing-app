@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:toastification/toastification.dart';
 import 'core/themes/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'core/constants/api_config.dart';
@@ -11,6 +12,7 @@ import 'data/datasources/remote/auth_remote_datasource.dart';
 import 'data/repositories/auth_repository.dart';
 import 'providers/auth_provider.dart';
 import 'routes/app_routes.dart';
+import 'shared/widgets/connectivity_wrapper.dart';
 
 class MyApp extends StatelessWidget {
   final SharedPreferences prefs;
@@ -47,11 +49,18 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ],
-      child: MaterialApp.router(
-        title: AppConstants.appName,
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        routerConfig: AppRoutes.router,
+      child: ToastificationWrapper(
+        child: MaterialApp.router(
+          title: AppConstants.appName,
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          routerConfig: AppRoutes.router,
+          builder: (context, child) {
+            return ConnectivityWrapper(
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
+        ),
       ),
     );
   }

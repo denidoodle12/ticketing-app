@@ -7,6 +7,7 @@ import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/storage_keys.dart';
 import 'package:ticketing_app/core/constants/asset_paths.dart';
+import '../../../core/network/connectivity_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../routes/app_routes.dart';
 
@@ -47,6 +48,11 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(
       const Duration(milliseconds: AppConstants.splashDurationMs),
     );
+
+    if (!mounted) return;
+
+    // Wait for internet connection before navigating
+    await ConnectivityService().waitForConnection();
 
     // Navigate based on onboarding and auth status
     if (!mounted) return;
