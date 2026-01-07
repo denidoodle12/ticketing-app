@@ -5,30 +5,26 @@ class MockTicketData {
   static const int inProgressCount = 3;
   static const int resolvedCount = 6;
 
-  // Recent Tickets (mock data with assigned date format)
+  // Recent Tickets (mock data with new format)
   static final List<Map<String, dynamic>> recentTickets = [
     {
       'id': 'TIK-2024-001',
       'title': 'Laptop Won\'t Boot',
       'status': 'Open',
-      'statusColor': 'blue',
-      'timeAgo': '15/03/2025',
+      'category': 'Hardware',
+      'priority': 'high',
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+      'timeAgo': '1 hours ago',
       'createdAt': DateTime(2025, 3, 15),
     },
     {
-      'id': 'TIK-2024-001',
+      'id': 'TIK-2024-002',
       'title': 'Laptop Won\'t Boot',
       'status': 'In Progress',
-      'statusColor': 'amber',
-      'timeAgo': '15/03/2025',
-      'createdAt': DateTime(2025, 3, 15),
-    },
-    {
-      'id': 'TIK-2024-001',
-      'title': 'Laptop Won\'t Boot',
-      'status': 'Resolved',
-      'statusColor': 'green',
-      'timeAgo': '15/03/2025',
+      'category': 'Hardware',
+      'priority': 'medium',
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+      'timeAgo': '1 hours ago',
       'createdAt': DateTime(2025, 3, 15),
     },
   ];

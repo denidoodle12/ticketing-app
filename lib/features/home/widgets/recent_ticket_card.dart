@@ -3,18 +3,22 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 
 class RecentTicketCard extends StatelessWidget {
-  final String ticketId;
   final String title;
   final String status;
-  final String assignedDate;
+  final String category;
+  final String priority;
+  final String description;
+  final String timeAgo;
   final VoidCallback? onTap;
 
   const RecentTicketCard({
     super.key,
-    required this.ticketId,
     required this.title,
     required this.status,
-    required this.assignedDate,
+    required this.category,
+    required this.priority,
+    required this.description,
+    required this.timeAgo,
     this.onTap,
   });
 
@@ -38,13 +42,43 @@ class RecentTicketCard extends StatelessWidget {
       case 'open':
         return AppColors.primary50;
       case 'in progress':
-        return const Color(0xFFFEF3C7); // Light amber
+        return const Color(0xFFFEF3C7);
       case 'resolved':
         return AppColors.success100;
       case 'closed':
         return AppColors.secondary100;
       default:
         return AppColors.grey100;
+    }
+  }
+
+  Color _getPriorityColor() {
+    switch (priority.toLowerCase()) {
+      case 'critical':
+        return AppColors.error500;
+      case 'high':
+        return AppColors.priorityHigh;
+      case 'medium':
+        return AppColors.warning500;
+      case 'low':
+        return AppColors.success500;
+      default:
+        return AppColors.secondary500;
+    }
+  }
+
+  String _getPriorityLabel() {
+    switch (priority.toLowerCase()) {
+      case 'critical':
+        return 'Critical Priority';
+      case 'high':
+        return 'High Priority';
+      case 'medium':
+        return 'Medium Priority';
+      case 'low':
+        return 'Low Priority';
+      default:
+        return priority;
     }
   }
 
@@ -68,20 +102,23 @@ class RecentTicketCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Row 1: Ticket ID and Status Badge
+              // Row 1: Title and Status Badge
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Ticket ID
-                  Text(
-                    ticketId,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  // Status Badge
+                  const SizedBox(width: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -104,37 +141,74 @@ class RecentTicketCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // Row 2: Title
-              Text(
-                title,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 6),
-
-              // Row 3: Assigned Date and Arrow
+              // Row 2: Category and Priority
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Assigned Date
+                  // Category
+                  Icon(
+                    Icons.grid_view_rounded,
+                    size: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
                   Text(
-                    'Assigned Date : $assignedDate',
+                    category,
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.textSecondary,
                       fontSize: 12,
                     ),
                   ),
-                  // Arrow Icon
+                  const SizedBox(width: 12),
+                  // Priority
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: _getPriorityColor(),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _getPriorityLabel(),
+                    style: AppTextStyles.caption.copyWith(
+                      color: _getPriorityColor(),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Row 3: Description
+              Text(
+                description,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 10),
+
+              // Row 4: Time
+              Row(
+                children: [
                   Icon(
-                    Icons.chevron_right,
+                    Icons.access_time,
+                    size: 14,
                     color: AppColors.textSecondary,
-                    size: 24,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    timeAgo,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),

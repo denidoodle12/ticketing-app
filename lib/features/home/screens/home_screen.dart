@@ -34,15 +34,19 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Card Section (Header + Search + Ticket Status)
-            _buildTopCardSection(fullName, greeting),
+            // Blue Header Section
+            _buildBlueHeaderSection(fullName, greeting),
 
-            // Content below the card
+            // Content below the header
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 24),
+
+                  // Ticket Status Section
+                  _buildTicketStatusSection(),
                   const SizedBox(height: 24),
 
                   // Quick Action Section
@@ -62,22 +66,14 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// Top card section with white background, bottom border radius, and shadow
-  Widget _buildTopCardSection(String fullName, String greeting) {
+  Widget _buildBlueHeaderSection(String fullName, String greeting) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: const BorderRadius.only(
+      decoration: const BoxDecoration(
+        color: AppColors.primaryDark,
+        borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow.withAlpha(30),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: SafeArea(
         bottom: false,
@@ -92,10 +88,6 @@ class HomeScreen extends StatelessWidget {
 
               // Search Bar
               _buildSearchBar(),
-              const SizedBox(height: 24),
-
-              // Ticket Status Section
-              _buildTicketStatusSection(),
             ],
           ),
         ),
@@ -106,25 +98,25 @@ class HomeScreen extends StatelessWidget {
   Widget _buildHeader(String fullName, String greeting) {
     return Row(
       children: [
-        // Profile Avatar with border
+        // Profile Avatar with white border
         Container(
           width: 52,
           height: 52,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: AppColors.primary500,
+              color: AppColors.white.withAlpha(180),
               width: 2,
             ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(2),
             child: CircleAvatar(
-              backgroundColor: AppColors.grey100,
+              backgroundColor: AppColors.white.withAlpha(30),
               child: Text(
                 fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
                 style: AppTextStyles.h4.copyWith(
-                  color: AppColors.primary500,
+                  color: AppColors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -141,13 +133,13 @@ class HomeScreen extends StatelessWidget {
               Text(
                 '$greeting,',
                 style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.white.withAlpha(200),
                 ),
               ),
               Text(
                 fullName,
                 style: AppTextStyles.h5.copyWith(
-                  color: AppColors.textPrimary,
+                  color: AppColors.white,
                   fontWeight: FontWeight.bold,
                 ),
                 maxLines: 1,
@@ -162,7 +154,7 @@ class HomeScreen extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: AppColors.grey50,
+            color: AppColors.white.withAlpha(30),
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
@@ -171,7 +163,7 @@ class HomeScreen extends StatelessWidget {
             },
             icon: const Icon(
               Icons.notifications_outlined,
-              color: AppColors.textSecondary,
+              color: AppColors.white,
               size: 24,
             ),
           ),
@@ -182,18 +174,14 @@ class HomeScreen extends StatelessWidget {
 
   Widget _buildSearchBar() {
     return Container(
-      height: 52,
+      height: 45,
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.border,
-          width: 1,
-        ),
       ),
       child: TextField(
         decoration: InputDecoration(
-          hintText: 'Find your ticket...',
+          hintText: 'Search tickets',
           hintStyle: AppTextStyles.bodyMedium.copyWith(
             color: AppColors.textSecondary,
           ),
@@ -289,36 +277,51 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // Create New Ticket Button - wider with more padding
-        SizedBox(
+        // Create New Ticket Button with gradient
+        Container(
           width: double.infinity,
-          height: 66,
-          child: ElevatedButton(
-            onPressed: () {
-              // TODO: Navigate to create ticket
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryDark,
-              foregroundColor: AppColors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.add, size: 24),
-                const SizedBox(width: 10),
-                Text(
-                  'Create New Ticket',
-                  style: AppTextStyles.button.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
+          height: 55,
+          decoration: BoxDecoration(
+            color: AppColors.primaryDark,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                // TODO: Navigate to create ticket
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Create New Ticket',
+                      style: AppTextStyles.button.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: AppColors.white.withAlpha(30),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        size: 18,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -366,10 +369,12 @@ class HomeScreen extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: RecentTicketCard(
-              ticketId: ticket['id'] as String,
               title: ticket['title'] as String,
               status: ticket['status'] as String,
-              assignedDate: ticket['timeAgo'] as String,
+              category: ticket['category'] as String,
+              priority: ticket['priority'] as String,
+              description: ticket['description'] as String,
+              timeAgo: ticket['timeAgo'] as String,
               onTap: () {
                 // TODO: Navigate to ticket detail
               },
