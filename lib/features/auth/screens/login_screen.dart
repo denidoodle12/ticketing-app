@@ -24,12 +24,44 @@ class _LoginScreenState extends State<LoginScreen> {
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  bool _hasIdentifierInput = false;
+  bool _hasPasswordInput = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _identifierController.addListener(_checkIdentifierInput);
+    _passwordController.addListener(_checkPasswordInput);
+  }
+
   @override
   void dispose() {
+    _identifierController.removeListener(_checkIdentifierInput);
+    _passwordController.removeListener(_checkPasswordInput);
     _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
+
+  void _checkIdentifierInput() {
+    final hasInput = _identifierController.text.isNotEmpty;
+    if (hasInput != _hasIdentifierInput) {
+      setState(() {
+        _hasIdentifierInput = hasInput;
+      });
+    }
+  }
+
+  void _checkPasswordInput() {
+    final hasInput = _passwordController.text.isNotEmpty;
+    if (hasInput != _hasPasswordInput) {
+      setState(() {
+        _hasPasswordInput = hasInput;
+      });
+    }
+  }
+
+  bool get _canSubmit => _hasIdentifierInput && _hasPasswordInput;
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) {
@@ -143,6 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               text: 'Login',
                               onPressed: _handleLogin,
                               isLoading: authProvider.isLoading,
+                              isEnabled: _canSubmit,
                             );
                           },
                         ),
