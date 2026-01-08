@@ -1,11 +1,11 @@
 import '../models/user_model.dart';
-import '../datasources/local/local_storage.dart';
-import '../datasources/mock/auth_mock_datasource.dart';
-import '../datasources/remote/auth_remote_datasource.dart';
-import '../../core/constants/api_config.dart';
-import '../../core/constants/app_constants.dart';
-import '../../core/errors/exceptions.dart';
-import '../../core/errors/failures.dart';
+import '../../../data/datasources/local/local_storage.dart';
+import '../datasources/auth_mock_datasource.dart';
+import '../datasources/auth_remote_datasource.dart';
+import '../../../core/constants/api_config.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/errors/exceptions.dart';
+import '../../../core/errors/failures.dart';
 
 /// Result type for repository methods
 class Result<T> {

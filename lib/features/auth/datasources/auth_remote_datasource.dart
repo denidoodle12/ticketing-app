@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import '../../models/user_model.dart';
-import '../../models/auth_models.dart';
+import '../models/user_model.dart';
+import '../models/auth_models.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/errors/exceptions.dart';

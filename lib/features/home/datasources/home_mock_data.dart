@@ -1,4 +1,4 @@
-class MockTicketData {
+class HomeMockData {
   // Ticket Statistics (matching Figma design)
   static const int allTicketsCount = 10;
   static const int openCount = 1;

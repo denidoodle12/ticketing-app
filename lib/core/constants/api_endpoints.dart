@@ -4,6 +4,7 @@ class ApiEndpoints {
   // Base URLs (from ApiConfig)
   static String get authBaseUrl => ApiConfig.authServiceUrl;
   static String get userBaseUrl => ApiConfig.userServiceUrl;
+  static String get ticketBaseUrl => ApiConfig.baseUrl;
 
   // Auth Service Endpoints (ms-auth: port 8080)
   static const String authLogin = '/auth/login';
@@ -14,7 +15,18 @@ class ApiEndpoints {
   static const String userMe = '/users/me';
   static const String userMePermissions = '/users/me/permissions';
 
-  // Future: Ticket Service Endpoints (Sprint 3+)
-  // static const String tickets = '/tickets';
-  // static String ticketById(String id) => '/tickets/$id';
+  // Ticket Service Endpoints (ms-ticket)
+  // Categories
+  static const String ticketCategoriesActive = '/ticket-categories/active';
+
+  // Statuses
+  static const String ticketStatusesActive = '/ticket-statuses/active';
+
+  // Tickets
+  static const String tickets = '/tickets';
+  static String ticketById(int id) => '/tickets/$id';
+
+  // File Upload
+  static const String upload = '/upload';
+  static String downloadFile(String filename) => '/uploads/$filename';
 }

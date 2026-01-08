@@ -432,42 +432,40 @@ ticketing_app/
 │   │       ├── app_colors.dart
 │   │       └── text_styles.dart
 │   │
-│   ├── data/                   # 📦 Global data layer
+│   ├── data/                   # 📦 Global data layer (ONLY truly shared)
 │   │   ├── models/
-│   │   │   ├── api_response.dart
-│   │   │   ├── pagination_meta.dart
-│   │   │   └── user_model.dart
-│   │   │
-│   │   ├── repositories/
-│   │   │   └── auth_repository.dart
+│   │   │   └── api_response.dart      # Generic API response wrapper
 │   │   │
 │   │   └── datasources/
-│   │       ├── local/
-│   │       │   └── local_storage.dart
-│   │       ├── remote/
-│   │       │   └── auth_remote_datasource.dart
-│   │       └── mock/
-│   │           └── auth_mock_datasource.dart
+│   │       └── local/
+│   │           └── local_storage.dart # Shared local storage
 │   │
 │   ├── providers/              # 🧠 Global state management
-│   │   ├── auth_provider.dart
+│   │   ├── auth_provider.dart         # Auth state (used by all features)
 │   │   ├── theme_provider.dart
 │   │   └── connectivity_provider.dart
 │   │
-│   ├── features/               # ⭐ FEATURE MODULES
+│   ├── features/               # ⭐ FEATURE MODULES (Self-contained)
 │   │   │
 │   │   ├── splash/
 │   │   │   └── screens/
 │   │   │       └── splash_screen.dart
 │   │   │
-│   │   ├── auth/               # 🔐 Authentication
+│   │   ├── auth/               # 🔐 Authentication (Feature-First)
+│   │   │   ├── models/
+│   │   │   │   ├── user_model.dart
+│   │   │   │   └── auth_models.dart
+│   │   │   ├── datasources/
+│   │   │   │   ├── auth_remote_datasource.dart
+│   │   │   │   └── auth_mock_datasource.dart
+│   │   │   ├── repositories/
+│   │   │   │   └── auth_repository.dart
 │   │   │   ├── screens/
 │   │   │   │   ├── login_screen.dart
 │   │   │   │   ├── register_screen.dart
 │   │   │   │   └── forgot_password_screen.dart
 │   │   │   └── widgets/
-│   │   │       ├── auth_form.dart
-│   │   │       └── social_login_buttons.dart
+│   │   │       └── auth_form.dart
 │   │   │
 │   │   ├── home/               # 🏠 Home Dashboard
 │   │   │   ├── screens/
@@ -576,47 +574,65 @@ ticketing_app/
 
 ---
 
-### 3.2 Skeleton Project (Completed ✅)
+### 3.2 Skeleton Project (Updated January 2026)
 
-Status implementasi skeleton project:
+Status implementasi dengan **Feature-First Architecture**:
 
 ```
-✅ core/constants/          (3 files)
+✅ core/constants/          (4 files)
 ✅ core/errors/             (2 files)
-✅ core/network/            (2 files)
-✅ core/utils/              (1 file)
+✅ core/network/            (3 files)
+✅ core/utils/              (2 files)
 ✅ core/themes/             (3 files)
 
-✅ data/models/             (3 files)
-✅ data/repositories/       (1 file)
-✅ data/datasources/local/  (1 file)
-✅ data/datasources/remote/ (1 file)
-✅ data/datasources/mock/   (1 file)
+✅ data/models/             (1 file - api_response only)
+✅ data/datasources/local/  (1 file - local_storage)
 
-✅ providers/               (1 file)
+✅ providers/               (3 files - global state)
 
 ✅ features/splash/         (1 screen)
-✅ features/auth/           (1 screen)
-✅ features/home/           (1 screen)
-⏳ features/tickets/        (Sprint 2)
+✅ features/auth/           (Full feature: models, datasources, repositories, screens)
+✅ features/home/           (screens, widgets)
+✅ features/tickets/        (models, datasources, repositories - IN PROGRESS)
 ⏳ features/profile/        (Sprint 2)
 ⏳ features/notifications/  (Sprint 3)
 
-✅ shared/widgets/          (3 widgets)
+✅ shared/widgets/          (6 widgets)
 ✅ routes/                  (1 file)
 ```
 
-**Total Files Created:** 27 files
-**Completion:** Sprint 1 (70%)
+**Architecture:** Feature-First (Consistent)
+**Completion:** Sprint 2 (In Progress)
 
 ---
 
-## 4. Referensi Project Modern
+## 4. Referensi Resmi & Kredibel
 
-### 4.1 Very Good Ventures - Flutter Architecture
+### 4.1 Flutter Official Documentation
+
+**Source:** Flutter Team / Google
+**Link:** https://docs.flutter.dev/app-architecture/guide
+
+**Key Recommendations:**
+- Separation of concerns: UI Layer + Data Layer
+- MVVM Pattern untuk UI Layer
+- Repository Pattern untuk Data Layer
+- Feature-based organization within layers
+
+### 4.2 Andrea Bizzotto (Flutter GDE)
+
+**Source:** Code With Andrea
+**Link:** https://codewithandrea.com/articles/flutter-project-structure/
+
+**Key Quote:**
+> "Layer-first doesn't scale very well as the app grows. Feature-first is superior for medium to large apps because whenever we want to add/modify a feature, we can focus on just one folder."
+
+**Recommendation:** Feature-First untuk medium-large apps
+
+### 4.3 Very Good Ventures (Flutter Agency Partner)
 
 **Project:** Very Good Core
-**Link:** https://github.com/VeryGoodOpenSource/very_good_cli
+**Link:** https://www.verygood.ventures/blog/very-good-flutter-architecture
 
 **Structure:**
 ```

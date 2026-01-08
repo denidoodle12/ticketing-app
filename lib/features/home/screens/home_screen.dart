@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../data/datasources/mock/ticket_mock_data.dart';
+import '../datasources/home_mock_data.dart';
 import '../widgets/statistics_card.dart';
 import '../widgets/recent_ticket_card.dart';
 
@@ -225,7 +225,7 @@ class HomeScreen extends StatelessWidget {
             Expanded(
               child: StatisticsCard(
                 label: 'ALL TICKET',
-                count: MockTicketData.allTicketsCount,
+                count: HomeMockData.allTicketsCount,
                 color: AppColors.textPrimary,
                 isHighlighted: true,
               ),
@@ -234,7 +234,7 @@ class HomeScreen extends StatelessWidget {
             Expanded(
               child: StatisticsCard(
                 label: 'OPEN',
-                count: MockTicketData.openCount,
+                count: HomeMockData.openCount,
                 color: AppColors.statusOpen,
               ),
             ),
@@ -246,7 +246,7 @@ class HomeScreen extends StatelessWidget {
             Expanded(
               child: StatisticsCard(
                 label: 'IN PROGRESS',
-                count: MockTicketData.inProgressCount,
+                count: HomeMockData.inProgressCount,
                 color: AppColors.statusInProgress,
               ),
             ),
@@ -254,7 +254,7 @@ class HomeScreen extends StatelessWidget {
             Expanded(
               child: StatisticsCard(
                 label: 'RESOLVED',
-                count: MockTicketData.resolvedCount,
+                count: HomeMockData.resolvedCount,
                 color: AppColors.statusResolved,
               ),
             ),
@@ -365,7 +365,7 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: 16),
 
         // Recent Tickets List
-        ...MockTicketData.recentTickets.map((ticket) {
+        ...HomeMockData.recentTickets.map((ticket) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: RecentTicketCard(

@@ -1,6 +1,6 @@
-import '../../models/api_response.dart';
-import '../../models/auth_models.dart';
-import '../../models/user_model.dart';
+import '../../../data/models/api_response.dart';
+import '../models/auth_models.dart';
+import '../models/user_model.dart';
 import '../../../core/errors/exceptions.dart';
 
 /// Mock datasource for Auth - simulates API responses

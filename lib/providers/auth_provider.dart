@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import '../data/models/user_model.dart';
-import '../data/repositories/auth_repository.dart';
+import '../features/auth/models/user_model.dart';
+import '../features/auth/repositories/auth_repository.dart';
 
 /// Auth state enum
 enum AuthState {
