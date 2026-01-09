@@ -2687,13 +2687,13 @@ GET /tickets/status/1?page=1&limit=20
 
 ---
 
-### 48. Upload File (Attachment)
+### 48. Upload File (Attachment) ⚠️ UPDATED
 
 | Method | Endpoint  | Access              |
 | ------ | --------- | ------------------- |
 | `POST` | `/upload` | Authenticated Users |
 
-**Description:** Upload file attachment for tickets.
+**Description:** Upload file attachment for tickets. Files are tracked in database with ownership information for security.
 
 **Request:**
 
@@ -2707,6 +2707,9 @@ GET /tickets/status/1?page=1&limit=20
 - Archives: zip
 
 **File Size Limit:** 5 MB
+
+> [!NOTE]
+> For Nginx deployments, ensure `client_max_body_size 5M;` is configured.
 
 **Example:**
 
@@ -2722,6 +2725,7 @@ curl -X POST http://localhost:8000/upload \
 {
   "message": "file uploaded successfully",
   "data": {
+    "id": 1,
     "filename": "20260106112600_a1b2c3d4.png",
     "original_name": "screenshot.png",
     "size": 102400,
@@ -2747,35 +2751,95 @@ curl -X POST http://localhost:8000/upload \
 
 ```json
 { "error": "validation_error", "message": "file is required" }
-{ "error": "validation_error", "message": "file size exceeds maximum limit of 10 MB" }
+{ "error": "validation_error", "message": "file size exceeds maximum limit of 5 MB" }
 { "error": "validation_error", "message": "file type not allowed. Allowed: jpg, jpeg, png, gif, pdf, doc, docx, txt, zip" }
+```
+
+- **500 Internal Server Error:**
+
+```json
+{ "error": "upload_failed", "message": "failed to save file" }
+{ "error": "upload_failed", "message": "failed to save attachment record" }
 ```
 
 ---
 
-### 49. Download File (Attachment)
+### 49. Download File (Attachment) ⚠️ UPDATED - Security Enhanced
 
-| Method | Endpoint             | Access              |
-| ------ | -------------------- | ------------------- |
-| `GET`  | `/uploads/:filename` | Authenticated Users |
+| Method | Endpoint             | Access                    |
+| ------ | -------------------- | ------------------------- |
+| `GET`  | `/uploads/:filename` | Authenticated + Ownership |
 
-**Description:** Download/view uploaded file attachment.
+**Description:** Download/view uploaded file attachment with ownership validation.
+
+> [!IMPORTANT]
+> **Security Fix (Bug #Bug-CT-001):** File downloads now require ownership validation. Users can only download files they have permission to access.
+
+**Access Control Rules:**
+
+| Role        | Access Level                                                  |
+| ----------- | ------------------------------------------------------------- |
+| Admin (5+)  | Can access ALL files                                          |
+| User (1-4)  | Can access: own uploads OR files attached to their tickets    |
+
+**Detailed Access:**
+- **Own uploads:** Files uploaded by the user (`uploaded_by = user_id`)
+- **Ticket access:** Files attached to tickets where user is creator (`created_by`) or assignee (`assigned_to`)
 
 **Example:**
 
-```
-GET /uploads/20260106112600_a1b2c3d4.png
+```bash
+curl -X GET http://localhost:8000/uploads/20260106112600_a1b2c3d4.png \
+  -H "Authorization: Bearer $TOKEN" \
+  --output downloaded_file.png
 ```
 
 **Response:** File binary with appropriate Content-Type header
 
 **Error Responses:**
 
+- **400 Bad Request:**
+
+```json
+{ "error": "invalid_filename", "message": "invalid filename" }
+```
+
+- **401 Unauthorized:**
+
+```json
+{ "error": "unauthorized", "message": "user not authenticated" }
+```
+
+- **403 Forbidden:**
+
+```json
+{ "error": "forbidden", "message": "you don't have permission to access this file" }
+```
+
 - **404 Not Found:**
 
 ```json
 { "error": "not_found", "message": "file not found" }
 ```
+
+---
+
+### Attachment Database Model ✨ NEW
+
+Attachments are now tracked in the database for security and audit purposes.
+
+**Table: `attachments`**
+
+| Column        | Type      | Description                          |
+| ------------- | --------- | ------------------------------------ |
+| id            | int       | Primary key, auto-increment          |
+| filename      | string    | Unique generated filename            |
+| original_name | string    | Original filename from upload        |
+| file_size     | int64     | File size in bytes                   |
+| mime_type     | string    | MIME type (e.g., image/png)          |
+| uploaded_by   | int       | User ID who uploaded the file        |
+| ticket_id     | int (null)| Linked ticket ID (optional)          |
+| created_at    | timestamp | Upload timestamp                     |
 
 ---
 
@@ -2832,10 +2896,10 @@ Resolved → In Progress (if issue persists)
 | Get By ID     | ✅ Own only    | ✅ All           | ✅ All | ✅ All      |
 | Update        | ❌             | ✅ Assigned only | ✅ All | ✅ All      |
 | Update Status | ❌             | ✅ Assigned only | ✅ All | ✅ All      |
-| Assign Agent  | ❌             | ❌               | ✅     | ✅          |
+| Assign Agent  | ❌             | ✅ Re-assign own | ✅     | ✅          |
 | Delete        | ❌             | ❌               | ❌     | ✅          |
 | Upload File   | ✅             | ✅               | ✅     | ✅          |
-| Download File | ✅ Own tickets | ✅ Assigned/All  | ✅ All | ✅ All      |
+| Download File | ✅ Own uploads/tickets | ✅ Own uploads/tickets | ✅ All | ✅ All |
 
 ---
 
@@ -3209,6 +3273,25 @@ curl -X DELETE http://localhost:8000/tickets/1 \
 - Admins can assign tickets to agents
 - Status transitions validated against database rules
 - Category and status must be active
+
+## Version 2.7 (2026-01-07) - Attachment Security Fix
+
+- 🔒 **Security Fix (Bug #Bug-CT-001):** File download now requires ownership validation
+- ✨ **Attachment Model** - New `attachments` table to track file ownership
+- 🔒 **Access Control** - Users can only download files they uploaded or files attached to their tickets
+- 🔒 **Admin Override** - Admin (level 5+) can access all files
+- ✨ **Upload Response** - Now includes attachment `id` for tracking
+- 🗄️ **Auto-migration** - `attachments` table created automatically on startup
+- 📝 **Documentation** - Updated upload/download endpoints with security details
+
+**Database Changes:**
+- New table: `attachments` (id, filename, original_name, file_size, mime_type, uploaded_by, ticket_id, created_at)
+
+**Security Rules:**
+- File downloads require JWT authentication
+- Users can access: own uploads OR files attached to tickets they created/assigned to
+- Admin/Super Admin can access all files
+- Directory traversal attacks prevented with filename validation
 
 ## Version 2.5 (2026-01-02) - Ticket Service & Category Management
 

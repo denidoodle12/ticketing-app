@@ -1,19 +1,29 @@
 import '../../../core/errors/exceptions.dart';
 import '../datasources/ticket_remote_datasource.dart';
+import '../datasources/ticket_mock_datasource.dart';
 import '../models/ticket_model.dart';
 import '../models/ticket_category_model.dart';
 import '../models/ticket_status_model.dart';
 
 class TicketRepository {
-  final TicketRemoteDatasource _remoteDatasource;
+  final TicketRemoteDatasource? _remoteDatasource;
+  final TicketMockDatasource? _mockDatasource;
 
-  TicketRepository({TicketRemoteDatasource? remoteDatasource})
-      : _remoteDatasource = remoteDatasource ?? TicketRemoteDatasource();
+  TicketRepository({
+    TicketRemoteDatasource? remoteDatasource,
+    TicketMockDatasource? mockDatasource,
+  })  : _remoteDatasource = remoteDatasource,
+        _mockDatasource = mockDatasource;
+
+  bool get _useMock => _mockDatasource != null;
 
   /// Get active categories for ticket creation dropdown
   Future<List<TicketCategory>> getActiveCategories() async {
     try {
-      return await _remoteDatasource.getActiveCategories();
+      if (_useMock) {
+        return await _mockDatasource!.getActiveCategories();
+      }
+      return await _remoteDatasource!.getActiveCategories();
     } on NetworkException {
       rethrow;
     } on ServerException {
@@ -26,7 +36,10 @@ class TicketRepository {
   /// Get active statuses for filtering tickets
   Future<List<TicketStatus>> getActiveStatuses() async {
     try {
-      return await _remoteDatasource.getActiveStatuses();
+      if (_useMock) {
+        return await _mockDatasource!.getActiveStatuses();
+      }
+      return await _remoteDatasource!.getActiveStatuses();
     } on NetworkException {
       rethrow;
     } on ServerException {
@@ -45,7 +58,16 @@ class TicketRepository {
     String? search,
   }) async {
     try {
-      return await _remoteDatasource.getTickets(
+      if (_useMock) {
+        return await _mockDatasource!.getTickets(
+          page: page,
+          limit: limit,
+          statusId: statusId,
+          priority: priority,
+          search: search,
+        );
+      }
+      return await _remoteDatasource!.getTickets(
         page: page,
         limit: limit,
         statusId: statusId,
@@ -64,7 +86,10 @@ class TicketRepository {
   /// Get single ticket by ID
   Future<Ticket> getTicketById(int id) async {
     try {
-      return await _remoteDatasource.getTicketById(id);
+      if (_useMock) {
+        return await _mockDatasource!.getTicketById(id);
+      }
+      return await _remoteDatasource!.getTicketById(id);
     } on NetworkException {
       rethrow;
     } on ServerException {
@@ -77,20 +102,30 @@ class TicketRepository {
   }
 
   /// Create new ticket
+  /// Note: attachmentUrl should be the URL returned from uploadFile(), not a file path
   Future<Ticket> createTicket({
     required String subject,
     required String description,
     required int categoryId,
     required String priority,
-    String? attachmentPath,
+    String? attachmentUrl,
   }) async {
     try {
-      return await _remoteDatasource.createTicket(
+      if (_useMock) {
+        return await _mockDatasource!.createTicket(
+          subject: subject,
+          description: description,
+          categoryId: categoryId,
+          priority: priority,
+          attachmentPath: attachmentUrl,
+        );
+      }
+      return await _remoteDatasource!.createTicket(
         subject: subject,
         description: description,
         categoryId: categoryId,
         priority: priority,
-        attachmentPath: attachmentPath,
+        attachmentUrl: attachmentUrl,
       );
     } on NetworkException {
       rethrow;
@@ -106,7 +141,10 @@ class TicketRepository {
   /// Upload file and get filename
   Future<String> uploadFile(String filePath) async {
     try {
-      return await _remoteDatasource.uploadFile(filePath);
+      if (_useMock) {
+        return await _mockDatasource!.uploadFile(filePath);
+      }
+      return await _remoteDatasource!.uploadFile(filePath);
     } on NetworkException {
       rethrow;
     } on ServerException {
@@ -118,6 +156,9 @@ class TicketRepository {
 
   /// Get file download URL
   String getFileUrl(String filename) {
-    return _remoteDatasource.getFileUrl(filename);
+    if (_useMock) {
+      return _mockDatasource!.getFileUrl(filename);
+    }
+    return _remoteDatasource!.getFileUrl(filename);
   }
 }

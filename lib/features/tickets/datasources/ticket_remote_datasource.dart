@@ -57,9 +57,9 @@ class TicketRemoteDatasource {
 
     return TicketListResponse(
       tickets: tickets,
-      currentPage: meta?['current_page'] as int? ?? page,
-      totalPages: meta?['total_pages'] as int? ?? 1,
-      totalItems: meta?['total_items'] as int? ?? tickets.length,
+      total: meta?['total_items'] as int? ?? tickets.length,
+      page: meta?['current_page'] as int? ?? page,
+      limit: meta?['limit'] as int? ?? limit,
       hasNext: meta?['has_next'] as bool? ?? false,
       hasPrev: meta?['has_prev'] as bool? ?? false,
     );
@@ -72,25 +72,20 @@ class TicketRemoteDatasource {
   }
 
   /// Create new ticket
+  /// Note: attachmentUrl is the URL returned from uploadFile(), not a file path
   Future<Ticket> createTicket({
     required String subject,
     required String description,
     required int categoryId,
     required String priority,
-    String? attachmentPath,
+    String? attachmentUrl,
   }) async {
-    // If there's an attachment, upload it first
-    String? uploadedFilename;
-    if (attachmentPath != null) {
-      uploadedFilename = await uploadFile(attachmentPath);
-    }
-
     final data = {
       'subject': subject,
       'description': description,
       'category_id': categoryId,
       'priority': priority,
-      if (uploadedFilename != null) 'attachment': uploadedFilename,
+      if (attachmentUrl != null) 'attachment': attachmentUrl,
     };
 
     final response = await _dio.post(ApiEndpoints.tickets, data: data);
@@ -115,23 +110,4 @@ class TicketRemoteDatasource {
   String getFileUrl(String filename) {
     return '${ApiEndpoints.ticketBaseUrl}${ApiEndpoints.downloadFile(filename)}';
   }
-}
-
-/// Response model for paginated ticket list
-class TicketListResponse {
-  final List<Ticket> tickets;
-  final int currentPage;
-  final int totalPages;
-  final int totalItems;
-  final bool hasNext;
-  final bool hasPrev;
-
-  TicketListResponse({
-    required this.tickets,
-    required this.currentPage,
-    required this.totalPages,
-    required this.totalItems,
-    required this.hasNext,
-    required this.hasPrev,
-  });
 }

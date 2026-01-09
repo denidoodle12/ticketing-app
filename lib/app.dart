@@ -10,7 +10,11 @@ import 'data/datasources/local/local_storage.dart';
 import 'features/auth/datasources/auth_mock_datasource.dart';
 import 'features/auth/datasources/auth_remote_datasource.dart';
 import 'features/auth/repositories/auth_repository.dart';
+import 'features/tickets/datasources/ticket_remote_datasource.dart';
+import 'features/tickets/datasources/ticket_mock_datasource.dart';
+import 'features/tickets/repositories/ticket_repository.dart';
 import 'providers/auth_provider.dart';
+import 'providers/ticket_provider.dart';
 import 'routes/app_routes.dart';
 import 'shared/widgets/connectivity_wrapper.dart';
 
@@ -46,6 +50,21 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<AuthProvider>(
           create: (context) => AuthProvider(
             context.read<AuthRepository>(),
+          ),
+        ),
+
+        // Provide TicketRepository
+        Provider<TicketRepository>(
+          create: (context) => TicketRepository(
+            remoteDatasource: ApiConfig.useMockData ? null : TicketRemoteDatasource(),
+            mockDatasource: ApiConfig.useMockData ? TicketMockDatasource() : null,
+          ),
+        ),
+
+        // Provide TicketProvider
+        ChangeNotifierProvider<TicketProvider>(
+          create: (context) => TicketProvider(
+            context.read<TicketRepository>(),
           ),
         ),
       ],

@@ -187,3 +187,38 @@ class Ticket {
   @override
   int get hashCode => id.hashCode;
 }
+
+/// Response model for paginated ticket list
+class TicketListResponse {
+  final List<Ticket> tickets;
+  final int total;
+  final int page;
+  final int limit;
+  final bool hasNext;
+  final bool hasPrev;
+
+  TicketListResponse({
+    required this.tickets,
+    required this.total,
+    required this.page,
+    required this.limit,
+    this.hasNext = false,
+    this.hasPrev = false,
+  });
+
+  factory TicketListResponse.fromJson(Map<String, dynamic> json) {
+    return TicketListResponse(
+      tickets: (json['data'] as List<dynamic>?)
+              ?.map((e) => Ticket.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      total: json['meta']?['total_items'] as int? ?? 0,
+      page: json['meta']?['current_page'] as int? ?? 1,
+      limit: json['meta']?['limit'] as int? ?? 10,
+      hasNext: json['meta']?['has_next'] as bool? ?? false,
+      hasPrev: json['meta']?['has_prev'] as bool? ?? false,
+    );
+  }
+
+  bool get hasMore => hasNext;
+}
