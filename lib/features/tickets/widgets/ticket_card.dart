@@ -155,18 +155,33 @@ class TicketCard extends StatelessWidget {
               // Row 2: Category and Priority
               Row(
                 children: [
-                  // Category
-                  Icon(
-                    Icons.grid_view_rounded,
-                    size: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    ticket.category?.name ?? 'Unknown',
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
+                  // Category with background
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.grey100,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.grid_view_rounded,
+                          size: 14,
+                          color: AppColors.primaryDark,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          ticket.category?.name ?? 'Unknown',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -211,14 +226,15 @@ class TicketCard extends StatelessWidget {
                   Icon(
                     Icons.access_time,
                     size: 14,
-                    color: AppColors.textSecondary,
+                    color: AppColors.primaryDark,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     ticket.timeAgo,
                     style: AppTextStyles.caption.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.primaryDark,
                       fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   if (ticket.attachment != null) ...[

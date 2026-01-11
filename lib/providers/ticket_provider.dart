@@ -294,6 +294,14 @@ class TicketProvider extends ChangeNotifier {
     loadTickets(refresh: true);
   }
 
+  /// Reset filters and load tickets (used when screen initializes)
+  void resetAndLoadTickets() {
+    _filterStatusId = null;
+    _filterPriority = null;
+    _searchQuery = null;
+    loadTickets(refresh: true);
+  }
+
   /// Clear error message
   void clearError() {
     _errorMessage = null;
