@@ -23,12 +23,23 @@ class TicketProvider extends ChangeNotifier {
   TicketState _ticketsState = TicketState.initial;
   TicketState _ticketDetailState = TicketState.initial;
   TicketState _createTicketState = TicketState.initial;
+  TicketState _recentTicketsState = TicketState.initial;
+  TicketState _statsState = TicketState.initial;
 
   // Data
   List<TicketCategory> _categories = [];
   List<TicketStatus> _statuses = [];
   List<Ticket> _tickets = [];
+  List<Ticket> _recentTickets = [];
   Ticket? _selectedTicket;
+
+  // Stats
+  Map<String, int> _ticketStats = {
+    'all': 0,
+    'open': 0,
+    'in_progress': 0,
+    'resolved': 0,
+  };
 
   // Pagination
   int _currentPage = 1;
@@ -51,12 +62,16 @@ class TicketProvider extends ChangeNotifier {
   TicketState get ticketsState => _ticketsState;
   TicketState get ticketDetailState => _ticketDetailState;
   TicketState get createTicketState => _createTicketState;
+  TicketState get recentTicketsState => _recentTicketsState;
+  TicketState get statsState => _statsState;
 
   // Getters - Data
   List<TicketCategory> get categories => _categories;
   List<TicketStatus> get statuses => _statuses;
   List<Ticket> get tickets => _tickets;
+  List<Ticket> get recentTickets => _recentTickets;
   Ticket? get selectedTicket => _selectedTicket;
+  Map<String, int> get ticketStats => _ticketStats;
 
   // Getters - Pagination
   int get currentPage => _currentPage;
@@ -77,6 +92,8 @@ class TicketProvider extends ChangeNotifier {
   bool get isTicketsLoading => _ticketsState == TicketState.loading;
   bool get isTicketDetailLoading => _ticketDetailState == TicketState.loading;
   bool get isCreatingTicket => _createTicketState == TicketState.loading;
+  bool get isRecentTicketsLoading => _recentTicketsState == TicketState.loading;
+  bool get isStatsLoading => _statsState == TicketState.loading;
 
   /// Load categories for dropdown
   Future<void> loadCategories() async {
@@ -207,6 +224,94 @@ class TicketProvider extends ChangeNotifier {
       _ticketDetailState = TicketState.error;
     }
     notifyListeners();
+  }
+
+  /// Load recent tickets for home screen (limited to 3)
+  Future<void> loadRecentTickets() async {
+    if (_recentTicketsState == TicketState.loading) return;
+
+    _recentTicketsState = TicketState.loading;
+    notifyListeners();
+
+    try {
+      final response = await _ticketRepository.getTickets(
+        page: 1,
+        limit: 3,
+      );
+
+      _recentTickets = response.tickets;
+      _recentTicketsState = TicketState.loaded;
+    } on NetworkException catch (e) {
+      _errorMessage = e.message;
+      _recentTicketsState = TicketState.error;
+    } on ServerException catch (e) {
+      _errorMessage = e.message;
+      _recentTicketsState = TicketState.error;
+    } catch (e) {
+      _errorMessage = 'Failed to load recent tickets';
+      _recentTicketsState = TicketState.error;
+    }
+    notifyListeners();
+  }
+
+  /// Load ticket statistics for home screen
+  Future<void> loadTicketStats() async {
+    if (_statsState == TicketState.loading) return;
+
+    _statsState = TicketState.loading;
+    notifyListeners();
+
+    try {
+      // Load all tickets without filter to get counts
+      final response = await _ticketRepository.getTickets(
+        page: 1,
+        limit: 100, // Get more to calculate accurate stats
+      );
+
+      final stats = <String, int>{
+        'all': response.total,
+        'open': 0,
+        'in_progress': 0,
+        'resolved': 0,
+      };
+
+      // Count tickets by status
+      for (final ticket in response.tickets) {
+        final statusName = ticket.status?.name.toLowerCase().replaceAll('_', ' ') ?? '';
+        switch (statusName) {
+          case 'open':
+            stats['open'] = (stats['open'] ?? 0) + 1;
+            break;
+          case 'in progress':
+            stats['in_progress'] = (stats['in_progress'] ?? 0) + 1;
+            break;
+          case 'resolved':
+            stats['resolved'] = (stats['resolved'] ?? 0) + 1;
+            break;
+        }
+      }
+
+      _ticketStats = stats;
+      _statsState = TicketState.loaded;
+    } on NetworkException catch (e) {
+      _errorMessage = e.message;
+      _statsState = TicketState.error;
+    } on ServerException catch (e) {
+      _errorMessage = e.message;
+      _statsState = TicketState.error;
+    } catch (e) {
+      _errorMessage = 'Failed to load ticket statistics';
+      _statsState = TicketState.error;
+    }
+    notifyListeners();
+  }
+
+  /// Load home screen data (stats + recent tickets)
+  Future<void> loadHomeData() async {
+    await Future.wait([
+      loadTicketStats(),
+      loadRecentTickets(),
+    ]);
   }
 
   /// Create new ticket

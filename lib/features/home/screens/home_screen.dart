@@ -1,14 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../providers/auth_provider.dart';
-import '../datasources/home_mock_data.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../main/screens/main_screen.dart';
+import '../../tickets/widgets/ticket_card.dart';
 import '../widgets/statistics_card.dart';
-import '../widgets/recent_ticket_card.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TicketProvider>().loadHomeData();
+    });
+  }
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -24,43 +39,48 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final ticketProvider = context.watch<TicketProvider>();
     final user = authProvider.currentUser;
     final greeting = _getGreeting();
     final fullName = user?.fullName ?? 'User';
 
     return Scaffold(
       backgroundColor: AppColors.white,
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Blue Header Section
-            _buildBlueHeaderSection(fullName, greeting),
+      body: RefreshIndicator(
+        onRefresh: () => ticketProvider.loadHomeData(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Blue Header Section
+              _buildBlueHeaderSection(fullName, greeting),
 
-            // Content below the header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 24),
+              // Content below the header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 24),
 
-                  // Ticket Status Section
-                  _buildTicketStatusSection(),
-                  const SizedBox(height: 24),
+                    // Ticket Status Section
+                    _buildTicketStatusSection(ticketProvider),
+                    const SizedBox(height: 24),
 
-                  // Quick Action Section
-                  _buildQuickActionSection(context),
-                  const SizedBox(height: 28),
+                    // Quick Action Section
+                    _buildQuickActionSection(context),
+                    const SizedBox(height: 28),
 
-                  // Recent Tickets Section
-                  _buildRecentTicketsSection(context),
-                  // Extra padding for bottom navigation bar
-                  const SizedBox(height: 100),
-                ],
+                    // Recent Tickets Section
+                    _buildRecentTicketsSection(context, ticketProvider),
+                    // Extra padding for bottom navigation bar
+                    const SizedBox(height: 100),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -206,7 +226,10 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTicketStatusSection() {
+  Widget _buildTicketStatusSection(TicketProvider ticketProvider) {
+    final stats = ticketProvider.ticketStats;
+    final isLoading = ticketProvider.isStatsLoading;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -219,47 +242,56 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // Statistics Grid (2x2)
-        Row(
-          children: [
-            Expanded(
-              child: StatisticsCard(
-                label: 'ALL TICKET',
-                count: HomeMockData.allTicketsCount,
-                color: AppColors.textPrimary,
-                isHighlighted: true,
-              ),
+        if (isLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: StatisticsCard(
-                label: 'OPEN',
-                count: HomeMockData.openCount,
-                color: AppColors.statusOpen,
+          )
+        else ...[
+          // Statistics Grid (2x2)
+          Row(
+            children: [
+              Expanded(
+                child: StatisticsCard(
+                  label: 'ALL TICKET',
+                  count: stats['all'] ?? 0,
+                  color: AppColors.textPrimary,
+                  isHighlighted: true,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: StatisticsCard(
-                label: 'IN PROGRESS',
-                count: HomeMockData.inProgressCount,
-                color: AppColors.statusInProgress,
+              const SizedBox(width: 12),
+              Expanded(
+                child: StatisticsCard(
+                  label: 'OPEN',
+                  count: stats['open'] ?? 0,
+                  color: AppColors.statusOpen,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: StatisticsCard(
-                label: 'RESOLVED',
-                count: HomeMockData.resolvedCount,
-                color: AppColors.statusResolved,
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: StatisticsCard(
+                  label: 'IN PROGRESS',
+                  count: stats['in_progress'] ?? 0,
+                  color: AppColors.statusInProgress,
+                ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: StatisticsCard(
+                  label: 'RESOLVED',
+                  count: stats['resolved'] ?? 0,
+                  color: AppColors.statusResolved,
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -289,7 +321,7 @@ class HomeScreen extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
-                // TODO: Navigate to create ticket
+                context.push('/tickets/create');
               },
               borderRadius: BorderRadius.circular(14),
               child: Padding(
@@ -329,7 +361,13 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentTicketsSection(BuildContext context) {
+  Widget _buildRecentTicketsSection(
+    BuildContext context,
+    TicketProvider ticketProvider,
+  ) {
+    final recentTickets = ticketProvider.recentTickets;
+    final isLoading = ticketProvider.isRecentTicketsLoading;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -345,7 +383,8 @@ class HomeScreen extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                // TODO: Navigate to all tickets
+                // Switch to Tickets tab (index 1)
+                context.findAncestorStateOfType<MainScreenState>()?.switchToTab(1);
               },
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
@@ -365,22 +404,51 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: 16),
 
         // Recent Tickets List
-        ...HomeMockData.recentTickets.map((ticket) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: RecentTicketCard(
-              title: ticket['title'] as String,
-              status: ticket['status'] as String,
-              category: ticket['category'] as String,
-              priority: ticket['priority'] as String,
-              description: ticket['description'] as String,
-              timeAgo: ticket['timeAgo'] as String,
-              onTap: () {
-                // TODO: Navigate to ticket detail
-              },
+        if (isLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
             ),
-          );
-        }),
+          )
+        else if (recentTickets.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.grey100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.inbox_outlined,
+                    size: 48,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No tickets yet',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ...recentTickets.map((ticket) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TicketCard(
+                ticket: ticket,
+                onTap: () {
+                  context.push('/tickets/${ticket.id}');
+                },
+              ),
+            );
+          }),
       ],
     );
   }
