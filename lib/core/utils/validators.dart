@@ -111,4 +111,51 @@ class Validators {
 
     return null;
   }
+
+  /// Ticket subject validation
+  static String? ticketSubject(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Subject is required';
+    }
+
+    if (value.trim().length < 5) {
+      return 'Subject must be at least 5 characters';
+    }
+
+    if (value.trim().length > 200) {
+      return 'Subject must be at most 200 characters';
+    }
+
+    return null;
+  }
+
+  /// Ticket description validation
+  static String? ticketDescription(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Description is required';
+    }
+
+    if (value.trim().length < 10) {
+      return 'Description must be at least 10 characters';
+    }
+
+    return null;
+  }
+
+  /// File size validation (in bytes)
+  /// Default max size is 5MB
+  static String? fileSize(int? fileSizeInBytes, {int maxSizeInMB = 5}) {
+    if (fileSizeInBytes == null) {
+      return null;
+    }
+
+    final maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+
+    if (fileSizeInBytes > maxSizeInBytes) {
+      final fileSizeMB = (fileSizeInBytes / (1024 * 1024)).toStringAsFixed(1);
+      return 'File size ($fileSizeMB MB) exceeds maximum allowed size ($maxSizeInMB MB)';
+    }
+
+    return null;
+  }
 }
