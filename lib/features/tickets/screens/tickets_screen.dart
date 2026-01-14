@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -16,6 +18,7 @@ class TicketsScreen extends StatefulWidget {
 class _TicketsScreenState extends State<TicketsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  Timer? _debounceTimer;
   String _selectedFilter = 'all';
 
   final List<Map<String, dynamic>> _filterOptions = [
@@ -47,6 +50,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -80,7 +84,17 @@ class _TicketsScreenState extends State<TicketsScreen> {
   }
 
   void _onSearch(String query) {
-    context.read<TicketProvider>().setSearchQuery(query.isEmpty ? null : query);
+    // Cancel previous debounce timer
+    _debounceTimer?.cancel();
+
+    // Start new debounce timer (500ms delay)
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        context.read<TicketProvider>().setSearchQuery(
+          query.trim().isEmpty ? null : query.trim(),
+        );
+      }
+    });
   }
 
   void _navigateToCreateTicket() {
@@ -281,7 +295,12 @@ class _TicketsScreenState extends State<TicketsScreen> {
         }
 
         if (ticketProvider.tickets.isEmpty) {
-          return _buildEmptyState();
+          // Check if there's an active search query or filter
+          final hasSearchQuery = ticketProvider.searchQuery != null &&
+              ticketProvider.searchQuery!.isNotEmpty;
+          final hasFilter = ticketProvider.filterStatusId != null ||
+              ticketProvider.filterPriority != null;
+          return _buildEmptyState(isSearchResult: hasSearchQuery || hasFilter);
         }
 
         return RefreshIndicator(
@@ -314,7 +333,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({bool isSearchResult = false}) {
     return Container(
       alignment: Alignment.center,
       padding: const EdgeInsets.only(bottom: 80),
@@ -323,13 +342,13 @@ class _TicketsScreenState extends State<TicketsScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.confirmation_number_outlined,
+            isSearchResult ? Icons.search_off_rounded : Icons.confirmation_number_outlined,
             size: 64,
             color: AppColors.textSecondary.withAlpha(100),
           ),
           const SizedBox(height: 16),
           Text(
-            'No tickets yet',
+            isSearchResult ? 'No data available' : 'No tickets yet',
             style: AppTextStyles.bodyLarge.copyWith(
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
@@ -337,7 +356,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Create a new ticket to get started',
+            isSearchResult
+                ? 'Try searching with different keywords'
+                : 'Create a new ticket to get started',
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
             ),

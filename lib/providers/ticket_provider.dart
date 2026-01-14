@@ -29,7 +29,7 @@ class TicketProvider extends ChangeNotifier {
   // Data
   List<TicketCategory> _categories = [];
   List<TicketStatus> _statuses = [];
-  List<Ticket> _tickets = [];
+  List<Ticket> _rawTickets = []; // Raw tickets from API
   List<Ticket> _recentTickets = [];
   Ticket? _selectedTicket;
 
@@ -68,7 +68,22 @@ class TicketProvider extends ChangeNotifier {
   // Getters - Data
   List<TicketCategory> get categories => _categories;
   List<TicketStatus> get statuses => _statuses;
-  List<Ticket> get tickets => _tickets;
+
+  /// Returns tickets with client-side search filtering applied
+  /// This ensures search works even if backend doesn't support search param
+  List<Ticket> get tickets {
+    if (_searchQuery == null || _searchQuery!.trim().isEmpty) {
+      return _rawTickets;
+    }
+
+    final searchLower = _searchQuery!.toLowerCase().trim();
+    return _rawTickets.where((ticket) {
+      final subjectMatch = ticket.subject.toLowerCase().contains(searchLower);
+      final descriptionMatch = ticket.description.toLowerCase().contains(searchLower);
+      return subjectMatch || descriptionMatch;
+    }).toList();
+  }
+
   List<Ticket> get recentTickets => _recentTickets;
   Ticket? get selectedTicket => _selectedTicket;
   Map<String, int> get ticketStats => _ticketStats;
@@ -149,7 +164,7 @@ class TicketProvider extends ChangeNotifier {
 
     if (refresh) {
       _currentPage = 1;
-      _tickets = [];
+      _rawTickets = [];
       _hasMoreTickets = true;
     }
 
@@ -167,13 +182,13 @@ class TicketProvider extends ChangeNotifier {
       );
 
       if (refresh) {
-        _tickets = response.tickets;
+        _rawTickets = response.tickets;
       } else {
-        _tickets = [..._tickets, ...response.tickets];
+        _rawTickets = [..._rawTickets, ...response.tickets];
       }
 
       _totalTickets = response.total;
-      _hasMoreTickets = _tickets.length < _totalTickets;
+      _hasMoreTickets = _rawTickets.length < _totalTickets;
       _ticketsState = TicketState.loaded;
     } on NetworkException catch (e) {
       _errorMessage = e.message;
@@ -345,7 +360,7 @@ class TicketProvider extends ChangeNotifier {
       _createTicketState = TicketState.loaded;
 
       // Add new ticket to the beginning of the list
-      _tickets = [ticket, ..._tickets];
+      _rawTickets = [ticket, ..._rawTickets];
       _totalTickets++;
 
       notifyListeners();
@@ -383,11 +398,13 @@ class TicketProvider extends ChangeNotifier {
     }
   }
 
-  /// Set search query
+  /// Set search query (client-side filtering)
   void setSearchQuery(String? query) {
-    if (_searchQuery != query) {
-      _searchQuery = query;
-      loadTickets(refresh: true);
+    final normalizedQuery = query?.trim().isEmpty == true ? null : query?.trim();
+    if (_searchQuery != normalizedQuery) {
+      _searchQuery = normalizedQuery;
+      // No need to reload from API - client-side filtering is applied in getter
+      notifyListeners();
     }
   }
 
@@ -436,7 +453,7 @@ class TicketProvider extends ChangeNotifier {
       'closed': 0,
     };
 
-    for (final ticket in _tickets) {
+    for (final ticket in _rawTickets) {
       final statusName = ticket.status?.name.toLowerCase() ?? '';
       if (counts.containsKey(statusName)) {
         counts[statusName] = (counts[statusName] ?? 0) + 1;
