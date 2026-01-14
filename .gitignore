@@ -66,3 +66,4 @@ key.properties
 nul
 *.tmp
 flutter_*.log
+tmpclaude-*

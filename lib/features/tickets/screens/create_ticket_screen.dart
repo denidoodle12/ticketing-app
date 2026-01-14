@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
@@ -52,61 +53,137 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
 
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
-              onTap: () async {
-                Navigator.pop(context);
-                final pickedFile = await picker.pickImage(
-                  source: ImageSource.gallery,
-                );
-                if (pickedFile != null) {
-                  await _processPickedFile(pickedFile);
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take a Photo'),
-              onTap: () async {
-                Navigator.pop(context);
-                final pickedFile = await picker.pickImage(
-                  source: ImageSource.camera,
-                );
-                if (pickedFile != null) {
-                  await _processPickedFile(pickedFile);
-                }
-              },
-            ),
-          ],
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.grey300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: AppColors.primaryDark),
+                title: Text(
+                  'Choose from Gallery',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final pickedFile = await picker.pickImage(
+                    source: ImageSource.gallery,
+                  );
+                  if (pickedFile != null) {
+                    await _processPickedImageFile(pickedFile);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: AppColors.primaryDark),
+                title: Text(
+                  'Take a Photo',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final pickedFile = await picker.pickImage(
+                    source: ImageSource.camera,
+                  );
+                  if (pickedFile != null) {
+                    await _processPickedImageFile(pickedFile);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.attach_file, color: AppColors.primaryDark),
+                title: Text(
+                  'Upload Files',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                subtitle: Text(
+                  'pdf, doc, docx, txt, zip, gif',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _pickFile();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _processPickedFile(XFile pickedFile) async {
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+    );
+
+    if (result != null && result.files.single.path != null) {
+      final file = File(result.files.single.path!);
+      final fileName = result.files.single.name;
+      await _processPickedFile(file, fileName);
+    }
+  }
+
+  Future<void> _processPickedImageFile(XFile pickedFile) async {
     final file = File(pickedFile.path);
-    final fileSize = await file.length();
+    await _processPickedFile(file, pickedFile.name);
+  }
 
-    // Validate file size (max 5MB)
-    final validationError = Validators.fileSize(fileSize, maxSizeInMB: 5);
-
-    if (validationError != null) {
+  Future<void> _processPickedFile(File file, String fileName) async {
+    // Validate file type
+    final typeError = Validators.fileType(fileName);
+    if (typeError != null) {
       if (!mounted) return;
       ToastHelper.showError(
-          context,
-          'Attachment Error',
-          description: validationError,
-        );
+        context,
+        'Attachment Error',
+        description: typeError,
+      );
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    final fileSize = await file.length();
+    final sizeError = Validators.fileSize(fileSize, maxSizeInMB: 5);
+
+    if (sizeError != null) {
+      if (!mounted) return;
+      ToastHelper.showError(
+        context,
+        'Attachment Error',
+        description: sizeError,
+      );
       return;
     }
 
     setState(() {
       _attachmentFile = file;
-      _attachmentFileName = pickedFile.name;
+      _attachmentFileName = fileName;
     });
   }
 
@@ -615,6 +692,8 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
 
   Widget _buildAttachmentPicker() {
     if (_attachmentFile != null) {
+      final isImage = Validators.isImageFile(_attachmentFileName);
+
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -624,14 +703,29 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
         ),
         child: Row(
           children: [
+            // File preview
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                _attachmentFile!,
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-              ),
+              child: isImage
+                  ? Image.file(
+                      _attachmentFile!,
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        _getFileIcon(_attachmentFileName),
+                        size: 28,
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -713,14 +807,36 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Max 5MB \u2022 jpg, png, pdf',
+                'Max 5MB • jpg, jpeg, png, gif, pdf, doc, docx, txt, zip',
                 style: AppTextStyles.caption.copyWith(color: AppColors.grey400),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  IconData _getFileIcon(String? fileName) {
+    if (fileName == null) return Icons.insert_drive_file;
+
+    final extension = fileName.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'txt':
+        return Icons.text_snippet;
+      case 'zip':
+        return Icons.folder_zip;
+      case 'gif':
+        return Icons.gif;
+      default:
+        return Icons.insert_drive_file;
+    }
   }
 
   Widget _buildBottomButtons(TicketProvider ticketProvider) {

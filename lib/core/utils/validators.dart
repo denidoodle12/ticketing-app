@@ -158,4 +158,43 @@ class Validators {
 
     return null;
   }
+
+  /// Allowed file extensions for attachments
+  static const List<String> allowedFileExtensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'pdf',
+    'doc',
+    'docx',
+    'txt',
+    'zip',
+  ];
+
+  /// File type validation
+  /// Returns error message if file type is not allowed
+  static String? fileType(String? fileName) {
+    if (fileName == null || fileName.isEmpty) {
+      return null;
+    }
+
+    final extension = fileName.split('.').last.toLowerCase();
+
+    if (!allowedFileExtensions.contains(extension)) {
+      return 'File type not allowed. Allowed: ${allowedFileExtensions.join(", ")}';
+    }
+
+    return null;
+  }
+
+  /// Check if file is an image
+  static bool isImageFile(String? fileName) {
+    if (fileName == null || fileName.isEmpty) {
+      return false;
+    }
+
+    final extension = fileName.split('.').last.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif'].contains(extension);
+  }
 }
