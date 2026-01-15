@@ -49,19 +49,32 @@ class TicketRemoteDatasource {
     );
 
     final data = response.data['data'] as List<dynamic>;
-    final meta = response.data['meta'] as Map<String, dynamic>?;
+    // Try both 'pagination' (API contract) and 'meta' (alternative) for compatibility
+    final pagination = response.data['pagination'] as Map<String, dynamic>? ??
+        response.data['meta'] as Map<String, dynamic>?;
 
     final tickets = data
         .map((json) => Ticket.fromJson(json as Map<String, dynamic>))
         .toList();
 
+    // Calculate hasNext based on current data
+    final total = pagination?['total'] as int? ??
+        pagination?['total_items'] as int? ??
+        tickets.length;
+    final currentPage = pagination?['page'] as int? ??
+        pagination?['current_page'] as int? ??
+        page;
+    final pageLimit = pagination?['limit'] as int? ?? limit;
+    final hasNext = pagination?['has_next'] as bool? ??
+        (currentPage * pageLimit < total);
+
     return TicketListResponse(
       tickets: tickets,
-      total: meta?['total_items'] as int? ?? tickets.length,
-      page: meta?['current_page'] as int? ?? page,
-      limit: meta?['limit'] as int? ?? limit,
-      hasNext: meta?['has_next'] as bool? ?? false,
-      hasPrev: meta?['has_prev'] as bool? ?? false,
+      total: total,
+      page: currentPage,
+      limit: pageLimit,
+      hasNext: hasNext,
+      hasPrev: pagination?['has_prev'] as bool? ?? (currentPage > 1),
     );
   }
 

@@ -42,6 +42,7 @@ class MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: _screens[_currentIndex],
       extendBody: true,
+      resizeToAvoidBottomInset: false,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           borderRadius: const BorderRadius.only(

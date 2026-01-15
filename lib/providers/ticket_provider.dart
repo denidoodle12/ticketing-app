@@ -33,12 +33,14 @@ class TicketProvider extends ChangeNotifier {
   List<Ticket> _recentTickets = [];
   Ticket? _selectedTicket;
 
-  // Stats
-  Map<String, int> _ticketStats = {
+  // Stats - stores ticket counts by status (loaded once, updated on ticket changes)
+  Map<String, int> _statusCounts = {
     'all': 0,
     'open': 0,
     'in_progress': 0,
+    'pending': 0,
     'resolved': 0,
+    'closed': 0,
   };
 
   // Pagination
@@ -69,24 +71,36 @@ class TicketProvider extends ChangeNotifier {
   List<TicketCategory> get categories => _categories;
   List<TicketStatus> get statuses => _statuses;
 
-  /// Returns tickets with client-side search filtering applied
-  /// This ensures search works even if backend doesn't support search param
+  /// Returns tickets with client-side filtering applied
+  /// - Excludes 'closed' tickets when viewing "All" (no status filter)
+  /// - Applies search filter if search query is present
   List<Ticket> get tickets {
-    if (_searchQuery == null || _searchQuery!.trim().isEmpty) {
-      return _rawTickets;
+    var filteredTickets = _rawTickets.toList();
+
+    // Exclude closed tickets when no specific status filter is applied (All mode)
+    if (_filterStatusId == null) {
+      filteredTickets = filteredTickets.where((ticket) {
+        final statusName = ticket.status?.name.toLowerCase() ?? '';
+        return statusName != 'closed';
+      }).toList();
     }
 
-    final searchLower = _searchQuery!.toLowerCase().trim();
-    return _rawTickets.where((ticket) {
-      final subjectMatch = ticket.subject.toLowerCase().contains(searchLower);
-      final descriptionMatch = ticket.description.toLowerCase().contains(searchLower);
-      return subjectMatch || descriptionMatch;
-    }).toList();
+    // Apply search filter if present
+    if (_searchQuery != null && _searchQuery!.trim().isNotEmpty) {
+      final searchLower = _searchQuery!.toLowerCase().trim();
+      filteredTickets = filteredTickets.where((ticket) {
+        final subjectMatch = ticket.subject.toLowerCase().contains(searchLower);
+        final descriptionMatch = ticket.description.toLowerCase().contains(searchLower);
+        return subjectMatch || descriptionMatch;
+      }).toList();
+    }
+
+    return filteredTickets;
   }
 
   List<Ticket> get recentTickets => _recentTickets;
   Ticket? get selectedTicket => _selectedTicket;
-  Map<String, int> get ticketStats => _ticketStats;
+  Map<String, int> get statusCounts => _statusCounts;
 
   // Getters - Pagination
   int get currentPage => _currentPage;
@@ -269,7 +283,8 @@ class TicketProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load ticket statistics for home screen
+  /// Load ticket statistics (counts by status)
+  /// This loads all tickets without filter to get accurate counts
   Future<void> loadTicketStats() async {
     if (_statsState == TicketState.loading) return;
 
@@ -277,36 +292,36 @@ class TicketProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Load all tickets without filter to get counts
+      // Load all tickets without filter to get accurate counts
       final response = await _ticketRepository.getTickets(
         page: 1,
-        limit: 100, // Get more to calculate accurate stats
+        limit: 1000, // Load enough to get all tickets for counting
       );
 
-      final stats = <String, int>{
-        'all': response.total,
+      final counts = <String, int>{
+        'all': 0,
         'open': 0,
         'in_progress': 0,
+        'pending': 0,
         'resolved': 0,
+        'closed': 0,
       };
 
       // Count tickets by status
       for (final ticket in response.tickets) {
-        final statusName = ticket.status?.name.toLowerCase().replaceAll('_', ' ') ?? '';
-        switch (statusName) {
-          case 'open':
-            stats['open'] = (stats['open'] ?? 0) + 1;
-            break;
-          case 'in progress':
-            stats['in_progress'] = (stats['in_progress'] ?? 0) + 1;
-            break;
-          case 'resolved':
-            stats['resolved'] = (stats['resolved'] ?? 0) + 1;
-            break;
+        final statusName = ticket.status?.name.toLowerCase() ?? '';
+        if (counts.containsKey(statusName)) {
+          counts[statusName] = (counts[statusName] ?? 0) + 1;
         }
       }
 
-      _ticketStats = stats;
+      // 'All' count excludes closed tickets
+      counts['all'] = (counts['open'] ?? 0) +
+          (counts['in_progress'] ?? 0) +
+          (counts['pending'] ?? 0) +
+          (counts['resolved'] ?? 0);
+
+      _statusCounts = counts;
       _statsState = TicketState.loaded;
     } on NetworkException catch (e) {
       _errorMessage = e.message;
@@ -362,6 +377,10 @@ class TicketProvider extends ChangeNotifier {
       // Add new ticket to the beginning of the list
       _rawTickets = [ticket, ..._rawTickets];
       _totalTickets++;
+
+      // Update status counts (new tickets are always 'open')
+      _statusCounts['all'] = (_statusCounts['all'] ?? 0) + 1;
+      _statusCounts['open'] = (_statusCounts['open'] ?? 0) + 1;
 
       notifyListeners();
       return ticket;
@@ -442,24 +461,42 @@ class TicketProvider extends ChangeNotifier {
     return _ticketRepository.getFileUrl(filename);
   }
 
-  /// Get ticket counts by status (for home screen stats)
+  /// Get ticket counts by status (returns pre-loaded stats)
   Map<String, int> getTicketCountsByStatus() {
-    final counts = <String, int>{
-      'all': _totalTickets,
-      'open': 0,
-      'in_progress': 0,
-      'pending': 0,
-      'resolved': 0,
-      'closed': 0,
-    };
+    return _statusCounts;
+  }
 
-    for (final ticket in _rawTickets) {
-      final statusName = ticket.status?.name.toLowerCase() ?? '';
-      if (counts.containsKey(statusName)) {
-        counts[statusName] = (counts[statusName] ?? 0) + 1;
-      }
-    }
+  /// Refresh status counts (call after creating/updating/deleting tickets)
+  Future<void> refreshStatusCounts() async {
+    await loadTicketStats();
+  }
 
-    return counts;
+  // ============================================================
+  // Methods for infinite_scroll_pagination support
+  // ============================================================
+
+  /// Fetch a specific page of tickets (used by PagingController)
+  /// Returns TicketListResponse directly without updating internal state
+  Future<TicketListResponse> fetchTicketsPage({
+    required int page,
+    required int limit,
+  }) async {
+    return await _ticketRepository.getTickets(
+      page: page,
+      limit: limit,
+      statusId: _filterStatusId,
+      priority: _filterPriority,
+    );
+  }
+
+  /// Set filter status without triggering reload (used with PagingController)
+  /// The PagingController will handle refreshing the list
+  void setFilterStatusForPaging(int? statusId) {
+    _filterStatusId = statusId;
+  }
+
+  /// Set search query for paging (without notifying listeners)
+  void setSearchQueryForPaging(String? query) {
+    _searchQuery = query?.trim().isEmpty == true ? null : query?.trim();
   }
 }

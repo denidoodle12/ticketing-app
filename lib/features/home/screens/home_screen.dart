@@ -227,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTicketStatusSection(TicketProvider ticketProvider) {
-    final stats = ticketProvider.ticketStats;
+    final stats = ticketProvider.statusCounts;
     final isLoading = ticketProvider.isStatsLoading;
 
     return Column(

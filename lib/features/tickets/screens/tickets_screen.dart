@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:provider/provider.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../providers/ticket_provider.dart';
+import '../models/ticket_model.dart';
 import '../widgets/ticket_card.dart';
 
 class TicketsScreen extends StatefulWidget {
@@ -17,9 +19,12 @@ class TicketsScreen extends StatefulWidget {
 
 class _TicketsScreenState extends State<TicketsScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
   Timer? _debounceTimer;
   String _selectedFilter = 'all';
+
+  static const _pageSize = 10;
+  final PagingController<int, Ticket> _pagingController =
+      PagingController(firstPageKey: 1);
 
   final List<Map<String, dynamic>> _filterOptions = [
     {'id': 'all', 'label': 'All'},
@@ -27,24 +32,23 @@ class _TicketsScreenState extends State<TicketsScreen> {
     {'id': 'in_progress', 'label': 'In Progress'},
     {'id': 'pending', 'label': 'Pending'},
     {'id': 'resolved', 'label': 'Resolved'},
+    {'id': 'closed', 'label': 'Closed'},
   ];
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
 
-    // Load initial data and reset filters
+    // Add page request listener
+    _pagingController.addPageRequestListener((pageKey) {
+      _fetchPage(pageKey);
+    });
+
+    // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ticketProvider = context.read<TicketProvider>();
       ticketProvider.loadStatuses();
-      // Reset filter and reload tickets
-      ticketProvider.resetAndLoadTickets();
-      // Reset local state
-      _searchController.clear();
-      setState(() {
-        _selectedFilter = 'all';
-      });
+      ticketProvider.loadTicketStats();
     });
   }
 
@@ -52,25 +56,66 @@ class _TicketsScreenState extends State<TicketsScreen> {
   void dispose() {
     _debounceTimer?.cancel();
     _searchController.dispose();
-    _scrollController.dispose();
+    _pagingController.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      context.read<TicketProvider>().loadMoreTickets();
+  Future<void> _fetchPage(int pageKey) async {
+    try {
+      final ticketProvider = context.read<TicketProvider>();
+
+      // Fetch tickets from provider/repository
+      final response = await ticketProvider.fetchTicketsPage(
+        page: pageKey,
+        limit: _pageSize,
+      );
+
+      // Filter out closed tickets if "All" is selected
+      var newItems = response.tickets.toList();
+      if (_selectedFilter == 'all') {
+        newItems = newItems.where((ticket) {
+          final statusName = ticket.status?.name.toLowerCase() ?? '';
+          return statusName != 'closed';
+        }).toList();
+      }
+
+      // Apply search filter if present
+      final searchQuery = _searchController.text.trim();
+      if (searchQuery.isNotEmpty) {
+        final searchLower = searchQuery.toLowerCase();
+        newItems = newItems.where((ticket) {
+          final subjectMatch =
+              ticket.subject.toLowerCase().contains(searchLower);
+          final descriptionMatch =
+              ticket.description.toLowerCase().contains(searchLower);
+          return subjectMatch || descriptionMatch;
+        }).toList();
+      }
+
+      // Determine if this is the last page based on API response
+      final isLastPage = !response.hasNext || response.tickets.length < _pageSize;
+
+      if (isLastPage) {
+        _pagingController.appendLastPage(newItems);
+      } else {
+        final nextPageKey = pageKey + 1;
+        _pagingController.appendPage(newItems, nextPageKey);
+      }
+    } catch (error) {
+      _pagingController.error = error;
     }
   }
 
   void _onFilterSelected(String filterId) {
+    if (_selectedFilter == filterId) return;
+
     setState(() {
       _selectedFilter = filterId;
     });
 
     final ticketProvider = context.read<TicketProvider>();
     if (filterId == 'all') {
-      ticketProvider.setFilterStatus(null);
+      ticketProvider.setFilterStatusForPaging(null);
     } else {
       // Find status ID from loaded statuses
       final statuses = ticketProvider.statuses;
@@ -78,9 +123,12 @@ class _TicketsScreenState extends State<TicketsScreen> {
         (s) => s.name.toLowerCase() == filterId.toLowerCase(),
       );
       if (matchingStatus.isNotEmpty) {
-        ticketProvider.setFilterStatus(matchingStatus.first.id);
+        ticketProvider.setFilterStatusForPaging(matchingStatus.first.id);
       }
     }
+
+    // Refresh the list
+    _pagingController.refresh();
   }
 
   void _onSearch(String query) {
@@ -90,19 +138,31 @@ class _TicketsScreenState extends State<TicketsScreen> {
     // Start new debounce timer (500ms delay)
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
-        context.read<TicketProvider>().setSearchQuery(
-          query.trim().isEmpty ? null : query.trim(),
-        );
+        // Refresh the list with new search query
+        _pagingController.refresh();
       }
     });
   }
 
-  void _navigateToCreateTicket() {
-    context.push('/tickets/create');
+  void _navigateToCreateTicket() async {
+    final result = await context.push('/tickets/create');
+    // Refresh list if ticket was created
+    if (result == true && mounted) {
+      _pagingController.refresh();
+      // Also refresh stats
+      context.read<TicketProvider>().loadTicketStats();
+    }
   }
 
   void _navigateToTicketDetail(int ticketId) {
     context.push('/tickets/$ticketId');
+  }
+
+  Future<void> _onRefresh() async {
+    // Refresh stats
+    context.read<TicketProvider>().loadTicketStats();
+    // Refresh list
+    _pagingController.refresh();
   }
 
   @override
@@ -111,6 +171,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.white,
+      resizeToAvoidBottomInset: false,
       appBar: _buildAppBar(),
       body: Column(
         children: [
@@ -126,7 +187,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
           ),
         ],
       ),
-      floatingActionButton: isKeyboardVisible ? null : _buildCreateTicketButton(),
+      floatingActionButton:
+          isKeyboardVisible ? null : _buildCreateTicketButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
@@ -148,41 +210,52 @@ class _TicketsScreenState extends State<TicketsScreen> {
   }
 
   Widget _buildFilterChips() {
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: _filterOptions.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final filter = _filterOptions[index];
-          final isSelected = _selectedFilter == filter['id'];
+    return Consumer<TicketProvider>(
+      builder: (context, ticketProvider, child) {
+        final counts = ticketProvider.getTicketCountsByStatus();
 
-          return GestureDetector(
-            onTap: () => _onFilterSelected(filter['id']),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primaryDark : AppColors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected ? AppColors.primaryDark : AppColors.border,
-                  width: 1,
+        return Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: _filterOptions.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final filter = _filterOptions[index];
+              final filterId = filter['id'] as String;
+              final isSelected = _selectedFilter == filterId;
+              final count = counts[filterId] ?? 0;
+
+              return GestureDetector(
+                onTap: () => _onFilterSelected(filterId),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primaryDark : AppColors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color:
+                          isSelected ? AppColors.primaryDark : AppColors.border,
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    '${filter['label']} ($count)',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color:
+                          isSelected ? AppColors.white : AppColors.primaryDark,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
-              ),
-              child: Text(
-                filter['label'],
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: isSelected ? AppColors.white : AppColors.primaryDark,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -279,91 +352,99 @@ class _TicketsScreenState extends State<TicketsScreen> {
   }
 
   Widget _buildTicketList() {
-    return Consumer<TicketProvider>(
-      builder: (context, ticketProvider, child) {
-        if (ticketProvider.isTicketsLoading && ticketProvider.tickets.isEmpty) {
-          return Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.only(bottom: 80),
-            child: const CircularProgressIndicator(),
-          );
-        }
-
-        if (ticketProvider.ticketsState == TicketState.error &&
-            ticketProvider.tickets.isEmpty) {
-          return _buildErrorState(ticketProvider.errorMessage ?? 'An error occurred');
-        }
-
-        if (ticketProvider.tickets.isEmpty) {
-          // Check if there's an active search query or filter
-          final hasSearchQuery = ticketProvider.searchQuery != null &&
-              ticketProvider.searchQuery!.isNotEmpty;
-          final hasFilter = ticketProvider.filterStatusId != null ||
-              ticketProvider.filterPriority != null;
-          return _buildEmptyState(isSearchResult: hasSearchQuery || hasFilter);
-        }
-
-        return RefreshIndicator(
-          onRefresh: () => ticketProvider.refreshTickets(),
-          child: ListView.separated(
-            controller: _scrollController,
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-            itemCount: ticketProvider.tickets.length +
-                (ticketProvider.hasMoreTickets ? 1 : 0),
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              if (index >= ticketProvider.tickets.length) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(),
-                  ),
-                );
-              }
-
-              final ticket = ticketProvider.tickets[index];
-              return TicketCard(
-                ticket: ticket,
-                onTap: () => _navigateToTicketDetail(ticket.id),
-              );
-            },
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      child: PagedListView<int, Ticket>.separated(
+        pagingController: _pagingController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+        // Pre-render items off-screen for smoother scrolling
+        cacheExtent: 500,
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        builderDelegate: PagedChildBuilderDelegate<Ticket>(
+          // Wrap with RepaintBoundary for better performance
+          itemBuilder: (context, ticket, index) => RepaintBoundary(
+            child: TicketCard(
+              ticket: ticket,
+              onTap: () => _navigateToTicketDetail(ticket.id),
+            ),
           ),
-        );
-      },
+          firstPageProgressIndicatorBuilder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          newPageProgressIndicatorBuilder: (context) => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          noItemsFoundIndicatorBuilder: (context) => _buildEmptyState(
+            isSearchResult: _searchController.text.isNotEmpty ||
+                _selectedFilter != 'all',
+          ),
+          firstPageErrorIndicatorBuilder: (context) => _buildErrorState(
+            _pagingController.error?.toString() ?? 'An error occurred',
+          ),
+          newPageErrorIndicatorBuilder: (context) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Failed to load more',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.error500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => _pagingController.retryLastFailedRequest(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildEmptyState({bool isSearchResult = false}) {
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.only(bottom: 80),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isSearchResult ? Icons.search_off_rounded : Icons.confirmation_number_outlined,
-            size: 64,
-            color: AppColors.textSecondary.withAlpha(100),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            isSearchResult ? 'No data available' : 'No tickets yet',
-            style: AppTextStyles.bodyLarge.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w500,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 80),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSearchResult
+                  ? Icons.search_off_rounded
+                  : Icons.confirmation_number_outlined,
+              size: 64,
+              color: AppColors.textSecondary.withAlpha(100),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            isSearchResult
-                ? 'Try searching with different keywords'
-                : 'Create a new ticket to get started',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
+            const SizedBox(height: 16),
+            Text(
+              isSearchResult ? 'No data available' : 'No tickets yet',
+              style: AppTextStyles.bodyLarge.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              isSearchResult
+                  ? 'Try searching with different keywords'
+                  : 'Create a new ticket to get started',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -399,9 +480,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () {
-              context.read<TicketProvider>().refreshTickets();
-            },
+            onPressed: () => _pagingController.refresh(),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryDark,
               foregroundColor: AppColors.white,

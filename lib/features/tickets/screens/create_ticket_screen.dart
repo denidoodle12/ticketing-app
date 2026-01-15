@@ -807,7 +807,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Max 5MB • jpg, jpeg, png, gif, pdf, doc, docx, txt, zip',
+                'Max 5MB file upload',
                 style: AppTextStyles.caption.copyWith(color: AppColors.grey400),
                 textAlign: TextAlign.center,
               ),
