@@ -7,7 +7,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../main/screens/main_screen.dart';
 import '../../tickets/widgets/ticket_card.dart';
-import '../widgets/statistics_card.dart';
+import '../widgets/ticket_statistics_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final fullName = user?.fullName ?? 'User';
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.primaryDark,
       body: RefreshIndicator(
         onRefresh: () => ticketProvider.loadHomeData(),
         child: SingleChildScrollView(
@@ -56,27 +56,36 @@ class _HomeScreenState extends State<HomeScreen> {
               // Blue Header Section
               _buildBlueHeaderSection(fullName, greeting),
 
-              // Content below the header
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 24),
+              // Content below the header with white background and top border radius
+              Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(28),
+                    topRight: Radius.circular(28),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 24),
 
-                    // Ticket Status Section
-                    _buildTicketStatusSection(ticketProvider),
-                    const SizedBox(height: 24),
+                      // Ticket Statistics Section
+                      _buildTicketStatisticsSection(ticketProvider),
+                      const SizedBox(height: 24),
 
-                    // Quick Action Section
-                    _buildQuickActionSection(context),
-                    const SizedBox(height: 28),
+                      // Quick Action Section
+                      _buildQuickActionSection(context),
+                      const SizedBox(height: 28),
 
-                    // Recent Tickets Section
-                    _buildRecentTicketsSection(context, ticketProvider),
-                    // Extra padding for bottom navigation bar
-                    const SizedBox(height: 100),
-                  ],
+                      // Recent Tickets Section
+                      _buildRecentTicketsSection(context, ticketProvider),
+                      // Extra padding for bottom navigation bar
+                      const SizedBox(height: 100),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -88,25 +97,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBlueHeaderSection(String fullName, String greeting) {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.primaryDark,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-      ),
+      color: AppColors.primaryDark,
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Section
+              // Header with avatar and greeting
               _buildHeader(fullName, greeting),
               const SizedBox(height: 20),
 
-              // Search Bar
+              // Title
+              Text(
+                'Find your IT\nticketing here',
+                style: AppTextStyles.h3.copyWith(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Search Bar with Filter
               _buildSearchBar(),
             ],
           ),
@@ -120,8 +134,8 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         // Profile Avatar with white border
         Container(
-          width: 52,
-          height: 52,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
@@ -135,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: AppColors.white.withAlpha(30),
               child: Text(
                 fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
-                style: AppTextStyles.h4.copyWith(
+                style: AppTextStyles.h5.copyWith(
                   color: AppColors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -151,19 +165,19 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$greeting,',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.white.withAlpha(200),
-                ),
-              ),
-              Text(
-                fullName,
-                style: AppTextStyles.h5.copyWith(
+                'Hii, $fullName',
+                style: AppTextStyles.bodyLarge.copyWith(
                   color: AppColors.white,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                greeting,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.white.withAlpha(180),
+                ),
               ),
             ],
           ),
@@ -193,105 +207,105 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      height: 45,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TextField(
-        decoration: InputDecoration(
-          hintText: 'Search tickets',
-          hintStyle: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.textSecondary,
-          ),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: AppColors.textSecondary,
-            size: 22,
-          ),
-          filled: false,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 15,
+    return Row(
+      children: [
+        // Search Input - pill shaped white background
+        Expanded(
+          child: Container(
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: TextField(
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Cari ticket',
+                hintStyle: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.grey400,
+                ),
+                prefixIcon: Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 8),
+                  child: Icon(
+                    Icons.search,
+                    color: AppColors.grey400,
+                    size: 22,
+                  ),
+                ),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 46,
+                  minHeight: 22,
+                ),
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 0,
+                  vertical: 15,
+                ),
+              ),
+              onSubmitted: (value) {
+                // Navigate to tickets screen with search query
+                if (value.trim().isNotEmpty) {
+                  context.read<TicketProvider>().setSearchQuery(value);
+                  context
+                      .findAncestorStateOfType<MainScreenState>()
+                      ?.switchToTab(1);
+                }
+              },
+            ),
           ),
         ),
-        onSubmitted: (value) {
-          // TODO: Implement search
-        },
-      ),
+        const SizedBox(width: 12),
+
+        // Filter Button - circular with light background
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: AppColors.white.withAlpha(40),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            onPressed: () {
+              // Navigate to tickets screen
+              context
+                  .findAncestorStateOfType<MainScreenState>()
+                  ?.switchToTab(1);
+            },
+            icon: Icon(
+              Icons.tune,
+              color: AppColors.white.withAlpha(220),
+              size: 22,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildTicketStatusSection(TicketProvider ticketProvider) {
-    final stats = ticketProvider.statusCounts;
-    final isLoading = ticketProvider.isStatsLoading;
-
+  Widget _buildTicketStatisticsSection(TicketProvider ticketProvider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Ticket Status',
+          'Ticket Statistics',
           style: AppTextStyles.h5.copyWith(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 16),
-
-        if (isLoading)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else ...[
-          // Statistics Grid (2x2)
-          Row(
-            children: [
-              Expanded(
-                child: StatisticsCard(
-                  label: 'ALL TICKET',
-                  count: stats['all'] ?? 0,
-                  color: AppColors.textPrimary,
-                  isHighlighted: true,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatisticsCard(
-                  label: 'OPEN',
-                  count: stats['open'] ?? 0,
-                  color: AppColors.statusOpen,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: StatisticsCard(
-                  label: 'IN PROGRESS',
-                  count: stats['in_progress'] ?? 0,
-                  color: AppColors.statusInProgress,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatisticsCard(
-                  label: 'RESOLVED',
-                  count: stats['resolved'] ?? 0,
-                  color: AppColors.statusResolved,
-                ),
-              ),
-            ],
-          ),
-        ],
+        TicketStatisticsCard(
+          statusCounts: ticketProvider.statusCounts,
+          priorityCounts: ticketProvider.priorityCounts,
+          categoryCounts: ticketProvider.categoryCounts,
+          isLoading: ticketProvider.isStatsLoading,
+          showHeader: false,
+        ),
       ],
     );
   }
@@ -309,7 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Create New Ticket Button with gradient
+        // Create New Ticket Button
         Container(
           width: double.infinity,
           height: 55,
@@ -384,7 +398,9 @@ class _HomeScreenState extends State<HomeScreen> {
             TextButton(
               onPressed: () {
                 // Switch to Tickets tab (index 1)
-                context.findAncestorStateOfType<MainScreenState>()?.switchToTab(1);
+                context
+                    .findAncestorStateOfType<MainScreenState>()
+                    ?.switchToTab(1);
               },
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,

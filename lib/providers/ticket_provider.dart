@@ -43,6 +43,17 @@ class TicketProvider extends ChangeNotifier {
     'closed': 0,
   };
 
+  // Stats - stores ticket counts by priority
+  Map<String, int> _priorityCounts = {
+    'low': 0,
+    'medium': 0,
+    'high': 0,
+    'critical': 0,
+  };
+
+  // Stats - stores ticket counts by category
+  Map<String, int> _categoryCounts = {};
+
   // Pagination
   int _currentPage = 1;
   int _totalTickets = 0;
@@ -101,6 +112,8 @@ class TicketProvider extends ChangeNotifier {
   List<Ticket> get recentTickets => _recentTickets;
   Ticket? get selectedTicket => _selectedTicket;
   Map<String, int> get statusCounts => _statusCounts;
+  Map<String, int> get priorityCounts => _priorityCounts;
+  Map<String, int> get categoryCounts => _categoryCounts;
 
   // Getters - Pagination
   int get currentPage => _currentPage;
@@ -283,7 +296,7 @@ class TicketProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load ticket statistics (counts by status)
+  /// Load ticket statistics (counts by status, priority, and category)
   /// This loads all tickets without filter to get accurate counts
   Future<void> loadTicketStats() async {
     if (_statsState == TicketState.loading) return;
@@ -298,7 +311,8 @@ class TicketProvider extends ChangeNotifier {
         limit: 1000, // Load enough to get all tickets for counting
       );
 
-      final counts = <String, int>{
+      // Initialize status counts
+      final statusCounts = <String, int>{
         'all': 0,
         'open': 0,
         'in_progress': 0,
@@ -307,21 +321,45 @@ class TicketProvider extends ChangeNotifier {
         'closed': 0,
       };
 
-      // Count tickets by status
+      // Initialize priority counts
+      final priorityCounts = <String, int>{
+        'low': 0,
+        'medium': 0,
+        'high': 0,
+        'critical': 0,
+      };
+
+      // Initialize category counts (dynamic based on tickets)
+      final categoryCounts = <String, int>{};
+
+      // Count tickets by status, priority, and category
       for (final ticket in response.tickets) {
+        // Count by status
         final statusName = ticket.status?.name.toLowerCase() ?? '';
-        if (counts.containsKey(statusName)) {
-          counts[statusName] = (counts[statusName] ?? 0) + 1;
+        if (statusCounts.containsKey(statusName)) {
+          statusCounts[statusName] = (statusCounts[statusName] ?? 0) + 1;
         }
+
+        // Count by priority
+        final priorityValue = ticket.priority.value;
+        if (priorityCounts.containsKey(priorityValue)) {
+          priorityCounts[priorityValue] = (priorityCounts[priorityValue] ?? 0) + 1;
+        }
+
+        // Count by category
+        final categoryName = ticket.category?.name ?? 'Uncategorized';
+        categoryCounts[categoryName] = (categoryCounts[categoryName] ?? 0) + 1;
       }
 
       // 'All' count excludes closed tickets
-      counts['all'] = (counts['open'] ?? 0) +
-          (counts['in_progress'] ?? 0) +
-          (counts['pending'] ?? 0) +
-          (counts['resolved'] ?? 0);
+      statusCounts['all'] = (statusCounts['open'] ?? 0) +
+          (statusCounts['in_progress'] ?? 0) +
+          (statusCounts['pending'] ?? 0) +
+          (statusCounts['resolved'] ?? 0);
 
-      _statusCounts = counts;
+      _statusCounts = statusCounts;
+      _priorityCounts = priorityCounts;
+      _categoryCounts = categoryCounts;
       _statsState = TicketState.loaded;
     } on NetworkException catch (e) {
       _errorMessage = e.message;
@@ -381,6 +419,15 @@ class TicketProvider extends ChangeNotifier {
       // Update status counts (new tickets are always 'open')
       _statusCounts['all'] = (_statusCounts['all'] ?? 0) + 1;
       _statusCounts['open'] = (_statusCounts['open'] ?? 0) + 1;
+
+      // Update priority counts
+      final ticketPriorityValue = ticket.priority.value;
+      _priorityCounts[ticketPriorityValue] =
+          (_priorityCounts[ticketPriorityValue] ?? 0) + 1;
+
+      // Update category counts
+      final categoryName = ticket.category?.name ?? 'Uncategorized';
+      _categoryCounts[categoryName] = (_categoryCounts[categoryName] ?? 0) + 1;
 
       notifyListeners();
       return ticket;
