@@ -4,6 +4,7 @@ import '../datasources/ticket_mock_datasource.dart';
 import '../models/ticket_model.dart';
 import '../models/ticket_category_model.dart';
 import '../models/ticket_status_model.dart';
+import '../models/comment_model.dart';
 
 class TicketRepository {
   final TicketRemoteDatasource? _remoteDatasource;
@@ -165,5 +166,29 @@ class TicketRepository {
       return _mockDatasource!.getFileUrl(filename);
     }
     return _remoteDatasource!.getFileUrl(filename);
+  }
+
+  /// Create a comment on a ticket
+  Future<Comment> createComment({
+    required int ticketId,
+    required String content,
+  }) async {
+    try {
+      if (_useMock) {
+        throw ServerException('Mock createComment not implemented');
+      }
+      return await _remoteDatasource!.createComment(
+        ticketId: ticketId,
+        content: content,
+      );
+    } on NetworkException {
+      rethrow;
+    } on ServerException {
+      rethrow;
+    } on ValidationException {
+      rethrow;
+    } catch (e) {
+      throw ServerException('Failed to create comment: $e');
+    }
   }
 }

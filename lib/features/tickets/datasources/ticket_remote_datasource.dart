@@ -4,6 +4,7 @@ import '../../../core/network/dio_client.dart';
 import '../models/ticket_model.dart';
 import '../models/ticket_category_model.dart';
 import '../models/ticket_status_model.dart';
+import '../models/comment_model.dart';
 
 class TicketRemoteDatasource {
   Dio get _dio => DioClient.userInstance;
@@ -122,5 +123,17 @@ class TicketRemoteDatasource {
   /// Get file download URL
   String getFileUrl(String filename) {
     return '${ApiEndpoints.ticketBaseUrl}${ApiEndpoints.downloadFile(filename)}';
+  }
+
+  /// Create a comment on a ticket
+  Future<Comment> createComment({
+    required int ticketId,
+    required String content,
+  }) async {
+    final response = await _dio.post(
+      ApiEndpoints.ticketComments(ticketId),
+      data: {'content': content},
+    );
+    return Comment.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 }

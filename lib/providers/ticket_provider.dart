@@ -3,6 +3,7 @@ import '../core/errors/exceptions.dart';
 import '../features/tickets/models/ticket_model.dart';
 import '../features/tickets/models/ticket_category_model.dart';
 import '../features/tickets/models/ticket_status_model.dart';
+import '../features/tickets/models/comment_model.dart';
 import '../features/tickets/repositories/ticket_repository.dart';
 
 /// Ticket loading state enum
@@ -23,6 +24,7 @@ class TicketProvider extends ChangeNotifier {
   TicketState _ticketsState = TicketState.initial;
   TicketState _ticketDetailState = TicketState.initial;
   TicketState _createTicketState = TicketState.initial;
+  TicketState _createCommentState = TicketState.initial;
   TicketState _recentTicketsState = TicketState.initial;
   TicketState _statsState = TicketState.initial;
 
@@ -76,6 +78,7 @@ class TicketProvider extends ChangeNotifier {
   TicketState get ticketsState => _ticketsState;
   TicketState get ticketDetailState => _ticketDetailState;
   TicketState get createTicketState => _createTicketState;
+  TicketState get createCommentState => _createCommentState;
   TicketState get recentTicketsState => _recentTicketsState;
   TicketState get statsState => _statsState;
 
@@ -136,6 +139,7 @@ class TicketProvider extends ChangeNotifier {
   bool get isTicketsLoading => _ticketsState == TicketState.loading;
   bool get isTicketDetailLoading => _ticketDetailState == TicketState.loading;
   bool get isCreatingTicket => _createTicketState == TicketState.loading;
+  bool get isCreatingComment => _createCommentState == TicketState.loading;
   bool get isRecentTicketsLoading => _recentTicketsState == TicketState.loading;
   bool get isStatsLoading => _statsState == TicketState.loading;
 
@@ -446,6 +450,56 @@ class TicketProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = 'Failed to create ticket';
       _createTicketState = TicketState.error;
+    }
+    notifyListeners();
+    return null;
+  }
+
+  /// Create a comment on a ticket
+  Future<Comment?> createComment({
+    required int ticketId,
+    required String content,
+  }) async {
+    _createCommentState = TicketState.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final comment = await _ticketRepository.createComment(
+        ticketId: ticketId,
+        content: content,
+      );
+
+      _createCommentState = TicketState.loaded;
+
+      // Add comment to ticketDetailResponse if viewing same ticket
+      if (_ticketDetailResponse != null &&
+          _ticketDetailResponse!.ticket.id == ticketId) {
+        final updatedComments = [
+          ..._ticketDetailResponse!.comments,
+          comment.toJson(),
+        ];
+        _ticketDetailResponse = TicketDetailResponse(
+          ticket: _ticketDetailResponse!.ticket,
+          comments: updatedComments,
+          totalComments: _ticketDetailResponse!.totalComments + 1,
+        );
+      }
+
+      notifyListeners();
+      return comment;
+    } on NetworkException catch (e) {
+      _errorMessage = e.message;
+      _createCommentState = TicketState.error;
+    } on ServerException catch (e) {
+      _errorMessage = e.message;
+      _createCommentState = TicketState.error;
+    } on ValidationException catch (e) {
+      _errorMessage = e.message;
+      _createCommentState = TicketState.error;
+    } catch (e) {
+      _errorMessage = 'Failed to send message';
+      _createCommentState = TicketState.error;
     }
     notifyListeners();
     return null;

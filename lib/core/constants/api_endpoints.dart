@@ -26,6 +26,9 @@ class ApiEndpoints {
   static const String tickets = '/tickets';
   static String ticketById(int id) => '/tickets/$id';
 
+  // Comments
+  static String ticketComments(int ticketId) => '/tickets/$ticketId/comments';
+
   // File Upload
   static const String upload = '/upload';
   static String downloadFile(String filename) => '/uploads/$filename';

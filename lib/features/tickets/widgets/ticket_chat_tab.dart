@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/network/chat_websocket_service.dart';
 import '../models/ticket_model.dart';
 import '../models/comment_model.dart';
 import 'chat_bubble.dart';
@@ -9,12 +10,16 @@ class TicketChatTab extends StatefulWidget {
   final List<Comment> comments;
   final Ticket ticket;
   final Function(String message, String? attachmentPath) onSendMessage;
+  final WebSocketState connectionState;
+  final bool isSending;
 
   const TicketChatTab({
     super.key,
     required this.comments,
     required this.ticket,
     required this.onSendMessage,
+    this.connectionState = WebSocketState.disconnected,
+    this.isSending = false,
   });
 
   @override
@@ -35,6 +40,8 @@ class _TicketChatTabState extends State<TicketChatTab> {
   }
 
   void _handleSend() {
+    if (widget.isSending) return;
+
     final message = _messageController.text.trim();
     if (message.isNotEmpty) {
       widget.onSendMessage(message, null);
@@ -50,6 +57,28 @@ class _TicketChatTabState extends State<TicketChatTab> {
           );
         }
       });
+    }
+  }
+
+  /// Scroll to bottom when new messages arrive
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(TicketChatTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Auto-scroll when new messages arrive
+    if (widget.comments.length > oldWidget.comments.length) {
+      _scrollToBottom();
     }
   }
 
@@ -140,6 +169,9 @@ class _TicketChatTabState extends State<TicketChatTab> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Connection status indicator
+        _buildConnectionStatus(),
+
         // Chat messages list
         Expanded(
           child: widget.comments.isEmpty
@@ -150,6 +182,63 @@ class _TicketChatTabState extends State<TicketChatTab> {
         // Message input
         _buildMessageInput(),
       ],
+    );
+  }
+
+  Widget _buildConnectionStatus() {
+    Color bgColor;
+    Color textColor;
+    String statusText;
+    IconData icon;
+
+    switch (widget.connectionState) {
+      case WebSocketState.connected:
+        bgColor = AppColors.success500.withAlpha(25);
+        textColor = AppColors.success500;
+        statusText = 'Connected';
+        icon = Icons.wifi;
+        break;
+      case WebSocketState.connecting:
+      case WebSocketState.reconnecting:
+        bgColor = AppColors.warning500.withAlpha(25);
+        textColor = AppColors.warning500;
+        statusText = widget.connectionState == WebSocketState.connecting
+            ? 'Connecting...'
+            : 'Reconnecting...';
+        icon = Icons.sync;
+        break;
+      case WebSocketState.error:
+        bgColor = AppColors.error500.withAlpha(25);
+        textColor = AppColors.error500;
+        statusText = 'Connection error';
+        icon = Icons.wifi_off;
+        break;
+      case WebSocketState.disconnected:
+        bgColor = AppColors.grey200;
+        textColor = AppColors.textSecondary;
+        statusText = 'Offline mode';
+        icon = Icons.wifi_off;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      color: bgColor,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: textColor),
+          const SizedBox(width: 6),
+          Text(
+            statusText,
+            style: AppTextStyles.caption.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -365,18 +454,28 @@ class _TicketChatTabState extends State<TicketChatTab> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                color: widget.isSending
+                    ? AppColors.primary.withAlpha(150)
+                    : AppColors.primary,
                 shape: BoxShape.circle,
               ),
-              child: IconButton(
-                onPressed: _handleSend,
-                icon: const Icon(
-                  Icons.send,
-                  color: AppColors.white,
-                  size: 20,
-                ),
-                padding: EdgeInsets.zero,
-              ),
+              child: widget.isSending
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+                      ),
+                    )
+                  : IconButton(
+                      onPressed: _handleSend,
+                      icon: const Icon(
+                        Icons.send,
+                        color: AppColors.white,
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
+                    ),
             ),
           ],
         ),

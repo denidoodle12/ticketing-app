@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/network/chat_websocket_service.dart';
+import '../../../data/datasources/local/local_storage.dart';
 import '../../../providers/ticket_provider.dart';
 import '../models/ticket_model.dart';
 import '../models/comment_model.dart';
@@ -28,11 +30,21 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   List<Comment> _comments = [];
   List<TicketAttachment> _attachments = [];
 
+  // WebSocket service for real-time chat
+  final ChatWebSocketService _webSocketService = ChatWebSocketService();
+  WebSocketState _wsState = WebSocketState.disconnected;
+  bool _isSending = false;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _currentTicket = widget.ticket;
+
+    // Setup WebSocket callbacks
+    _webSocketService.onMessageReceived = _handleWebSocketMessage;
+    _webSocketService.onStateChanged = _handleWebSocketStateChange;
+    _webSocketService.onError = _handleWebSocketError;
 
     // Load ticket detail from API
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -42,6 +54,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   @override
   void dispose() {
+    _webSocketService.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -56,6 +69,68 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         _comments = _parseComments(provider.ticketDetailResponse!.comments);
         _attachments = _extractAttachments(_comments, _currentTicket);
       });
+
+      // Connect to WebSocket for real-time chat
+      _connectWebSocket();
+    }
+  }
+
+  /// Connect to WebSocket for real-time chat
+  Future<void> _connectWebSocket() async {
+    final localStorage = context.read<LocalStorage>();
+    final token = await localStorage.getAccessToken();
+
+    if (token != null && mounted) {
+      await _webSocketService.connect(
+        ticketId: _currentTicket.id,
+        token: token,
+      );
+    }
+  }
+
+  /// Handle incoming message from WebSocket
+  void _handleWebSocketMessage(Comment comment) {
+    if (mounted) {
+      // Check if comment already exists (avoid duplicates)
+      final exists = _comments.any((c) => c.id == comment.id);
+      if (!exists) {
+        setState(() {
+          _comments.add(comment);
+          // Update attachments if comment has attachment
+          if (comment.attachment != null && comment.attachment!.isNotEmpty) {
+            _attachments.add(TicketAttachment(
+              fileName: _getFileNameFromPath(comment.attachment!),
+              fileUrl: comment.attachment!,
+              fileSize: 0,
+              uploadedAt: comment.createdAt,
+              uploadedBy: comment.isFromAgent ? comment.displayName : 'You',
+              isFromAgent: comment.isFromAgent,
+            ));
+          }
+        });
+      }
+    }
+  }
+
+  /// Handle WebSocket state changes
+  void _handleWebSocketStateChange(WebSocketState state) {
+    if (mounted) {
+      setState(() {
+        _wsState = state;
+      });
+    }
+  }
+
+  /// Handle WebSocket errors
+  void _handleWebSocketError(String error) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Chat connection error: $error'),
+          backgroundColor: AppColors.warning500,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -200,6 +275,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                                   comments: _comments,
                                   ticket: _currentTicket,
                                   onSendMessage: _handleSendMessage,
+                                  connectionState: _wsState,
+                                  isSending: _isSending,
                                 ),
                                 TicketFilesTab(attachments: _attachments),
                               ],
@@ -417,21 +494,59 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     );
   }
 
-  void _handleSendMessage(String message, String? attachmentPath) {
-    // TODO: Implement send message via API
-    final newComment = Comment(
-      id: _comments.length + 1,
-      ticketId: _currentTicket.id,
-      userId: 1,
-      userName: 'customer@test.com',
-      userRole: 'customer',
-      content: message,
-      attachment: attachmentPath,
-      createdAt: DateTime.now(),
-    );
+  Future<void> _handleSendMessage(String message, String? attachmentPath) async {
+    if (_isSending) return;
+
+    // Get provider before async operations
+    final provider = context.read<TicketProvider>();
 
     setState(() {
-      _comments.add(newComment);
+      _isSending = true;
     });
+
+    bool sent = false;
+
+    // Try WebSocket first if connected
+    if (_webSocketService.isConnected) {
+      sent = await _webSocketService.sendMessage(message);
+    }
+
+    // Fallback to REST API if WebSocket fails or not connected
+    if (!sent && mounted) {
+      final comment = await provider.createComment(
+        ticketId: _currentTicket.id,
+        content: message,
+      );
+
+      if (comment != null && mounted) {
+        setState(() {
+          _comments.add(comment);
+          // Update attachments if comment has attachment
+          if (comment.attachment != null && comment.attachment!.isNotEmpty) {
+            _attachments.add(TicketAttachment(
+              fileName: _getFileNameFromPath(comment.attachment!),
+              fileUrl: comment.attachment!,
+              fileSize: 0,
+              uploadedAt: comment.createdAt,
+              uploadedBy: 'You',
+              isFromAgent: false,
+            ));
+          }
+        });
+      } else if (mounted && provider.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider.errorMessage!),
+            backgroundColor: AppColors.error500,
+          ),
+        );
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isSending = false;
+      });
+    }
   }
 }
