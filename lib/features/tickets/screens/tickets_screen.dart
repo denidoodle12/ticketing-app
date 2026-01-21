@@ -154,8 +154,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
     }
   }
 
-  void _navigateToTicketDetail(int ticketId) {
-    context.push('/tickets/$ticketId');
+  void _navigateToTicketDetail(Ticket ticket) {
+    context.push('/tickets/detail', extra: ticket);
   }
 
   Future<void> _onRefresh() async {
@@ -366,7 +366,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
           itemBuilder: (context, ticket, index) => RepaintBoundary(
             child: TicketCard(
               ticket: ticket,
-              onTap: () => _navigateToTicketDetail(ticket.id),
+              onTap: () => _navigateToTicketDetail(ticket),
             ),
           ),
           firstPageProgressIndicatorBuilder: (context) => const Center(

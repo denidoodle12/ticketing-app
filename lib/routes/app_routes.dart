@@ -5,6 +5,8 @@ import '../features/auth/screens/login_screen.dart';
 import '../features/main/screens/main_screen.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
 import '../features/tickets/screens/create_ticket_screen.dart';
+import '../features/tickets/screens/ticket_detail_screen.dart';
+import '../features/tickets/models/ticket_model.dart';
 
 class AppRoutes {
   // Route names
@@ -13,6 +15,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String home = '/home';
   static const String createTicket = '/tickets/create';
+  static const String ticketDetail = '/tickets/detail';
 
   // Navigator key for global access
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -46,6 +49,14 @@ class AppRoutes {
         path: createTicket,
         name: 'createTicket',
         builder: (context, state) => const CreateTicketScreen(),
+      ),
+      GoRoute(
+        path: ticketDetail,
+        name: 'ticketDetail',
+        builder: (context, state) {
+          final ticket = state.extra as Ticket;
+          return TicketDetailScreen(ticket: ticket);
+        },
       ),
     ],
   );

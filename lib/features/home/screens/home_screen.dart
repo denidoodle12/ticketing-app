@@ -460,7 +460,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: TicketCard(
                 ticket: ticket,
                 onTap: () {
-                  context.push('/tickets/${ticket.id}');
+                  context.push('/tickets/detail', extra: ticket);
                 },
               ),
             );

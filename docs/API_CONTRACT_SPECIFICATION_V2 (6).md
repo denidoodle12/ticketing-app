@@ -12,6 +12,7 @@
 | **ms-auth**            | `http://localhost:8080` |
 | **ms-user-management** | `http://localhost:8081` |
 | **ms-ticket**          | `http://localhost:8082` |
+| **ms-chat**            | `http://localhost:8083` |
 
 ---
 
@@ -36,6 +37,11 @@
   - File upload for attachments (10MB limit)
   - Priority levels (low, medium, high, critical)
   - **Note:** SLA tracking will be implemented in next sprint
+- **NEW:** Chat Service (ms-chat) with:
+  - Real-time WebSocket chat for ticket comments
+  - REST API for chat history
+  - Room-based messaging (per ticket)
+  - Automatic message persistence
 
 ---
 
@@ -491,11 +497,13 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-## 6. List All Users ✨ NEW
+## 6. List All Users ⚠️ UPDATED
 
-| Method | Endpoint | Access        |
-| ------ | -------- | ------------- |
-| `GET`  | `/users` | Authenticated |
+| Method | Endpoint | Access              |
+| ------ | -------- | ------------------- |
+| `GET`  | `/users` | Admin/Super Admin   |
+
+**Description:** Get all users. Only Admin (level 5+) can access.
 
 **Query Parameters:**
 
@@ -524,6 +532,70 @@ Authorization: Bearer <jwt_token>
     "limit": 10,
     "total": 25
   }
+}
+```
+
+**Error Response:**
+
+- **403 Forbidden** - Non-admin accessing:
+
+```json
+{
+  "error": "forbidden",
+  "message": "admin role required (level 5+)"
+}
+```
+
+---
+
+## 6.1. Get All Agents ✨ NEW
+
+| Method | Endpoint        | Access                     |
+| ------ | --------------- | -------------------------- |
+| `GET`  | `/users/agents` | Agent/Admin/Super Admin    |
+
+**Description:** Get all agents (users with role level = 2). Accessible by agents and above. Useful for assigning tickets.
+
+**Query Parameters:**
+
+- `page`: Page number (default: 1)
+- `limit`: Items per page (default: 10, max: 100)
+
+**Success Response (200):**
+
+```json
+{
+  "message": "agents retrieved successfully",
+  "data": [
+    {
+      "id": 5,
+      "email": "agent1@test.com",
+      "username": "agent1",
+      "name": "Agent One",
+      "last_name": "Support",
+      "role": "agent",
+      "role_id": 2,
+      "is_active": true,
+      "created_at": "2025-12-08T10:00:00Z",
+      "updated_at": "2025-12-08T10:00:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 5
+  }
+}
+```
+
+**Error Response:**
+
+- **403 Forbidden** - Customer accessing:
+
+```json
+{
+  "error": "forbidden",
+  "message": "agent role or higher required to view agents"
 }
 ```
 
@@ -2492,16 +2564,19 @@ GET /tickets?assigned_to=5&category_id=2
 
 ---
 
-### 44. Get Ticket By ID
+### 44. Get Ticket By ID (with Comments) ✨ UPDATED
 
 | Method | Endpoint       | Access              |
 | ------ | -------------- | ------------------- |
 | `GET`  | `/tickets/:id` | Authenticated Users |
 
-**Description:** Get ticket details by ID.
+**Description:** Get ticket details by ID with chat history (comments).
 
 - **Customer:** Can only view own tickets
 - **Agent/Admin/Super Admin:** Can view all tickets
+
+> [!NOTE]
+> Comments are fetched from ms-chat service. If there are no comments, the `comments` field will not be included in the response.
 
 **Success Response (200):**
 
@@ -2522,6 +2597,29 @@ GET /tickets?assigned_to=5&category_id=2
     "status": { ... },
     "created_at": "2026-01-06T11:30:00Z",
     "updated_at": "2026-01-06T11:35:00Z"
+  },
+  "comments": {
+    "data": [
+      {
+        "id": 1,
+        "ticket_id": 1,
+        "user_id": 10,
+        "user_name": "customer@test.com",
+        "user_role": "customer",
+        "content": "Halo, saya butuh bantuan",
+        "created_at": "2026-01-06T11:31:00Z"
+      },
+      {
+        "id": 2,
+        "ticket_id": 1,
+        "user_id": 5,
+        "user_name": "agent@test.com",
+        "user_role": "agent",
+        "content": "Baik, saya akan bantu",
+        "created_at": "2026-01-06T11:32:00Z"
+      }
+    ],
+    "total": 2
   }
 }
 ```
@@ -2903,6 +3001,225 @@ Resolved → In Progress (if issue persists)
 
 ---
 
+# Chat Service (ms-chat) ✨ NEW
+
+> [!NOTE] > **Access Control:**
+>
+> - **All Authenticated Users** can read/write comments on their accessible tickets
+> - **Customer:** Can comment on tickets they created
+> - **Agent:** Can comment on tickets assigned to them
+> - **Admin/Super Admin:** Can comment on all tickets
+
+## 50. Get Ticket Comments (Chat History)
+
+| Method | Endpoint                | Access              |
+| ------ | ----------------------- | ------------------- |
+| `GET`  | `/tickets/:id/comments` | Authenticated Users |
+
+**Description:** Get all comments/chat messages for a ticket with pagination.
+
+**Query Parameters:**
+
+| Parameter | Type    | Description                     |
+| --------- | ------- | ------------------------------- |
+| `page`    | integer | Page number (default: 1)        |
+| `limit`   | integer | Items per page (default: 50, max: 100) |
+
+**Example Request:**
+
+```bash
+curl -X GET "http://localhost:8083/tickets/1/comments?page=1&limit=50" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Success Response (200):**
+
+```json
+{
+  "message": "comments retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "ticket_id": 1,
+      "user_id": 5,
+      "user_name": "customer@test.com",
+      "user_role": "customer",
+      "content": "Halo, saya butuh bantuan dengan masalah login",
+      "created_at": "2026-01-20T09:00:00Z"
+    },
+    {
+      "id": 2,
+      "ticket_id": 1,
+      "user_id": 10,
+      "user_name": "agent@test.com",
+      "user_role": "agent",
+      "content": "Baik, saya akan bantu. Bisa jelaskan masalahnya?",
+      "created_at": "2026-01-20T09:05:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 2
+  }
+}
+```
+
+---
+
+## 51. Create Comment (REST API)
+
+| Method | Endpoint                | Access              |
+| ------ | ----------------------- | ------------------- |
+| `POST` | `/tickets/:id/comments` | Authenticated Users |
+
+**Description:** Create a new comment on a ticket via REST API.
+
+**Request:**
+
+```json
+{
+  "content": "string (required, min 1 char)"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X POST http://localhost:8083/tickets/1/comments \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Halo, saya butuh bantuan dengan masalah login"}'
+```
+
+**Success Response (201):**
+
+```json
+{
+  "message": "comment created successfully",
+  "data": {
+    "id": 1,
+    "ticket_id": 1,
+    "user_id": 5,
+    "user_name": "customer@test.com",
+    "user_role": "customer",
+    "content": "Halo, saya butuh bantuan dengan masalah login",
+    "created_at": "2026-01-20T09:00:00Z"
+  }
+}
+```
+
+**Error Responses:**
+
+- **400 Bad Request** - Validation error:
+
+```json
+{ "error": "validation_error", "message": "content is required" }
+```
+
+---
+
+## 52. Real-time Chat (WebSocket) ✨
+
+| Protocol | Endpoint                      | Access              |
+| -------- | ----------------------------- | ------------------- |
+| `WS`     | `/ws/tickets/:id?token=<jwt>` | Authenticated Users |
+
+**Description:** Connect to real-time chat for a ticket using WebSocket. Messages are automatically saved to database and broadcast to all connected clients in the same ticket room.
+
+> [!IMPORTANT]
+> WebSocket connections use JWT token via **query parameter** instead of Authorization header.
+
+**Connection URL:**
+
+```
+ws://localhost:8083/ws/tickets/1?token=<your_jwt_token>
+```
+
+**Testing with wscat:**
+
+```bash
+# Install wscat
+npm install -g wscat
+
+# Connect to WebSocket
+wscat -c "ws://localhost:8083/ws/tickets/1?token=$TOKEN"
+```
+
+**Testing with Postman:**
+
+1. Create new **WebSocket** request
+2. Enter URL: `ws://localhost:8083/ws/tickets/1?token=<paste_token>`
+3. Click **Connect**
+4. Send messages in JSON format
+
+**Send Message Format:**
+
+```json
+{
+  "type": "message",
+  "content": "Hello from WebSocket!"
+}
+```
+
+**Receive Message Format (Broadcast):**
+
+```json
+{
+  "id": 3,
+  "ticket_id": 1,
+  "user_id": 5,
+  "user_name": "customer@test.com",
+  "user_role": "customer",
+  "content": "Hello from WebSocket!",
+  "created_at": "2026-01-20T10:00:00Z"
+}
+```
+
+**Connection Flow:**
+
+```
+1. Client connects with JWT token
+2. Server validates token
+3. Client joins ticket "room"
+4. Client sends message
+5. Server saves to database
+6. Server broadcasts to all clients in room
+7. All clients receive message in real-time
+```
+
+**Error Cases:**
+
+- **401 Unauthorized** - Missing or invalid token
+- **403 Forbidden** - User doesn't have access to ticket
+- Connection closes if token expires
+
+---
+
+### **TicketComment Database Model:**
+
+| Field       | Type      | Description                        |
+| ----------- | --------- | ---------------------------------- |
+| `id`        | int (PK)  | Auto-increment primary key         |
+| `ticket_id` | int       | Foreign key to ticket              |
+| `user_id`   | int       | ID of user who sent message        |
+| `user_name` | string    | Display name (email)               |
+| `user_role` | string    | Role: customer, agent, admin, etc. |
+| `content`   | text      | Message content                    |
+| `created_at`| timestamp | When message was sent              |
+
+---
+
+### **RBAC Summary for Chat:**
+
+| Action         | Customer       | Agent            | Admin  | Super Admin |
+| -------------- | -------------- | ---------------- | ------ | ----------- |
+| Read Comments  | ✅ Own tickets | ✅ Assigned      | ✅ All | ✅ All      |
+| Write Comments | ✅ Own tickets | ✅ Assigned      | ✅ All | ✅ All      |
+| WebSocket Chat | ✅ Own tickets | ✅ Assigned      | ✅ All | ✅ All      |
+
+---
+
 # Internal Endpoints
 
 ## 50. Create User (Internal)
@@ -3073,6 +3390,7 @@ APP_PORT=8000
 AUTH_SERVICE_URL=http://localhost:8080
 USER_SERVICE_URL=http://localhost:8081
 TICKET_SERVICE_URL=http://localhost:8082
+CHAT_SERVICE_URL=http://localhost:8083
 ```
 
 ## ms-ticket (.env)
@@ -3089,6 +3407,21 @@ UPLOAD_DIR=./uploads
 
 - `UPLOAD_DIR`: Directory for uploaded file attachments (default: `./uploads`)
 - Directory will be created automatically on startup if not exists
+
+## ms-chat (.env) ✨ NEW
+
+```env
+APP_PORT=8083
+DATABASE_URL=postgres://user:pass@localhost:5432/chat_db?sslmode=disable
+JWT_SECRET=<same as ms-auth>
+INTERNAL_TOKEN=<same as ms-auth>
+TICKET_SERVICE_URL=http://localhost:8082
+```
+
+**Notes:**
+
+- Uses separate database `chat_db` for chat history
+- `TICKET_SERVICE_URL`: For future ticket access validation
 
 ---
 
@@ -3219,11 +3552,56 @@ curl -X GET http://localhost:8000/uploads/20260106112600_a1b2c3d4.png \
 # 23. Delete Ticket (super admin only)
 curl -X DELETE http://localhost:8000/tickets/1 \
   -H "Authorization: Bearer $SUPERADMIN_TOKEN"
+
+# ==================== CHAT SERVICE (ms-chat) ====================
+
+# 24. Get Ticket Comments (Chat History)
+curl -X GET "http://localhost:8083/tickets/1/comments?page=1&limit=50" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 25. Create Comment via REST
+curl -X POST http://localhost:8083/tickets/1/comments \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Halo, saya butuh bantuan dengan masalah login"}'
+
+# 26. WebSocket Chat (using wscat)
+# Install: npm install -g wscat
+wscat -c "ws://localhost:8083/ws/tickets/1?token=$TOKEN"
+# Send message: {"type": "message", "content": "Hello via WebSocket!"}
 ```
 
 ---
 
 # Changelog
+
+## Version 2.8 (2026-01-20) - Chat Service ✨ NEW
+
+- ✨ **New Microservice: ms-chat** - Dedicated chat service for ticket comments (port 8083)
+- ✨ **WebSocket Real-time Chat** - Gorilla WebSocket for live messaging
+- ✨ **REST API for Chat History** - GET/POST endpoints for comments
+- ✨ **Room-based Messaging** - Each ticket is a separate chat room
+- ✨ **Auto Message Persistence** - All WebSocket messages saved to database
+- 🗄️ **Separate Database** - `chat_db` for chat history storage
+- 🌐 **Gateway Integration** - Routes proxied via ms-gateway
+
+**API Endpoints Added:**
+
+- `GET /tickets/:id/comments` - Get chat history with pagination
+- `POST /tickets/:id/comments` - Create comment via REST
+- `WS /ws/tickets/:id?token=xxx` - Real-time WebSocket chat
+
+**Database Model:**
+
+| Field       | Type    | Description            |
+|-------------|---------|------------------------|
+| id          | int     | Primary key            |
+| ticket_id   | int     | Ticket ID              |
+| user_id     | int     | User who sent message  |
+| user_name   | string  | Display name           |
+| user_role   | string  | customer/agent/admin   |
+| content     | text    | Message content        |
+| created_at  | timestamp | Sent time            |
 
 ## Version 2.7 (2026-01-06) - Agent Re-assign & Upload Limit
 

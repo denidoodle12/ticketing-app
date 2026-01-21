@@ -325,29 +325,75 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   }
 
   PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: AppColors.white,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      centerTitle: true,
-      leading: IconButton(
-        onPressed: _handleBackAction,
-        icon: const Icon(
-          Icons.chevron_left,
-          color: AppColors.textPrimary,
-          size: 28,
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(68),
+      child: Container(
+        color: AppColors.white,
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    // Back button with rounded square background
+                    _buildActionButton(
+                      icon: Icons.arrow_back,
+                      onTap: _handleBackAction,
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          'Create Ticket',
+                          style: AppTextStyles.h5.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Placeholder for symmetry
+                    const SizedBox(width: 44),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      title: Text(
-        'Create Ticket',
-        style: AppTextStyles.h5.copyWith(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.bold,
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadow.withAlpha(20),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            color: AppColors.primaryDark,
+            size: 22,
+          ),
         ),
-      ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(color: AppColors.grey200, height: 1),
       ),
     );
   }
