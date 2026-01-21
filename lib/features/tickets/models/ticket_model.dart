@@ -222,3 +222,26 @@ class TicketListResponse {
 
   bool get hasMore => hasNext;
 }
+
+/// Response model for ticket detail with comments
+class TicketDetailResponse {
+  final Ticket ticket;
+  final List<dynamic> comments;
+  final int totalComments;
+
+  TicketDetailResponse({
+    required this.ticket,
+    required this.comments,
+    required this.totalComments,
+  });
+
+  factory TicketDetailResponse.fromJson(Map<String, dynamic> json) {
+    final commentsData = json['comments'] as Map<String, dynamic>?;
+
+    return TicketDetailResponse(
+      ticket: Ticket.fromJson(json['data'] as Map<String, dynamic>),
+      comments: commentsData?['data'] as List<dynamic>? ?? [],
+      totalComments: commentsData?['total'] as int? ?? 0,
+    );
+  }
+}

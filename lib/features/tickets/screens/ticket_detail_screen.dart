@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../providers/ticket_provider.dart';
 import '../models/ticket_model.dart';
 import '../models/comment_model.dart';
 import '../widgets/ticket_detail_tab.dart';
@@ -22,17 +24,20 @@ class TicketDetailScreen extends StatefulWidget {
 class _TicketDetailScreenState extends State<TicketDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // Mock data for now - will be replaced with API integration
+  late Ticket _currentTicket;
   List<Comment> _comments = [];
   List<TicketAttachment> _attachments = [];
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadMockData();
+    _currentTicket = widget.ticket;
+
+    // Load ticket detail from API
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadTicketDetail();
+    });
   }
 
   @override
@@ -41,101 +46,74 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     super.dispose();
   }
 
-  void _loadMockData() {
-    // Mock comments data
-    _comments = [
-      Comment(
-        id: 1,
-        ticketId: widget.ticket.id,
-        userId: 1,
-        userName: 'customer@test.com',
-        userRole: 'customer',
-        content: 'I forgot my password and cannot reset it through the normal process.',
-        createdAt: DateTime(2026, 1, 6, 10, 30),
-      ),
-      Comment(
-        id: 2,
-        ticketId: widget.ticket.id,
-        userId: 5,
-        userName: 'John Agent',
-        userRole: 'agent',
-        content: 'Hi, thank you for contacting us. I\'ll help you reset your password. Can you confirm your registered email address?',
-        createdAt: DateTime(2026, 1, 6, 11, 5),
-      ),
-      Comment(
-        id: 3,
-        ticketId: widget.ticket.id,
-        userId: 1,
-        userName: 'customer@test.com',
-        userRole: 'customer',
-        content: 'Yes, my email is john@company.com',
-        createdAt: DateTime(2026, 1, 6, 11, 8),
-      ),
-      Comment(
-        id: 4,
-        ticketId: widget.ticket.id,
-        userId: 5,
-        userName: 'John Agent',
-        userRole: 'agent',
-        content: 'I\'ve sent a password reset link to your email. Please check and let me know.',
-        attachment: 'password_reset_guide.pdf',
-        createdAt: DateTime(2026, 1, 6, 11, 15),
-      ),
-      Comment(
-        id: 5,
-        ticketId: widget.ticket.id,
-        userId: 1,
-        userName: 'customer@test.com',
-        userRole: 'customer',
-        content: 'I still can\'t login, here\'s the error screenshot. It says \'Token Expired\'.',
-        attachment: 'screenshot.png',
-        createdAt: DateTime(2026, 1, 6, 11, 20),
-      ),
-    ];
+  Future<void> _loadTicketDetail() async {
+    final provider = context.read<TicketProvider>();
+    await provider.loadTicketDetail(widget.ticket.id);
 
-    // Mock attachments data
-    _attachments = [
-      TicketAttachment(
-        fileName: 'screenshot.png',
-        fileUrl: '/uploads/screenshot.png',
-        fileSize: 245 * 1024,
-        uploadedAt: DateTime(2026, 1, 6, 10, 30),
+    if (mounted && provider.ticketDetailResponse != null) {
+      setState(() {
+        _currentTicket = provider.ticketDetailResponse!.ticket;
+        _comments = _parseComments(provider.ticketDetailResponse!.comments);
+        _attachments = _extractAttachments(_comments, _currentTicket);
+      });
+    }
+  }
+
+  List<Comment> _parseComments(List<dynamic> commentsJson) {
+    return commentsJson
+        .map((json) => Comment.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+
+  List<TicketAttachment> _extractAttachments(List<Comment> comments, Ticket ticket) {
+    final attachments = <TicketAttachment>[];
+
+    // Add ticket attachment if exists
+    if (ticket.attachment != null && ticket.attachment!.isNotEmpty) {
+      attachments.add(TicketAttachment(
+        fileName: _getFileNameFromPath(ticket.attachment!),
+        fileUrl: ticket.attachment!,
+        fileSize: 0,
+        uploadedAt: ticket.createdAt ?? DateTime.now(),
         uploadedBy: 'You',
         isFromAgent: false,
-      ),
-      TicketAttachment(
-        fileName: 'password_reset_guide.pdf',
-        fileUrl: '/uploads/password_reset_guide.pdf',
-        fileSize: (1.2 * 1024 * 1024).toInt(),
-        uploadedAt: DateTime(2026, 1, 6, 11, 15),
-        uploadedBy: 'John Agent',
-        isFromAgent: true,
-      ),
-      TicketAttachment(
-        fileName: 'error_log.txt',
-        fileUrl: '/uploads/error_log.txt',
-        fileSize: 56 * 1024,
-        uploadedAt: DateTime(2026, 1, 6, 11, 30),
-        uploadedBy: 'You',
-        isFromAgent: false,
-      ),
-    ];
+      ));
+    }
 
-    setState(() {
-      _isLoading = false;
-    });
+    // Add attachments from comments
+    for (final comment in comments) {
+      if (comment.attachment != null && comment.attachment!.isNotEmpty) {
+        attachments.add(TicketAttachment(
+          fileName: _getFileNameFromPath(comment.attachment!),
+          fileUrl: comment.attachment!,
+          fileSize: 0,
+          uploadedAt: comment.createdAt,
+          uploadedBy: comment.isFromAgent ? comment.displayName : 'You',
+          isFromAgent: comment.isFromAgent,
+        ));
+      }
+    }
+
+    return attachments;
+  }
+
+  String _getFileNameFromPath(String path) {
+    final parts = path.split('/');
+    return parts.isNotEmpty ? parts.last : path;
   }
 
   String _getAssignedAgent() {
-    // TODO: Get from API - for now return mock data
+    if (_currentTicket.assignedTo != null) {
+      return 'Agent #${_currentTicket.assignedTo}';
+    }
     return 'Unassigned';
   }
 
   String _getUpdatedTimeAgo() {
-    if (widget.ticket.updatedAt == null) return '';
+    if (_currentTicket.updatedAt == null) return '';
 
     final now = DateTime.now();
-    final difference = now.difference(widget.ticket.updatedAt!);
+    final difference = now.difference(_currentTicket.updatedAt!);
 
     if (difference.inDays > 0) {
       return 'Updated ${difference.inDays}d ago';
@@ -172,7 +150,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
               title: const Text('Refresh'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement refresh
+                _loadTicketDetail();
               },
             ),
             ListTile(
@@ -195,33 +173,80 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     return Scaffold(
       backgroundColor: AppColors.white,
       body: SafeArea(
+        child: Consumer<TicketProvider>(
+          builder: (context, provider, child) {
+            return Column(
+              children: [
+                // Header
+                _buildHeader(),
+
+                // Ticket Info (Subject + Meta)
+                _buildTicketInfo(),
+
+                // Tabs
+                _buildTabBar(),
+
+                // Tab Content
+                Expanded(
+                  child: provider.isTicketDetailLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : provider.ticketDetailState == TicketState.error
+                          ? _buildErrorState(provider.errorMessage)
+                          : TabBarView(
+                              controller: _tabController,
+                              children: [
+                                TicketDetailTab(ticket: _currentTicket),
+                                TicketChatTab(
+                                  comments: _comments,
+                                  ticket: _currentTicket,
+                                  onSendMessage: _handleSendMessage,
+                                ),
+                                TicketFilesTab(attachments: _attachments),
+                              ],
+                            ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String? message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Header
-            _buildHeader(),
-
-            // Ticket Info (Subject + Meta)
-            _buildTicketInfo(),
-
-            // Tabs
-            _buildTabBar(),
-
-            // Tab Content
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        TicketDetailTab(ticket: widget.ticket),
-                        TicketChatTab(
-                          comments: _comments,
-                          ticket: widget.ticket,
-                          onSendMessage: _handleSendMessage,
-                        ),
-                        TicketFilesTab(attachments: _attachments),
-                      ],
-                    ),
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: AppColors.error500.withAlpha(150),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Failed to load ticket',
+              style: AppTextStyles.bodyLarge.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message ?? 'Unknown error',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loadTicketDetail,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryDark,
+              ),
+              child: const Text('Try Again'),
             ),
           ],
         ),
@@ -304,7 +329,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         children: [
           // Subject - Large bold text
           Text(
-            widget.ticket.subject,
+            _currentTicket.subject,
             style: AppTextStyles.h4.copyWith(
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
@@ -396,7 +421,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     // TODO: Implement send message via API
     final newComment = Comment(
       id: _comments.length + 1,
-      ticketId: widget.ticket.id,
+      ticketId: _currentTicket.id,
       userId: 1,
       userName: 'customer@test.com',
       userRole: 'customer',

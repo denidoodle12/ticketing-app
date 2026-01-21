@@ -83,11 +83,16 @@ class TicketRepository {
     }
   }
 
-  /// Get single ticket by ID
-  Future<Ticket> getTicketById(int id) async {
+  /// Get single ticket by ID with comments
+  Future<TicketDetailResponse> getTicketById(int id) async {
     try {
       if (_useMock) {
-        return await _mockDatasource!.getTicketById(id);
+        final ticket = await _mockDatasource!.getTicketById(id);
+        return TicketDetailResponse(
+          ticket: ticket,
+          comments: [],
+          totalComments: 0,
+        );
       }
       return await _remoteDatasource!.getTicketById(id);
     } on NetworkException {

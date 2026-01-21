@@ -129,7 +129,9 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
   }
 
   Widget _buildTicketInfoSection() {
-    final agentName = 'John Agent'; // TODO: Get from API
+    final agentName = widget.ticket.assignedTo != null
+        ? 'Agent #${widget.ticket.assignedTo}'
+        : 'Not Assigned Yet';
 
     return Container(
       width: double.infinity,
@@ -298,21 +300,30 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
   }
 
   Widget _buildStatusTimelineSection() {
-    // Mock timeline data - will be replaced with actual data
-    final timelineEvents = [
-      {
-        'status': 'In Progress',
-        'date': DateTime(2026, 1, 6, 11, 0),
-        'note': 'Agent started working on ticket',
+    // Build timeline from available ticket data
+    final timelineEvents = <Map<String, dynamic>>[];
+
+    // Current status (if updated_at differs from created_at, show as latest event)
+    final hasStatusChange = widget.ticket.updatedAt != null &&
+        widget.ticket.createdAt != null &&
+        widget.ticket.updatedAt!.isAfter(widget.ticket.createdAt!);
+
+    if (hasStatusChange) {
+      timelineEvents.add({
+        'status': widget.ticket.status?.name ?? 'Unknown',
+        'date': widget.ticket.updatedAt!,
+        'note': 'Status updated',
         'isCurrent': true,
-      },
-      {
-        'status': 'Open',
-        'date': DateTime(2026, 1, 6, 10, 30),
-        'note': 'Ticket created',
-        'isCurrent': false,
-      },
-    ];
+      });
+    }
+
+    // Ticket created event (always show)
+    timelineEvents.add({
+      'status': 'Open',
+      'date': widget.ticket.createdAt ?? DateTime.now(),
+      'note': 'Ticket created',
+      'isCurrent': !hasStatusChange,
+    });
 
     return Container(
       width: double.infinity,

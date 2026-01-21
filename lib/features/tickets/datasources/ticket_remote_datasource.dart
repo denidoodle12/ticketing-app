@@ -78,10 +78,10 @@ class TicketRemoteDatasource {
     );
   }
 
-  /// Get single ticket by ID
-  Future<Ticket> getTicketById(int id) async {
+  /// Get single ticket by ID with comments
+  Future<TicketDetailResponse> getTicketById(int id) async {
     final response = await _dio.get(ApiEndpoints.ticketById(id));
-    return Ticket.fromJson(response.data['data'] as Map<String, dynamic>);
+    return TicketDetailResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
   /// Create new ticket

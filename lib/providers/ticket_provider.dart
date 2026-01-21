@@ -32,6 +32,7 @@ class TicketProvider extends ChangeNotifier {
   List<Ticket> _rawTickets = []; // Raw tickets from API
   List<Ticket> _recentTickets = [];
   Ticket? _selectedTicket;
+  TicketDetailResponse? _ticketDetailResponse;
 
   // Stats - stores ticket counts by status (loaded once, updated on ticket changes)
   Map<String, int> _statusCounts = {
@@ -111,6 +112,7 @@ class TicketProvider extends ChangeNotifier {
 
   List<Ticket> get recentTickets => _recentTickets;
   Ticket? get selectedTicket => _selectedTicket;
+  TicketDetailResponse? get ticketDetailResponse => _ticketDetailResponse;
   Map<String, int> get statusCounts => _statusCounts;
   Map<String, int> get priorityCounts => _priorityCounts;
   Map<String, int> get categoryCounts => _categoryCounts;
@@ -243,14 +245,15 @@ class TicketProvider extends ChangeNotifier {
     await loadTickets(refresh: true);
   }
 
-  /// Load ticket detail by ID
+  /// Load ticket detail by ID with comments
   Future<void> loadTicketDetail(int ticketId) async {
     _ticketDetailState = TicketState.loading;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _selectedTicket = await _ticketRepository.getTicketById(ticketId);
+      _ticketDetailResponse = await _ticketRepository.getTicketById(ticketId);
+      _selectedTicket = _ticketDetailResponse?.ticket;
       _ticketDetailState = TicketState.loaded;
     } on NetworkException catch (e) {
       _errorMessage = e.message;
@@ -499,6 +502,7 @@ class TicketProvider extends ChangeNotifier {
   /// Clear selected ticket
   void clearSelectedTicket() {
     _selectedTicket = null;
+    _ticketDetailResponse = null;
     _ticketDetailState = TicketState.initial;
     notifyListeners();
   }
