@@ -1,4 +1,8 @@
+import 'dart:io' as io;
+
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/network/chat_websocket_service.dart';
@@ -12,6 +16,9 @@ class TicketChatTab extends StatefulWidget {
   final Function(String message, String? attachmentPath) onSendMessage;
   final WebSocketState connectionState;
   final bool isSending;
+  final String Function(String)? getAttachmentUrl;
+  final void Function(String)? onAttachmentTap;
+  final Map<String, String>? authHeaders;
 
   const TicketChatTab({
     super.key,
@@ -20,6 +27,9 @@ class TicketChatTab extends StatefulWidget {
     required this.onSendMessage,
     this.connectionState = WebSocketState.disconnected,
     this.isSending = false,
+    this.getAttachmentUrl,
+    this.onAttachmentTap,
+    this.authHeaders,
   });
 
   @override
@@ -30,6 +40,19 @@ class _TicketChatTabState extends State<TicketChatTab> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
+  final ImagePicker _imagePicker = ImagePicker();
+
+  // Selected attachment
+  String? _selectedAttachmentPath;
+  String? _selectedAttachmentName;
+
+  // Allowed file extensions (from API contract)
+  static const List<String> _allowedExtensions = [
+    'jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt', 'zip'
+  ];
+
+  // Max file size: 5MB
+  static const int _maxFileSizeBytes = 5 * 1024 * 1024;
 
   @override
   void dispose() {
@@ -43,20 +66,128 @@ class _TicketChatTabState extends State<TicketChatTab> {
     if (widget.isSending) return;
 
     final message = _messageController.text.trim();
-    if (message.isNotEmpty) {
-      widget.onSendMessage(message, null);
-      _messageController.clear();
+    final attachmentPath = _selectedAttachmentPath;
 
-      // Scroll to bottom after sending
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
+    // At least message or attachment must be present
+    if (message.isEmpty && attachmentPath == null) return;
+
+    widget.onSendMessage(message, attachmentPath);
+    _messageController.clear();
+
+    // Clear selected attachment
+    setState(() {
+      _selectedAttachmentPath = null;
+      _selectedAttachmentName = null;
+    });
+
+    // Scroll to bottom after sending
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _clearAttachment() {
+    setState(() {
+      _selectedAttachmentPath = null;
+      _selectedAttachmentName = null;
+    });
+  }
+
+  bool _validateFile(String? path, int? size, String? name) {
+    if (path == null || name == null) return false;
+
+    // Check file size
+    if (size != null && size > _maxFileSizeBytes) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('File size exceeds 5MB limit'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+
+    // Check file extension
+    final extension = name.split('.').last.toLowerCase();
+    if (!_allowedExtensions.contains(extension)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('File type .$extension is not allowed'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+
+      if (image != null) {
+        final bytes = await image.length();
+        if (_validateFile(image.path, bytes, image.name)) {
+          setState(() {
+            _selectedAttachmentPath = image.path;
+            _selectedAttachmentName = image.name;
+          });
         }
-      });
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+    }
+  }
+
+  Future<void> _pickDocument() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: _allowedExtensions,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (_validateFile(file.path, file.size, file.name)) {
+          setState(() {
+            _selectedAttachmentPath = file.path;
+            _selectedAttachmentName = file.name;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking document: $e');
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    try {
+      final XFile? photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80,
+      );
+
+      if (photo != null) {
+        final bytes = await photo.length();
+        if (_validateFile(photo.path, bytes, photo.name)) {
+          setState(() {
+            _selectedAttachmentPath = photo.path;
+            _selectedAttachmentName = photo.name;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error taking photo: $e');
     }
   }
 
@@ -114,10 +245,10 @@ class _TicketChatTabState extends State<TicketChatTab> {
                 ),
               ),
               title: const Text('Photo & Video'),
-              subtitle: const Text('Share images or videos'),
+              subtitle: const Text('Share images (jpg, png, gif)'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement image picker
+                _pickImage();
               },
             ),
             ListTile(
@@ -133,10 +264,10 @@ class _TicketChatTabState extends State<TicketChatTab> {
                 ),
               ),
               title: const Text('Document'),
-              subtitle: const Text('Share PDF, DOC, or other files'),
+              subtitle: const Text('PDF, DOC, TXT, ZIP (max 5MB)'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement file picker
+                _pickDocument();
               },
             ),
             ListTile(
@@ -155,7 +286,7 @@ class _TicketChatTabState extends State<TicketChatTab> {
               subtitle: const Text('Take a photo'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement camera
+                _takePhoto();
               },
             ),
             const SizedBox(height: 16),
@@ -286,9 +417,12 @@ class _TicketChatTabState extends State<TicketChatTab> {
           // Date separator
           return _buildDateSeparator(item);
         } else if (item is Comment) {
-          return ChatBubble(comment: item);
-        } else if (item is StatusChangeEvent) {
-          return _buildStatusChangeIndicator(item);
+          return ChatBubble(
+            comment: item,
+            getAttachmentUrl: widget.getAttachmentUrl,
+            onAttachmentTap: widget.onAttachmentTap,
+            authHeaders: widget.authHeaders,
+          );
         }
 
         return const SizedBox.shrink();
@@ -300,11 +434,7 @@ class _TicketChatTabState extends State<TicketChatTab> {
     final List<dynamic> result = [];
     String? currentDate;
 
-    // Add mock status change event after first comment
-    bool statusChangeAdded = false;
-
-    for (int i = 0; i < comments.length; i++) {
-      final comment = comments[i];
+    for (final comment in comments) {
       final dateGroup = comment.formattedDateGroup;
 
       // Add date separator if date changed
@@ -314,16 +444,6 @@ class _TicketChatTabState extends State<TicketChatTab> {
       }
 
       result.add(comment);
-
-      // Add status change indicator after first customer message (mock)
-      if (!statusChangeAdded && comment.isFromCustomer && i == 0) {
-        result.add(StatusChangeEvent(
-          fromStatus: 'Open',
-          toStatus: 'In Progress',
-          changedAt: DateTime(2026, 1, 6, 11, 0),
-        ));
-        statusChangeAdded = true;
-      }
     }
 
     return result;
@@ -345,46 +465,6 @@ class _TicketChatTabState extends State<TicketChatTab> {
     );
   }
 
-  Widget _buildStatusChangeIndicator(StatusChangeEvent event) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.grey100,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.sync,
-                size: 14,
-                color: AppColors.success500,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Status changed: ${event.fromStatus} \u2192 ${event.toStatus}',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '\u2022 ${event.formattedTime}',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildMessageInput() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -400,86 +480,219 @@ class _TicketChatTabState extends State<TicketChatTab> {
       ),
       child: SafeArea(
         top: false,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Attachment button
-            IconButton(
-              onPressed: _handleAttachment,
-              icon: Icon(
-                Icons.attach_file,
-                color: AppColors.textSecondary,
-              ),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(
-                minWidth: 40,
-                minHeight: 40,
-              ),
-            ),
+            // Attachment preview (if file selected)
+            if (_selectedAttachmentPath != null) _buildAttachmentPreview(),
 
-            // Message text field
-            Expanded(
-              child: Container(
-                constraints: const BoxConstraints(maxHeight: 120),
-                decoration: BoxDecoration(
-                  color: AppColors.grey100,
-                  borderRadius: BorderRadius.circular(24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Attachment button
+                IconButton(
+                  onPressed: _handleAttachment,
+                  icon: Icon(
+                    Icons.attach_file,
+                    color: AppColors.textSecondary,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                 ),
-                child: TextField(
-                  controller: _messageController,
-                  focusNode: _focusNode,
-                  maxLines: null,
-                  textCapitalization: TextCapitalization.sentences,
-                  style: AppTextStyles.bodyMedium,
-                  decoration: InputDecoration(
-                    hintText: 'Type a message...',
-                    hintStyle: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
+
+                // Message text field
+                Expanded(
+                  child: Container(
+                    constraints: const BoxConstraints(maxHeight: 120),
+                    decoration: BoxDecoration(
+                      color: AppColors.grey100,
+                      borderRadius: BorderRadius.circular(24),
                     ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
+                    child: TextField(
+                      controller: _messageController,
+                      focusNode: _focusNode,
+                      maxLines: null,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: AppTextStyles.bodyMedium,
+                      decoration: InputDecoration(
+                        hintText: 'Type a message...',
+                        hintStyle: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                      ),
+                      onSubmitted: (_) => _handleSend(),
                     ),
                   ),
-                  onSubmitted: (_) => _handleSend(),
                 ),
-              ),
-            ),
 
-            const SizedBox(width: 8),
+                const SizedBox(width: 8),
 
-            // Send button
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: widget.isSending
-                    ? AppColors.primary.withAlpha(150)
-                    : AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              child: widget.isSending
-                  ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
-                      ),
-                    )
-                  : IconButton(
-                      onPressed: _handleSend,
-                      icon: const Icon(
-                        Icons.send,
-                        color: AppColors.white,
-                        size: 20,
-                      ),
-                      padding: EdgeInsets.zero,
-                    ),
+                // Send button
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: widget.isSending
+                        ? AppColors.primary.withAlpha(150)
+                        : AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: widget.isSending
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(AppColors.white),
+                          ),
+                        )
+                      : IconButton(
+                          onPressed: _handleSend,
+                          icon: const Icon(
+                            Icons.send,
+                            color: AppColors.white,
+                            size: 20,
+                          ),
+                          padding: EdgeInsets.zero,
+                        ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildAttachmentPreview() {
+    final fileName = _selectedAttachmentName ?? 'Unknown file';
+    final extension = fileName.split('.').last.toLowerCase();
+    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: AppColors.grey100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          // File icon or image thumbnail
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: isImage ? AppColors.primary100 : AppColors.grey200,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: isImage
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      io.File(_selectedAttachmentPath!),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          Icons.image,
+                          color: AppColors.primary,
+                          size: 24,
+                        );
+                      },
+                    ),
+                  )
+                : Icon(
+                    _getFileIcon(extension),
+                    color: _getFileIconColor(extension),
+                    size: 24,
+                  ),
+          ),
+          const SizedBox(width: 12),
+
+          // File info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  fileName,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  extension.toUpperCase(),
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Remove button
+          IconButton(
+            onPressed: _clearAttachment,
+            icon: Icon(
+              Icons.close,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: 32,
+              minHeight: 32,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getFileIcon(String extension) {
+    switch (extension) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'txt':
+        return Icons.article;
+      case 'zip':
+        return Icons.folder_zip;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  Color _getFileIconColor(String extension) {
+    switch (extension) {
+      case 'pdf':
+        return AppColors.error500;
+      case 'doc':
+      case 'docx':
+        return AppColors.primary;
+      case 'txt':
+        return AppColors.textSecondary;
+      case 'zip':
+        return AppColors.warning500;
+      default:
+        return AppColors.textSecondary;
+    }
   }
 }

@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../models/comment_model.dart';
 
 class ChatBubble extends StatelessWidget {
   final Comment comment;
+  final String Function(String)? getAttachmentUrl;
+  final void Function(String)? onAttachmentTap;
+  final Map<String, String>? authHeaders;
 
   const ChatBubble({
     super.key,
     required this.comment,
+    this.getAttachmentUrl,
+    this.onAttachmentTap,
+    this.authHeaders,
   });
 
   @override
@@ -132,7 +139,7 @@ class ChatBubble extends StatelessWidget {
                 _buildFileAttachment(isFromCustomer),
             ],
 
-            // Message content
+            // Message content (only show if content is not empty)
             Padding(
               padding: EdgeInsets.only(
                 left: 12,
@@ -143,16 +150,18 @@ class ChatBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    comment.content,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: isFromCustomer
-                          ? AppColors.white
-                          : AppColors.textPrimary,
-                      height: 1.4,
+                  if (comment.content.isNotEmpty) ...[
+                    Text(
+                      comment.content,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: isFromCustomer
+                            ? AppColors.white
+                            : AppColors.textPrimary,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
+                    const SizedBox(height: 4),
+                  ],
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -187,120 +196,236 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _buildImageAttachment(bool isFromCustomer) {
-    return Container(
-      width: double.infinity,
-      height: 160,
-      color: AppColors.grey200,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Placeholder image
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primary.withAlpha(77),
-                  AppColors.accent.withAlpha(128),
-                ],
+    final attachmentPath = comment.attachment ?? '';
+    final fullUrl = getAttachmentUrl?.call(attachmentPath) ?? attachmentPath;
+
+    return GestureDetector(
+      onTap: () => onAttachmentTap?.call(attachmentPath),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxHeight: 200),
+        color: AppColors.grey200,
+        child: Stack(
+          children: [
+            // Network image
+            CachedNetworkImage(
+              imageUrl: fullUrl,
+              httpHeaders: authHeaders,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              placeholder: (context, url) => Container(
+                height: 160,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.primary.withAlpha(77),
+                      AppColors.accent.withAlpha(128),
+                    ],
+                  ),
+                ),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) => Container(
+                height: 160,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.grey300,
+                      AppColors.grey200,
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.broken_image,
+                        size: 48,
+                        color: AppColors.textSecondary.withAlpha(150),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Failed to load image',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            child: Center(
-              child: Icon(
-                Icons.image,
-                size: 48,
-                color: AppColors.white.withAlpha(179),
+            // Fullscreen overlay icon
+            Positioned(
+              right: 8,
+              top: 8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.black.withAlpha(128),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(
+                  Icons.fullscreen,
+                  size: 16,
+                  color: AppColors.white,
+                ),
               ),
             ),
-          ),
-          // Overlay for image preview indication
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: AppColors.black.withAlpha(128),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Icon(
-                Icons.fullscreen,
-                size: 16,
-                color: AppColors.white,
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildFileAttachment(bool isFromCustomer) {
-    final fileName = comment.attachment ?? 'Unknown file';
+    final attachmentPath = comment.attachment ?? '';
+    // Extract filename from path (e.g., /chat-uploads/file.pdf -> file.pdf)
+    final fileName = attachmentPath.split('/').last;
     final extension = fileName.split('.').last.toLowerCase();
-    final isPdf = extension == 'pdf';
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isFromCustomer
-            ? AppColors.white.withAlpha(38)
-            : AppColors.grey100,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isFromCustomer
-                  ? AppColors.white.withAlpha(51)
-                  : (isPdf ? AppColors.error100 : AppColors.grey200),
-              borderRadius: BorderRadius.circular(8),
+    return GestureDetector(
+      onTap: () => onAttachmentTap?.call(attachmentPath),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isFromCustomer
+              ? AppColors.white.withAlpha(38)
+              : AppColors.grey100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isFromCustomer
+                    ? AppColors.white.withAlpha(51)
+                    : _getFileBackgroundColor(extension),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _getFileIcon(extension),
+                size: 24,
+                color: isFromCustomer
+                    ? AppColors.white
+                    : _getFileIconColor(extension),
+              ),
             ),
-            child: Icon(
-              isPdf ? Icons.picture_as_pdf : Icons.insert_drive_file,
-              size: 24,
-              color: isFromCustomer
-                  ? AppColors.white
-                  : (isPdf ? AppColors.error500 : AppColors.textSecondary),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  fileName,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: isFromCustomer
-                        ? AppColors.white
-                        : AppColors.textPrimary,
-                    fontWeight: FontWeight.w500,
+            const SizedBox(width: 12),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fileName,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: isFromCustomer
+                          ? AppColors.white
+                          : AppColors.textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '1.2 MB', // Mock size
-                  style: AppTextStyles.caption.copyWith(
-                    color: isFromCustomer
-                        ? AppColors.white.withAlpha(179)
-                        : AppColors.textSecondary,
-                    fontSize: 11,
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        extension.toUpperCase(),
+                        style: AppTextStyles.caption.copyWith(
+                          color: isFromCustomer
+                              ? AppColors.white.withAlpha(179)
+                              : AppColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.download_rounded,
+                        size: 14,
+                        color: isFromCustomer
+                            ? AppColors.white.withAlpha(179)
+                            : AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        'Tap to open',
+                        style: AppTextStyles.caption.copyWith(
+                          color: isFromCustomer
+                              ? AppColors.white.withAlpha(179)
+                              : AppColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  IconData _getFileIcon(String extension) {
+    switch (extension) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'txt':
+        return Icons.article;
+      case 'zip':
+        return Icons.folder_zip;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  Color _getFileIconColor(String extension) {
+    switch (extension) {
+      case 'pdf':
+        return AppColors.error500;
+      case 'doc':
+      case 'docx':
+        return AppColors.primary;
+      case 'txt':
+        return AppColors.textSecondary;
+      case 'zip':
+        return AppColors.warning500;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  Color _getFileBackgroundColor(String extension) {
+    switch (extension) {
+      case 'pdf':
+        return AppColors.error100;
+      case 'doc':
+      case 'docx':
+        return AppColors.primary100;
+      case 'zip':
+        return AppColors.warning500.withAlpha(30);
+      default:
+        return AppColors.grey200;
+    }
   }
 
   bool _isImageFile(String fileName) {

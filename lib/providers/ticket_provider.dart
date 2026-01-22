@@ -456,9 +456,11 @@ class TicketProvider extends ChangeNotifier {
   }
 
   /// Create a comment on a ticket
+  /// Content and attachmentUrl are both optional, but at least one must be provided
   Future<Comment?> createComment({
     required int ticketId,
-    required String content,
+    String? content,
+    String? attachmentUrl,
   }) async {
     _createCommentState = TicketState.loading;
     _errorMessage = null;
@@ -468,6 +470,7 @@ class TicketProvider extends ChangeNotifier {
       final comment = await _ticketRepository.createComment(
         ticketId: ticketId,
         content: content,
+        attachmentUrl: attachmentUrl,
       );
 
       _createCommentState = TicketState.loaded;
@@ -503,6 +506,36 @@ class TicketProvider extends ChangeNotifier {
     }
     notifyListeners();
     return null;
+  }
+
+  /// Upload attachment for comment
+  /// Returns the URL path to use in comment or WebSocket message
+  Future<String?> uploadCommentAttachment({
+    required int ticketId,
+    required String filePath,
+  }) async {
+    _errorMessage = null;
+
+    try {
+      final url = await _ticketRepository.uploadCommentAttachment(
+        ticketId: ticketId,
+        filePath: filePath,
+      );
+      return url;
+    } on NetworkException catch (e) {
+      _errorMessage = e.message;
+    } on ServerException catch (e) {
+      _errorMessage = e.message;
+    } catch (e) {
+      _errorMessage = 'Failed to upload attachment';
+    }
+    notifyListeners();
+    return null;
+  }
+
+  /// Get chat file URL for viewing/downloading
+  String getChatFileUrl(String filename) {
+    return _ticketRepository.getChatFileUrl(filename);
   }
 
   /// Set filter status

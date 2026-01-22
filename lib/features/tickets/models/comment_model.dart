@@ -27,7 +27,7 @@ class Comment {
       userId: json['user_id'] as int,
       userName: json['user_name'] as String? ?? 'Unknown',
       userRole: json['user_role'] as String? ?? 'customer',
-      content: json['content'] as String,
+      content: json['content'] as String? ?? '',
       attachment: json['attachment'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
@@ -62,31 +62,34 @@ class Comment {
     return userName;
   }
 
-  /// Get formatted time (e.g., "10:30 AM")
+  /// Get formatted time (e.g., "10:30 AM") in local timezone
   String get formattedTime {
-    final hour = createdAt.hour;
-    final minute = createdAt.minute.toString().padLeft(2, '0');
+    final localTime = createdAt.toLocal();
+    final hour = localTime.hour;
+    final minute = localTime.minute.toString().padLeft(2, '0');
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
     return '$displayHour:$minute $period';
   }
 
-  /// Get formatted date (e.g., "Jan 6, 2026")
+  /// Get formatted date (e.g., "Jan 6, 2026") in local timezone
   String get formattedDate {
+    final localTime = createdAt.toLocal();
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
-    return '${months[createdAt.month - 1]} ${createdAt.day}, ${createdAt.year}';
+    return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.year}';
   }
 
-  /// Get formatted date for grouping (e.g., "JANUARY 6, 2026")
+  /// Get formatted date for grouping (e.g., "JANUARY 6, 2026") in local timezone
   String get formattedDateGroup {
+    final localTime = createdAt.toLocal();
     const months = [
       'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
       'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'
     ];
-    return '${months[createdAt.month - 1]} ${createdAt.day}, ${createdAt.year}';
+    return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.year}';
   }
 
   @override
@@ -100,28 +103,6 @@ class Comment {
 
   @override
   int get hashCode => id.hashCode;
-}
-
-/// Status change event model (for showing status transitions in chat)
-class StatusChangeEvent {
-  final String fromStatus;
-  final String toStatus;
-  final DateTime changedAt;
-
-  StatusChangeEvent({
-    required this.fromStatus,
-    required this.toStatus,
-    required this.changedAt,
-  });
-
-  /// Get formatted time (e.g., "11:00 AM")
-  String get formattedTime {
-    final hour = changedAt.hour;
-    final minute = changedAt.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    return '$displayHour:$minute $period';
-  }
 }
 
 /// Attachment model for files tab
@@ -163,19 +144,21 @@ class TicketAttachment {
     }
   }
 
-  /// Get formatted date (e.g., "Jan 6, 2026")
+  /// Get formatted date (e.g., "Jan 6, 2026") in local timezone
   String get formattedDate {
+    final localTime = uploadedAt.toLocal();
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
-    return '${months[uploadedAt.month - 1]} ${uploadedAt.day}, ${uploadedAt.year}';
+    return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.year}';
   }
 
-  /// Get formatted time (e.g., "10:30 AM")
+  /// Get formatted time (e.g., "10:30 AM") in local timezone
   String get formattedTime {
-    final hour = uploadedAt.hour;
-    final minute = uploadedAt.minute.toString().padLeft(2, '0');
+    final localTime = uploadedAt.toLocal();
+    final hour = localTime.hour;
+    final minute = localTime.minute.toString().padLeft(2, '0');
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
     return '$displayHour:$minute $period';

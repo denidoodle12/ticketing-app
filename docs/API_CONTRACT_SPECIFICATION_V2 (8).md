@@ -42,6 +42,7 @@
   - REST API for chat history
   - Room-based messaging (per ticket)
   - Automatic message persistence
+  - **Attachment support** (upload files in chat, max 5MB)
 
 ---
 
@@ -3651,6 +3652,72 @@ wscat -c "ws://localhost:8083/ws/tickets/1?token=$TOKEN"
 - Admins can assign tickets to agents
 - Status transitions validated against database rules
 - Category and status must be active
+
+## Version 2.8 (2026-01-21) - Chat Attachment Support ✨ NEW
+
+- ✨ **Chat Attachment Upload** - `POST /tickets/:id/comments/upload` for uploading files in chat
+- ✨ **Attachment Field** - Comments now support optional `attachment` field
+- ✨ **Flexible Comments** - Comments can have content only, attachment only, or both
+- ✨ **WebSocket Attachment** - Send attachments via WebSocket with `{"type": "message", "content": "...", "attachment": "..."}`
+- 🔒 **Ticket Access Validation** - Upload requires valid ticket access (same as comments)
+- 🔒 **File Type Validation** - Allowed: jpg, jpeg, png, gif, pdf, doc, docx, txt, zip
+- 🔒 **File Size Limit** - Max 5MB per file
+- 📁 **Serve Files** - `GET /chat-uploads/:filename` to access uploaded files
+
+**New Endpoints (ms-chat):**
+
+| Method | Endpoint                        | Description                    |
+|--------|--------------------------------|--------------------------------|
+| `POST` | `/tickets/:id/comments/upload` | Upload attachment (JWT required)|
+| `GET`  | `/chat-uploads/:filename`      | Serve uploaded files           |
+
+**Request Example - Create Comment with Attachment:**
+
+```json
+{
+  "content": "See attached screenshot",
+  "attachment": "/chat-uploads/chat_1_20260121_abc123.png"
+}
+```
+
+**WebSocket Message with Attachment:**
+
+```json
+{
+  "type": "message",
+  "content": "Check this file",
+  "attachment": "/chat-uploads/chat_1_20260121_xyz789.pdf"
+}
+```
+
+**Database Changes:**
+```sql
+ALTER TABLE ticket_comments ADD COLUMN attachment VARCHAR(255);
+```
+
+**Validation Rules:**
+- Content and attachment are both optional
+- At least one (content OR attachment) must be present
+- Empty/whitespace-only content is rejected
+
+**Frontend Integration Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  1. User picks file                                             │
+│     ↓                                                           │
+│  2. POST /tickets/:id/comments/upload (multipart/form-data)     │
+│     → Response: { "data": { "url": "/chat-uploads/xxx.pdf" }}   │
+│     ↓                                                           │
+│  3. Send via WebSocket with the URL                             │
+│     { "type": "message", "content": "...", "attachment": "url" }│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+> [!NOTE]
+> WebSocket cannot handle binary file uploads. Always upload file first via REST API, then send the returned URL via WebSocket.
+
+---
 
 ## Version 2.7 (2026-01-07) - Attachment Security Fix
 

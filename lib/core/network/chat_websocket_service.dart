@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants/api_config.dart';
 import '../../features/tickets/models/comment_model.dart';
@@ -80,8 +79,6 @@ class ChatWebSocketService {
 
     try {
       final url = _getWebSocketUrl(_currentTicketId!, _token!);
-      debugPrint('ChatWebSocket: Connecting to $url');
-
       _channel = WebSocketChannel.connect(Uri.parse(url));
 
       // Wait for connection to be ready
@@ -89,7 +86,6 @@ class ChatWebSocketService {
 
       _updateState(WebSocketState.connected);
       _reconnectAttempts = 0;
-      debugPrint('ChatWebSocket: Connected successfully');
 
       // Listen for messages
       _subscription = _channel!.stream.listen(
@@ -98,7 +94,6 @@ class ChatWebSocketService {
         onDone: _handleDone,
       );
     } catch (e) {
-      debugPrint('ChatWebSocket: Connection error - $e');
       _updateState(WebSocketState.error);
       onError?.call('Failed to connect: $e');
       _scheduleReconnect();
@@ -108,23 +103,22 @@ class ChatWebSocketService {
   /// Handle incoming messages
   void _handleMessage(dynamic data) {
     try {
-      debugPrint('ChatWebSocket: Received message - $data');
-
       final json = jsonDecode(data as String) as Map<String, dynamic>;
 
       // Check if it's a valid comment message
-      if (json.containsKey('id') && json.containsKey('content')) {
+      // Must have id and either content or attachment (or both)
+      if (json.containsKey('id') &&
+          (json.containsKey('content') || json.containsKey('attachment'))) {
         final comment = Comment.fromJson(json);
         onMessageReceived?.call(comment);
       }
     } catch (e) {
-      debugPrint('ChatWebSocket: Error parsing message - $e');
+      // Silent fail for parsing errors
     }
   }
 
   /// Handle WebSocket errors
   void _handleError(dynamic error) {
-    debugPrint('ChatWebSocket: Error - $error');
     _updateState(WebSocketState.error);
     onError?.call(error.toString());
     _scheduleReconnect();
@@ -132,7 +126,6 @@ class ChatWebSocketService {
 
   /// Handle WebSocket connection closed
   void _handleDone() {
-    debugPrint('ChatWebSocket: Connection closed');
     if (_state != WebSocketState.disconnected) {
       _updateState(WebSocketState.disconnected);
       _scheduleReconnect();
@@ -140,23 +133,38 @@ class ChatWebSocketService {
   }
 
   /// Send a message through WebSocket
-  Future<bool> sendMessage(String content) async {
+  /// Content and attachment are both optional, but at least one must be provided
+  Future<bool> sendMessage({
+    String? content,
+    String? attachment,
+  }) async {
     if (_channel == null || _state != WebSocketState.connected) {
-      debugPrint('ChatWebSocket: Cannot send - not connected');
+      return false;
+    }
+
+    // At least one must be provided
+    if ((content == null || content.isEmpty) &&
+        (attachment == null || attachment.isEmpty)) {
       return false;
     }
 
     try {
-      final message = jsonEncode({
+      final messageData = <String, dynamic>{
         'type': 'message',
-        'content': content,
-      });
+      };
 
+      if (content != null && content.isNotEmpty) {
+        messageData['content'] = content;
+      }
+
+      if (attachment != null && attachment.isNotEmpty) {
+        messageData['attachment'] = attachment;
+      }
+
+      final message = jsonEncode(messageData);
       _channel!.sink.add(message);
-      debugPrint('ChatWebSocket: Message sent - $content');
       return true;
     } catch (e) {
-      debugPrint('ChatWebSocket: Error sending message - $e');
       onError?.call('Failed to send message: $e');
       return false;
     }
@@ -165,7 +173,6 @@ class ChatWebSocketService {
   /// Schedule reconnection attempt
   void _scheduleReconnect() {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
-      debugPrint('ChatWebSocket: Max reconnect attempts reached');
       onError?.call('Unable to reconnect after $_maxReconnectAttempts attempts');
       return;
     }
@@ -177,7 +184,6 @@ class ChatWebSocketService {
       if (_state != WebSocketState.connected &&
           _state != WebSocketState.connecting) {
         _reconnectAttempts++;
-        debugPrint('ChatWebSocket: Reconnect attempt $_reconnectAttempts');
         _updateState(WebSocketState.reconnecting);
         _establishConnection();
       }
@@ -194,8 +200,6 @@ class ChatWebSocketService {
 
   /// Disconnect from WebSocket
   Future<void> disconnect() async {
-    debugPrint('ChatWebSocket: Disconnecting');
-
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
 

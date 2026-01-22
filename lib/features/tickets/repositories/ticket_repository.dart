@@ -169,9 +169,11 @@ class TicketRepository {
   }
 
   /// Create a comment on a ticket
+  /// Content and attachment are both optional, but at least one must be provided
   Future<Comment> createComment({
     required int ticketId,
-    required String content,
+    String? content,
+    String? attachmentUrl,
   }) async {
     try {
       if (_useMock) {
@@ -180,6 +182,7 @@ class TicketRepository {
       return await _remoteDatasource!.createComment(
         ticketId: ticketId,
         content: content,
+        attachmentUrl: attachmentUrl,
       );
     } on NetworkException {
       rethrow;
@@ -190,5 +193,35 @@ class TicketRepository {
     } catch (e) {
       throw ServerException('Failed to create comment: $e');
     }
+  }
+
+  /// Upload attachment for comment
+  Future<String> uploadCommentAttachment({
+    required int ticketId,
+    required String filePath,
+  }) async {
+    try {
+      if (_useMock) {
+        throw ServerException('Mock uploadCommentAttachment not implemented');
+      }
+      return await _remoteDatasource!.uploadCommentAttachment(
+        ticketId: ticketId,
+        filePath: filePath,
+      );
+    } on NetworkException {
+      rethrow;
+    } on ServerException {
+      rethrow;
+    } catch (e) {
+      throw ServerException('Failed to upload attachment: $e');
+    }
+  }
+
+  /// Get chat file URL
+  String getChatFileUrl(String filename) {
+    if (_useMock) {
+      return _mockDatasource!.getFileUrl(filename);
+    }
+    return _remoteDatasource!.getChatFileUrl(filename);
   }
 }

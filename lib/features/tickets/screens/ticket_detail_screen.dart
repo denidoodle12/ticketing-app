@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/network/chat_websocket_service.dart';
+import '../../../core/constants/api_config.dart';
 import '../../../data/datasources/local/local_storage.dart';
 import '../../../providers/ticket_provider.dart';
 import '../models/ticket_model.dart';
@@ -35,6 +37,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   WebSocketState _wsState = WebSocketState.disconnected;
   bool _isSending = false;
 
+  // Cached token for image loading (set when connecting WebSocket)
+  String? _cachedToken;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +69,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     await provider.loadTicketDetail(widget.ticket.id);
 
     if (mounted && provider.ticketDetailResponse != null) {
+      // Cache token first before displaying comments (for image auth)
+      final localStorage = context.read<LocalStorage>();
+      _cachedToken = await localStorage.getAccessToken();
+
       setState(() {
         _currentTicket = provider.ticketDetailResponse!.ticket;
         _comments = _parseComments(provider.ticketDetailResponse!.comments);
@@ -77,8 +86,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   /// Connect to WebSocket for real-time chat
   Future<void> _connectWebSocket() async {
-    final localStorage = context.read<LocalStorage>();
-    final token = await localStorage.getAccessToken();
+    // Use cached token if available, otherwise fetch from storage
+    String? token = _cachedToken;
+    if (token == null) {
+      final localStorage = context.read<LocalStorage>();
+      token = await localStorage.getAccessToken();
+      _cachedToken = token;
+    }
 
     if (token != null && mounted) {
       await _webSocketService.connect(
@@ -86,6 +100,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         token: token,
       );
     }
+  }
+
+  /// Get auth headers for image loading (synchronous using cached token)
+  Map<String, String>? get _authHeaders {
+    if (_cachedToken != null) {
+      return {'Authorization': 'Bearer $_cachedToken'};
+    }
+    return null;
   }
 
   /// Handle incoming message from WebSocket
@@ -175,6 +197,193 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   String _getFileNameFromPath(String path) {
     final parts = path.split('/');
     return parts.isNotEmpty ? parts.last : path;
+  }
+
+  /// Get full attachment URL for chat uploads
+  String _getAttachmentUrl(String attachmentPath) {
+    // If already a full URL, return as is
+    if (attachmentPath.startsWith('http://') ||
+        attachmentPath.startsWith('https://')) {
+      return attachmentPath;
+    }
+
+    // Build full URL from base URL and attachment path
+    // attachmentPath format: /chat-uploads/filename.ext
+    return '${ApiConfig.baseUrl}$attachmentPath';
+  }
+
+  /// Handle attachment tap - open image viewer or download file
+  Future<void> _handleAttachmentTap(String attachmentPath) async {
+    final fullUrl = _getAttachmentUrl(attachmentPath);
+    final fileName = _getFileNameFromPath(attachmentPath);
+    final extension = fileName.split('.').last.toLowerCase();
+    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension);
+
+    if (isImage) {
+      // Show image viewer dialog
+      _showImageViewer(fullUrl, fileName);
+    } else {
+      // Open file in browser for download
+      _openFileInBrowser(fullUrl, fileName);
+    }
+  }
+
+  void _showImageViewer(String imageUrl, String fileName) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(8),
+        child: Stack(
+          children: [
+            // Image viewer
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      width: 300,
+                      height: 300,
+                      color: AppColors.black.withAlpha(200),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AppColors.white,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 300,
+                      height: 200,
+                      color: AppColors.black.withAlpha(200),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.broken_image,
+                            size: 64,
+                            color: AppColors.white.withAlpha(150),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Failed to load image',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: AppColors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            // Close button
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.black.withAlpha(150),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: AppColors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+            // File name and download button at bottom
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 16,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.black.withAlpha(180),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        fileName,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: () => _openFileInBrowser(imageUrl, fileName),
+                      icon: const Icon(
+                        Icons.download_rounded,
+                        color: AppColors.white,
+                        size: 18,
+                      ),
+                      label: Text(
+                        'Download',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openFileInBrowser(String url, String fileName) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cannot open file: $fileName'),
+              backgroundColor: AppColors.error500,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening file: $e'),
+            backgroundColor: AppColors.error500,
+          ),
+        );
+      }
+    }
   }
 
   String _getAssignedAgent() {
@@ -277,6 +486,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                                   onSendMessage: _handleSendMessage,
                                   connectionState: _wsState,
                                   isSending: _isSending,
+                                  getAttachmentUrl: _getAttachmentUrl,
+                                  onAttachmentTap: _handleAttachmentTap,
+                                  authHeaders: _authHeaders,
                                 ),
                                 TicketFilesTab(attachments: _attachments),
                               ],
@@ -504,18 +716,46 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       _isSending = true;
     });
 
+    String? attachmentUrl;
+
+    // Upload attachment first if provided
+    if (attachmentPath != null && attachmentPath.isNotEmpty && mounted) {
+      attachmentUrl = await provider.uploadCommentAttachment(
+        ticketId: _currentTicket.id,
+        filePath: attachmentPath,
+      );
+
+      if (attachmentUrl == null && mounted) {
+        // Upload failed
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider.errorMessage ?? 'Failed to upload attachment'),
+            backgroundColor: AppColors.error500,
+          ),
+        );
+        setState(() {
+          _isSending = false;
+        });
+        return;
+      }
+    }
+
     bool sent = false;
 
     // Try WebSocket first if connected
     if (_webSocketService.isConnected) {
-      sent = await _webSocketService.sendMessage(message);
+      sent = await _webSocketService.sendMessage(
+        content: message.isNotEmpty ? message : null,
+        attachment: attachmentUrl,
+      );
     }
 
     // Fallback to REST API if WebSocket fails or not connected
     if (!sent && mounted) {
       final comment = await provider.createComment(
         ticketId: _currentTicket.id,
-        content: message,
+        content: message.isNotEmpty ? message : null,
+        attachmentUrl: attachmentUrl,
       );
 
       if (comment != null && mounted) {

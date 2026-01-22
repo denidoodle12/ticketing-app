@@ -126,14 +126,47 @@ class TicketRemoteDatasource {
   }
 
   /// Create a comment on a ticket
+  /// Content and attachment are both optional, but at least one must be provided
   Future<Comment> createComment({
     required int ticketId,
-    required String content,
+    String? content,
+    String? attachmentUrl,
   }) async {
+    final data = <String, dynamic>{};
+    if (content != null && content.isNotEmpty) {
+      data['content'] = content;
+    }
+    if (attachmentUrl != null && attachmentUrl.isNotEmpty) {
+      data['attachment'] = attachmentUrl;
+    }
+
     final response = await _dio.post(
       ApiEndpoints.ticketComments(ticketId),
-      data: {'content': content},
+      data: data,
     );
     return Comment.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  /// Upload attachment for comment
+  /// Returns the URL path to use in comment (e.g., /chat-uploads/xxx.pdf)
+  Future<String> uploadCommentAttachment({
+    required int ticketId,
+    required String filePath,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath),
+    });
+
+    final response = await _dio.post(
+      ApiEndpoints.ticketCommentsUpload(ticketId),
+      data: formData,
+    );
+
+    return response.data['data']['url'] as String;
+  }
+
+  /// Get chat file URL for viewing/downloading
+  String getChatFileUrl(String filename) {
+    return '${ApiEndpoints.ticketBaseUrl}${ApiEndpoints.chatUploads(filename)}';
   }
 }

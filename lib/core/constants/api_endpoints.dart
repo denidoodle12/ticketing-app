@@ -28,8 +28,13 @@ class ApiEndpoints {
 
   // Comments
   static String ticketComments(int ticketId) => '/tickets/$ticketId/comments';
+  static String ticketCommentsUpload(int ticketId) =>
+      '/tickets/$ticketId/comments/upload';
 
-  // File Upload
+  // File Upload (Ticket attachments)
   static const String upload = '/upload';
   static String downloadFile(String filename) => '/uploads/$filename';
+
+  // Chat Uploads (Comment attachments)
+  static String chatUploads(String filename) => '/chat-uploads/$filename';
 }
