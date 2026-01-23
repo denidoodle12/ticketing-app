@@ -1,6 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/network/chat_websocket_service.dart';
@@ -199,7 +204,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     return parts.isNotEmpty ? parts.last : path;
   }
 
-  /// Get full attachment URL for chat uploads
+  /// Get full attachment URL for chat uploads and ticket attachments
   String _getAttachmentUrl(String attachmentPath) {
     // If already a full URL, return as is
     if (attachmentPath.startsWith('http://') ||
@@ -207,9 +212,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       return attachmentPath;
     }
 
-    // Build full URL from base URL and attachment path
-    // attachmentPath format: /chat-uploads/filename.ext
-    return '${ApiConfig.baseUrl}$attachmentPath';
+    // Chat uploads have path format: /chat-uploads/filename.ext
+    if (attachmentPath.startsWith('/')) {
+      return '${ApiConfig.baseUrl}$attachmentPath';
+    }
+
+    // Ticket attachments are just filenames, need /uploads/ prefix
+    return '${ApiConfig.baseUrl}/uploads/$attachmentPath';
   }
 
   /// Handle attachment tap - open image viewer or download file
@@ -236,57 +245,49 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         insetPadding: const EdgeInsets.all(8),
         child: Stack(
           children: [
-            // Image viewer
+            // Image viewer with auth headers
             Center(
               child: InteractiveViewer(
                 minScale: 0.5,
                 maxScale: 4.0,
-                child: Image.network(
-                  imageUrl,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  httpHeaders: _authHeaders,
                   fit: BoxFit.contain,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      width: 300,
-                      height: 300,
-                      color: AppColors.black.withAlpha(200),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppColors.white,
-                          ),
+                  placeholder: (context, url) => Container(
+                    width: 300,
+                    height: 300,
+                    color: AppColors.black.withAlpha(200),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.white,
                         ),
                       ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 300,
-                      height: 200,
-                      color: AppColors.black.withAlpha(200),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.broken_image,
-                            size: 64,
-                            color: AppColors.white.withAlpha(150),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    width: 300,
+                    height: 200,
+                    color: AppColors.black.withAlpha(200),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.broken_image,
+                          size: 64,
+                          color: AppColors.white.withAlpha(150),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Failed to load image',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.white,
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Failed to load image',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: AppColors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -360,29 +361,301 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   }
 
   Future<void> _openFileInBrowser(String url, String fileName) async {
-    try {
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Cannot open file: $fileName'),
-              backgroundColor: AppColors.error500,
+    // Show bottom sheet with options
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.grey300,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          );
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                fileName,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.success500.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.download_rounded,
+                  color: AppColors.success500,
+                ),
+              ),
+              title: const Text('Save to Downloads'),
+              subtitle: const Text('Save file to device storage'),
+              onTap: () {
+                Navigator.pop(context);
+                _downloadToDevice(url, fileName);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.share_rounded,
+                  color: AppColors.primary,
+                ),
+              ),
+              title: const Text('Share'),
+              subtitle: const Text('Share to other apps'),
+              onTap: () {
+                Navigator.pop(context);
+                _shareFile(url, fileName);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Download file to device Downloads folder
+  Future<void> _downloadToDevice(String url, String fileName) async {
+    // Show downloading indicator
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Downloading $fileName...')),
+            ],
+          ),
+          duration: const Duration(seconds: 60),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    }
+
+    try {
+      // Request storage permission for Android
+      if (Platform.isAndroid) {
+        final status = await Permission.storage.request();
+        if (!status.isGranted) {
+          // Try manage external storage for Android 11+
+          final manageStatus = await Permission.manageExternalStorage.request();
+          if (!manageStatus.isGranted && mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Storage permission required to save files'),
+                backgroundColor: AppColors.warning500,
+              ),
+            );
+            return;
+          }
         }
       }
-    } catch (e) {
+
+      // Get Downloads directory
+      String downloadPath;
+      if (Platform.isAndroid) {
+        // Android Downloads folder
+        downloadPath = '/storage/emulated/0/Download';
+        // Create directory if not exists
+        final dir = Directory(downloadPath);
+        if (!await dir.exists()) {
+          await dir.create(recursive: true);
+        }
+      } else {
+        // iOS - use app documents directory
+        final docDir = await getApplicationDocumentsDirectory();
+        downloadPath = docDir.path;
+      }
+
+      final filePath = '$downloadPath/$fileName';
+
+      // Check if file already exists, add number suffix if needed
+      String finalPath = filePath;
+      int counter = 1;
+      while (await File(finalPath).exists()) {
+        final extension = fileName.contains('.')
+            ? '.${fileName.split('.').last}'
+            : '';
+        final nameWithoutExt = fileName.contains('.')
+            ? fileName.substring(0, fileName.lastIndexOf('.'))
+            : fileName;
+        finalPath = '$downloadPath/${nameWithoutExt}_($counter)$extension';
+        counter++;
+      }
+
+      // Download file with auth headers using Dio
+      final dio = Dio();
+      await dio.download(
+        url,
+        finalPath,
+        options: Options(
+          headers: _authHeaders,
+        ),
+      );
+
+      // Hide download snackbar and show success
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error opening file: $e'),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: AppColors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Download complete'),
+                      Text(
+                        'Saved to Downloads',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.white.withAlpha(200),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.success500,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      _handleDownloadError(e);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
             backgroundColor: AppColors.error500,
           ),
         );
       }
+    }
+  }
+
+  /// Share file to other apps
+  Future<void> _shareFile(String url, String fileName) async {
+    // Show downloading indicator
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Preparing $fileName...')),
+            ],
+          ),
+          duration: const Duration(seconds: 30),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    }
+
+    try {
+      // Download to temp directory first
+      final tempDir = await getTemporaryDirectory();
+      final filePath = '${tempDir.path}/$fileName';
+
+      // Download file with auth headers using Dio
+      final dio = Dio();
+      await dio.download(
+        url,
+        filePath,
+        options: Options(
+          headers: _authHeaders,
+        ),
+      );
+
+      // Hide download snackbar
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+
+      // Share the downloaded file
+      final xFile = XFile(filePath);
+      await Share.shareXFiles([xFile]);
+    } on DioException catch (e) {
+      _handleDownloadError(e);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error500,
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleDownloadError(DioException e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      String errorMessage = 'Download failed';
+      if (e.response?.statusCode == 401) {
+        errorMessage = 'Unauthorized: Please login again';
+      } else if (e.response?.statusCode == 403) {
+        errorMessage = 'Access denied to this file';
+      } else if (e.response?.statusCode == 404) {
+        errorMessage = 'File not found';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: AppColors.error500,
+        ),
+      );
     }
   }
 
@@ -456,6 +729,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Consumer<TicketProvider>(
           builder: (context, provider, child) {
@@ -490,7 +764,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                                   onAttachmentTap: _handleAttachmentTap,
                                   authHeaders: _authHeaders,
                                 ),
-                                TicketFilesTab(attachments: _attachments),
+                                TicketFilesTab(
+                                  attachments: _attachments,
+                                  getAttachmentUrl: _getAttachmentUrl,
+                                  onImagePreview: _showImageViewer,
+                                  onFileOpen: _openFileInBrowser,
+                                  authHeaders: _authHeaders,
+                                ),
                               ],
                             ),
                 ),

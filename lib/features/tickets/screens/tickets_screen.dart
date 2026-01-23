@@ -146,8 +146,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
   void _navigateToCreateTicket() async {
     final result = await context.push('/tickets/create');
-    // Refresh list if ticket was created
-    if (result == true && mounted) {
+    // Refresh list if ticket was created (result is the created Ticket object)
+    if (result != null && mounted) {
       _pagingController.refresh();
       // Also refresh stats
       context.read<TicketProvider>().loadTicketStats();
@@ -500,6 +500,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 70, right: 4),
       child: FloatingActionButton(
+        heroTag: 'createTicketFab',
         onPressed: _navigateToCreateTicket,
         backgroundColor: AppColors.primaryDark,
         foregroundColor: AppColors.white,

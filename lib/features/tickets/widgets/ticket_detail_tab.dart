@@ -21,25 +21,27 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
 
   String _formatDateTime(DateTime? dateTime) {
     if (dateTime == null) return '-';
-    final day = dateTime.day.toString().padLeft(2, '0');
-    final month = dateTime.month.toString().padLeft(2, '0');
-    final year = dateTime.year;
-    final hour = dateTime.hour.toString().padLeft(2, '0');
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final second = dateTime.second.toString().padLeft(2, '0');
+    final localTime = dateTime.toLocal();
+    final day = localTime.day.toString().padLeft(2, '0');
+    final month = localTime.month.toString().padLeft(2, '0');
+    final year = localTime.year;
+    final hour = localTime.hour.toString().padLeft(2, '0');
+    final minute = localTime.minute.toString().padLeft(2, '0');
+    final second = localTime.second.toString().padLeft(2, '0');
     return '$day/$month/$year, $hour:$minute:$second';
   }
 
   String _formatDateForTimeline(DateTime dateTime) {
+    final localTime = dateTime.toLocal();
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
-    final hour = dateTime.hour;
-    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final hour = localTime.hour;
+    final minute = localTime.minute.toString().padLeft(2, '0');
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    return '${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year} \u2022 $displayHour:$minute $period';
+    return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.year} \u2022 $displayHour:$minute $period';
   }
 
   @override
@@ -303,10 +305,12 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
     // Build timeline from available ticket data
     final timelineEvents = <Map<String, dynamic>>[];
 
-    // Current status (if updated_at differs from created_at, show as latest event)
-    final hasStatusChange = widget.ticket.updatedAt != null &&
-        widget.ticket.createdAt != null &&
-        widget.ticket.updatedAt!.isAfter(widget.ticket.createdAt!);
+    final currentStatus = (widget.ticket.status?.name ?? 'open').toLowerCase();
+
+    // Only show status change if current status is different from "open"
+    final hasStatusChange = currentStatus != 'open' &&
+        widget.ticket.updatedAt != null &&
+        widget.ticket.createdAt != null;
 
     if (hasStatusChange) {
       timelineEvents.add({

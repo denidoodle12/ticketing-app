@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/network/chat_websocket_service.dart';
+import '../../../core/utils/validators.dart';
+import '../../../core/utils/toast_helper.dart';
 import '../models/ticket_model.dart';
 import '../models/comment_model.dart';
 import 'chat_bubble.dart';
@@ -46,20 +48,32 @@ class _TicketChatTabState extends State<TicketChatTab> {
   String? _selectedAttachmentPath;
   String? _selectedAttachmentName;
 
-  // Allowed file extensions (from API contract)
-  static const List<String> _allowedExtensions = [
-    'jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt', 'zip'
-  ];
-
-  // Max file size: 5MB
-  static const int _maxFileSizeBytes = 5 * 1024 * 1024;
+  @override
+  void initState() {
+    super.initState();
+    // Listen to text changes to update send button state
+    _messageController.addListener(_onTextChanged);
+  }
 
   @override
   void dispose() {
+    _messageController.removeListener(_onTextChanged);
     _messageController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onTextChanged() {
+    // Trigger rebuild to update send button state
+    setState(() {});
+  }
+
+  /// Check if send button should be enabled
+  /// Returns true if there's a non-empty message OR an attachment
+  bool get _canSend {
+    final message = _messageController.text.trim();
+    return message.isNotEmpty || _selectedAttachmentPath != null;
   }
 
   void _handleSend() {
@@ -102,25 +116,24 @@ class _TicketChatTabState extends State<TicketChatTab> {
   bool _validateFile(String? path, int? size, String? name) {
     if (path == null || name == null) return false;
 
-    // Check file size
-    if (size != null && size > _maxFileSizeBytes) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('File size exceeds 5MB limit'),
-          backgroundColor: Colors.red,
-        ),
+    // Check file type
+    final typeError = Validators.fileType(name);
+    if (typeError != null) {
+      ToastHelper.showError(
+        context,
+        'Attachment Error',
+        description: typeError,
       );
       return false;
     }
 
-    // Check file extension
-    final extension = name.split('.').last.toLowerCase();
-    if (!_allowedExtensions.contains(extension)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('File type .$extension is not allowed'),
-          backgroundColor: Colors.red,
-        ),
+    // Check file size
+    final sizeError = Validators.fileSize(size, maxSizeInMB: 5);
+    if (sizeError != null) {
+      ToastHelper.showError(
+        context,
+        'Attachment Error',
+        description: sizeError,
       );
       return false;
     }
@@ -153,7 +166,7 @@ class _TicketChatTabState extends State<TicketChatTab> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: _allowedExtensions,
+        allowedExtensions: Validators.allowedFileExtensions,
       );
 
       if (result != null && result.files.isNotEmpty) {
@@ -466,8 +479,11 @@ class _TicketChatTabState extends State<TicketChatTab> {
   }
 
   Widget _buildMessageInput() {
+    // Get keyboard height for manual padding
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + keyboardHeight),
       decoration: BoxDecoration(
         color: AppColors.surface,
         boxShadow: [
@@ -542,7 +558,9 @@ class _TicketChatTabState extends State<TicketChatTab> {
                   decoration: BoxDecoration(
                     color: widget.isSending
                         ? AppColors.primary.withAlpha(150)
-                        : AppColors.primary,
+                        : _canSend
+                            ? AppColors.primary
+                            : AppColors.grey300,
                     shape: BoxShape.circle,
                   ),
                   child: widget.isSending
@@ -555,10 +573,12 @@ class _TicketChatTabState extends State<TicketChatTab> {
                           ),
                         )
                       : IconButton(
-                          onPressed: _handleSend,
-                          icon: const Icon(
+                          onPressed: _canSend ? _handleSend : null,
+                          icon: Icon(
                             Icons.send,
-                            color: AppColors.white,
+                            color: _canSend
+                                ? AppColors.white
+                                : AppColors.grey400,
                             size: 20,
                           ),
                           padding: EdgeInsets.zero,

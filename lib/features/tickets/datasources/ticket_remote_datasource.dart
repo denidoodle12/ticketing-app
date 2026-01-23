@@ -107,6 +107,7 @@ class TicketRemoteDatasource {
   }
 
   /// Upload file attachment
+  /// Returns the URL path to use in ticket (e.g., /uploads/xxx.png)
   Future<String> uploadFile(String filePath) async {
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
@@ -117,7 +118,8 @@ class TicketRemoteDatasource {
       data: formData,
     );
 
-    return response.data['data']['filename'] as String;
+    // Return the url field which includes /uploads/ prefix
+    return response.data['data']['url'] as String;
   }
 
   /// Get file download URL
