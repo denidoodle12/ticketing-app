@@ -162,29 +162,14 @@ class ChatBubble extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                   ],
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        comment.formattedTime,
-                        style: AppTextStyles.caption.copyWith(
-                          color: isFromCustomer
-                              ? AppColors.white.withAlpha(179)
-                              : AppColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                      if (isFromCustomer) ...[
-                        const SizedBox(width: 4),
-                        Text(
-                          '\u2022 Read',
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.white.withAlpha(179),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ],
+                  Text(
+                    comment.formattedTime,
+                    style: AppTextStyles.caption.copyWith(
+                      color: isFromCustomer
+                          ? AppColors.white.withAlpha(179)
+                          : AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),

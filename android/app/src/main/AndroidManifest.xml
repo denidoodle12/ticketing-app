@@ -10,6 +10,10 @@
     <!-- For Android 11+ -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
 
+    <!-- For Android 13+ (API 33+) - Media/Gallery access -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+
     <application
         android:label="ticketing_app"
         android:name="${applicationName}"

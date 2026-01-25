@@ -38,7 +38,7 @@ class TicketChatTab extends StatefulWidget {
   State<TicketChatTab> createState() => _TicketChatTabState();
 }
 
-class _TicketChatTabState extends State<TicketChatTab> {
+class _TicketChatTabState extends State<TicketChatTab> with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
@@ -48,20 +48,51 @@ class _TicketChatTabState extends State<TicketChatTab> {
   String? _selectedAttachmentPath;
   String? _selectedAttachmentName;
 
+  // Track keyboard state
+  double _previousBottomInset = 0;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Listen to text changes to update send button state
     _messageController.addListener(_onTextChanged);
+    // Listen to focus changes to scroll when keyboard appears
+    _focusNode.addListener(_onFocusChanged);
+    // Initial scroll to bottom
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _messageController.removeListener(_onTextChanged);
+    _focusNode.removeListener(_onFocusChanged);
     _messageController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    // Handle keyboard visibility changes
+    final bottomInset = WidgetsBinding.instance.platformDispatcher.views.first.viewInsets.bottom;
+    if (bottomInset > _previousBottomInset) {
+      // Keyboard appeared - scroll to bottom
+      _scrollToBottom();
+    }
+    _previousBottomInset = bottomInset;
+  }
+
+  void _onFocusChanged() {
+    if (_focusNode.hasFocus) {
+      // When input gains focus, scroll to bottom after keyboard animation
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _scrollToBottom();
+      });
+    }
   }
 
   void _onTextChanged() {
@@ -94,16 +125,8 @@ class _TicketChatTabState extends State<TicketChatTab> {
       _selectedAttachmentName = null;
     });
 
-    // Scroll to bottom after sending
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
+    // Scroll to bottom after sending (with reverse: true, bottom is position 0)
+    _scrollToBottom();
   }
 
   void _clearAttachment() {
@@ -204,12 +227,12 @@ class _TicketChatTabState extends State<TicketChatTab> {
     }
   }
 
-  /// Scroll to bottom when new messages arrive
+  /// Scroll to bottom (newest messages) - with reverse: true, this is position 0
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          0,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -235,68 +258,115 @@ class _TicketChatTabState extends State<TicketChatTab> {
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.grey300,
-                borderRadius: BorderRadius.circular(2),
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.grey300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                'Pilih Lampiran',
+                style: AppTextStyles.h6.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            // Photo & Video option
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.primary100,
+                  color: AppColors.primaryDark.withAlpha(26),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  Icons.image_outlined,
-                  color: AppColors.primary,
+                child: Icon(Icons.image_outlined, color: AppColors.primaryDark),
+              ),
+              title: Text(
+                'Photo & Video',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              title: const Text('Photo & Video'),
-              subtitle: const Text('Share images (jpg, png, gif)'),
+              subtitle: Text(
+                'Share images (jpg, png, gif)',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage();
               },
             ),
+            // Document option
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.accent300.withAlpha(77),
+                  color: AppColors.primaryDark.withAlpha(26),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   Icons.insert_drive_file_outlined,
-                  color: AppColors.accent700,
+                  color: AppColors.primaryDark,
                 ),
               ),
-              title: const Text('Document'),
-              subtitle: const Text('PDF, DOC, TXT, ZIP (max 5MB)'),
+              title: Text(
+                'Document',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'PDF, DOC, TXT, ZIP (max 5MB)',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _pickDocument();
               },
             ),
+            // Camera option
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.warning500.withAlpha(51),
+                  color: AppColors.primaryDark.withAlpha(26),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   Icons.camera_alt_outlined,
-                  color: AppColors.warning700,
+                  color: AppColors.primaryDark,
                 ),
               ),
-              title: const Text('Camera'),
-              subtitle: const Text('Take a photo'),
+              title: Text(
+                'Camera',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'Take a photo',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _takePhoto();
@@ -311,21 +381,24 @@ class _TicketChatTabState extends State<TicketChatTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Connection status indicator
-        _buildConnectionStatus(),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Column(
+        children: [
+          // Connection status indicator
+          _buildConnectionStatus(),
 
-        // Chat messages list
-        Expanded(
-          child: widget.comments.isEmpty
-              ? _buildEmptyState()
-              : _buildChatList(),
-        ),
+          // Chat messages list (Expanded to fill available space)
+          Expanded(
+            child: widget.comments.isEmpty
+                ? _buildEmptyState()
+                : _buildChatList(),
+          ),
 
-        // Message input
-        _buildMessageInput(),
-      ],
+          // Message input (fixed at bottom, SafeArea handles keyboard)
+          _buildMessageInput(),
+        ],
+      ),
     );
   }
 
@@ -391,11 +464,7 @@ class _TicketChatTabState extends State<TicketChatTab> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.chat_bubble_outline,
-            size: 64,
-            color: AppColors.grey300,
-          ),
+          Icon(Icons.chat_bubble_outline, size: 64, color: AppColors.grey300),
           const SizedBox(height: 16),
           Text(
             'No messages yet',
@@ -418,13 +487,16 @@ class _TicketChatTabState extends State<TicketChatTab> {
   Widget _buildChatList() {
     // Group comments by date
     final groupedComments = _groupCommentsByDate(widget.comments);
+    // Reverse for bottom-to-top scrolling
+    final reversedItems = groupedComments.reversed.toList();
 
     return ListView.builder(
       controller: _scrollController,
+      reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: groupedComments.length,
+      itemCount: reversedItems.length,
       itemBuilder: (context, index) {
-        final item = groupedComments[index];
+        final item = reversedItems[index];
 
         if (item is String) {
           // Date separator
@@ -479,23 +551,20 @@ class _TicketChatTabState extends State<TicketChatTab> {
   }
 
   Widget _buildMessageInput() {
-    // Get keyboard height for manual padding
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + keyboardHeight),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -508,10 +577,7 @@ class _TicketChatTabState extends State<TicketChatTab> {
                 // Attachment button
                 IconButton(
                   onPressed: _handleAttachment,
-                  icon: Icon(
-                    Icons.attach_file,
-                    color: AppColors.textSecondary,
-                  ),
+                  icon: Icon(Icons.attach_file, color: AppColors.textSecondary),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 40,
@@ -532,6 +598,7 @@ class _TicketChatTabState extends State<TicketChatTab> {
                       focusNode: _focusNode,
                       maxLines: null,
                       textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.newline,
                       style: AppTextStyles.bodyMedium,
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
@@ -544,7 +611,6 @@ class _TicketChatTabState extends State<TicketChatTab> {
                           vertical: 10,
                         ),
                       ),
-                      onSubmitted: (_) => _handleSend(),
                     ),
                   ),
                 ),
@@ -559,8 +625,8 @@ class _TicketChatTabState extends State<TicketChatTab> {
                     color: widget.isSending
                         ? AppColors.primary.withAlpha(150)
                         : _canSend
-                            ? AppColors.primary
-                            : AppColors.grey300,
+                        ? AppColors.primary
+                        : AppColors.grey300,
                     shape: BoxShape.circle,
                   ),
                   child: widget.isSending
@@ -568,8 +634,9 @@ class _TicketChatTabState extends State<TicketChatTab> {
                           padding: EdgeInsets.all(12),
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(AppColors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.white,
+                            ),
                           ),
                         )
                       : IconButton(
@@ -595,7 +662,14 @@ class _TicketChatTabState extends State<TicketChatTab> {
   Widget _buildAttachmentPreview() {
     final fileName = _selectedAttachmentName ?? 'Unknown file';
     final extension = fileName.split('.').last.toLowerCase();
-    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension);
+    final isImage = [
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'webp',
+      'bmp',
+    ].contains(extension);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -668,16 +742,9 @@ class _TicketChatTabState extends State<TicketChatTab> {
           // Remove button
           IconButton(
             onPressed: _clearAttachment,
-            icon: Icon(
-              Icons.close,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
+            icon: Icon(Icons.close, color: AppColors.textSecondary, size: 20),
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: 32,
-              minHeight: 32,
-            ),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ],
       ),

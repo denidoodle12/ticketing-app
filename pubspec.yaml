@@ -41,6 +41,9 @@ dependencies:
   # Pagination
   infinite_scroll_pagination: ^4.1.0
 
+  # Save to Gallery
+  gal: ^2.3.0
+
   # Charts
   fl_chart: ^0.69.0
   cached_network_image: ^3.4.1

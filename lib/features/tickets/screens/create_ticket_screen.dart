@@ -53,85 +53,132 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 12),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
                 width: 40,
                 height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: AppColors.grey300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 8),
-              ListTile(
-                leading: const Icon(Icons.photo_library, color: AppColors.primaryDark),
-                title: Text(
-                  'Choose from Gallery',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
+            ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                'Pilih Lampiran',
+                style: AppTextStyles.h6.copyWith(
+                  color: AppColors.textPrimary,
                 ),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final pickedFile = await picker.pickImage(
-                    source: ImageSource.gallery,
-                  );
-                  if (pickedFile != null) {
-                    await _processPickedImageFile(pickedFile);
-                  }
-                },
               ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt, color: AppColors.primaryDark),
-                title: Text(
-                  'Take a Photo',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
+            ),
+            // Choose from Gallery option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryDark.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final pickedFile = await picker.pickImage(
-                    source: ImageSource.camera,
-                  );
-                  if (pickedFile != null) {
-                    await _processPickedImageFile(pickedFile);
-                  }
-                },
+                child: const Icon(Icons.photo_library, color: AppColors.primaryDark),
               ),
-              ListTile(
-                leading: const Icon(Icons.attach_file, color: AppColors.primaryDark),
-                title: Text(
-                  'Upload Files',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
+              title: Text(
+                'Choose from Gallery',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
-                subtitle: Text(
-                  'pdf, doc, docx, txt, zip, gif',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await _pickFile();
-                },
               ),
-              const SizedBox(height: 8),
-            ],
-          ),
+              subtitle: Text(
+                'Select images from your gallery',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                final pickedFile = await picker.pickImage(
+                  source: ImageSource.gallery,
+                );
+                if (pickedFile != null) {
+                  await _processPickedImageFile(pickedFile);
+                }
+              },
+            ),
+            // Take a Photo option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryDark.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.camera_alt, color: AppColors.primaryDark),
+              ),
+              title: Text(
+                'Take a Photo',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'Capture with camera',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                final pickedFile = await picker.pickImage(
+                  source: ImageSource.camera,
+                );
+                if (pickedFile != null) {
+                  await _processPickedImageFile(pickedFile);
+                }
+              },
+            ),
+            // Upload Files option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryDark.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.attach_file, color: AppColors.primaryDark),
+              ),
+              title: Text(
+                'Upload Files',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'pdf, doc, docx, txt, zip, gif',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                await _pickFile();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
       ),
     );
@@ -601,16 +648,17 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
             ),
             // Title
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Select Category',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Select Category',
+                  style: AppTextStyles.h6.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
             ),
-            const Divider(height: 1),
             // Category list
             Flexible(
               child: ListView.builder(

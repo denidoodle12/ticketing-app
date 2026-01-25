@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:gal/gal.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/network/chat_websocket_service.dart';
@@ -364,6 +365,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     // Show bottom sheet with options
     if (!mounted) return;
 
+    final isImage = _isImageFile(fileName);
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -372,75 +375,113 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.grey300,
-                borderRadius: BorderRadius.circular(2),
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.grey300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
+            // Title
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text(
                 fileName,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  fontWeight: FontWeight.w600,
+                style: AppTextStyles.h6.copyWith(
+                  color: AppColors.textPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Divider(height: 1),
+            // Save option - dynamic based on file type
             ListTile(
               leading: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.success500.withAlpha(25),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.primaryDark.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  Icons.download_rounded,
-                  color: AppColors.success500,
+                  isImage ? Icons.photo_library_rounded : Icons.download_rounded,
+                  color: AppColors.primaryDark,
                 ),
               ),
-              title: const Text('Save to Downloads'),
-              subtitle: const Text('Save file to device storage'),
+              title: Text(
+                isImage ? 'Save to Gallery' : 'Save to Downloads',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                isImage
+                    ? 'Save image to Gallery > Ticketing App'
+                    : 'Save file to Downloads folder',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _downloadToDevice(url, fileName);
               },
             ),
+            // Share option
             ListTile(
               leading: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withAlpha(25),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.primaryDark.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   Icons.share_rounded,
-                  color: AppColors.primary,
+                  color: AppColors.primaryDark,
                 ),
               ),
-              title: const Text('Share'),
-              subtitle: const Text('Share to other apps'),
+              title: Text(
+                'Share',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'Share to other apps',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _shareFile(url, fileName);
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
           ],
         ),
       ),
     );
   }
 
-  /// Download file to device Downloads folder
+  /// Check if file is an image based on extension
+  bool _isImageFile(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension);
+  }
+
+  /// Download file to device - images go to Gallery, others go to Downloads
   Future<void> _downloadToDevice(String url, String fileName) async {
+    final isImage = _isImageFile(fileName);
+
     // Show downloading indicator
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -466,97 +507,12 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     }
 
     try {
-      // Request storage permission for Android
-      if (Platform.isAndroid) {
-        final status = await Permission.storage.request();
-        if (!status.isGranted) {
-          // Try manage external storage for Android 11+
-          final manageStatus = await Permission.manageExternalStorage.request();
-          if (!manageStatus.isGranted && mounted) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Storage permission required to save files'),
-                backgroundColor: AppColors.warning500,
-              ),
-            );
-            return;
-          }
-        }
-      }
-
-      // Get Downloads directory
-      String downloadPath;
-      if (Platform.isAndroid) {
-        // Android Downloads folder
-        downloadPath = '/storage/emulated/0/Download';
-        // Create directory if not exists
-        final dir = Directory(downloadPath);
-        if (!await dir.exists()) {
-          await dir.create(recursive: true);
-        }
+      if (isImage) {
+        // For images: Save to Gallery
+        await _saveImageToGallery(url, fileName);
       } else {
-        // iOS - use app documents directory
-        final docDir = await getApplicationDocumentsDirectory();
-        downloadPath = docDir.path;
-      }
-
-      final filePath = '$downloadPath/$fileName';
-
-      // Check if file already exists, add number suffix if needed
-      String finalPath = filePath;
-      int counter = 1;
-      while (await File(finalPath).exists()) {
-        final extension = fileName.contains('.')
-            ? '.${fileName.split('.').last}'
-            : '';
-        final nameWithoutExt = fileName.contains('.')
-            ? fileName.substring(0, fileName.lastIndexOf('.'))
-            : fileName;
-        finalPath = '$downloadPath/${nameWithoutExt}_($counter)$extension';
-        counter++;
-      }
-
-      // Download file with auth headers using Dio
-      final dio = Dio();
-      await dio.download(
-        url,
-        finalPath,
-        options: Options(
-          headers: _authHeaders,
-        ),
-      );
-
-      // Hide download snackbar and show success
-      if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: AppColors.white),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Download complete'),
-                      Text(
-                        'Saved to Downloads',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.white.withAlpha(200),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.success500,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        // For other files: Save to Downloads folder
+        await _saveFileToDownloads(url, fileName);
       }
     } on DioException catch (e) {
       _handleDownloadError(e);
@@ -570,6 +526,180 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
           ),
         );
       }
+    }
+  }
+
+  /// Save image to device Gallery
+  Future<void> _saveImageToGallery(String url, String fileName) async {
+    // Request photos permission for gallery access
+    if (Platform.isAndroid) {
+      // For Android 13+ (API 33+), need photos permission
+      // For older versions, storage permission
+      final hasAccess = await Gal.hasAccess(toAlbum: true);
+      if (!hasAccess) {
+        final granted = await Gal.requestAccess(toAlbum: true);
+        if (!granted && mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Gallery permission required to save images'),
+              backgroundColor: AppColors.warning500,
+            ),
+          );
+          return;
+        }
+      }
+    }
+
+    // Download to temp directory first
+    final tempDir = await getTemporaryDirectory();
+    final tempPath = '${tempDir.path}/$fileName';
+
+    // Download file with auth headers
+    final dio = Dio();
+    await dio.download(
+      url,
+      tempPath,
+      options: Options(
+        headers: _authHeaders,
+      ),
+    );
+
+    // Save to gallery with album name
+    await Gal.putImage(tempPath, album: 'Ticketing App');
+
+    // Delete temp file
+    final tempFile = File(tempPath);
+    if (await tempFile.exists()) {
+      await tempFile.delete();
+    }
+
+    // Show success message
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: AppColors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Image saved'),
+                    Text(
+                      'Saved to Gallery > Ticketing App',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.white.withAlpha(200),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.success500,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// Save non-image files to Downloads folder
+  Future<void> _saveFileToDownloads(String url, String fileName) async {
+    // Request storage permission for Android
+    if (Platform.isAndroid) {
+      final status = await Permission.storage.request();
+      if (!status.isGranted) {
+        // Try manage external storage for Android 11+
+        final manageStatus = await Permission.manageExternalStorage.request();
+        if (!manageStatus.isGranted && mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Storage permission required to save files'),
+              backgroundColor: AppColors.warning500,
+            ),
+          );
+          return;
+        }
+      }
+    }
+
+    // Get Downloads directory
+    String downloadPath;
+    if (Platform.isAndroid) {
+      // Android Downloads folder
+      downloadPath = '/storage/emulated/0/Download';
+      // Create directory if not exists
+      final dir = Directory(downloadPath);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+    } else {
+      // iOS - use app documents directory
+      final docDir = await getApplicationDocumentsDirectory();
+      downloadPath = docDir.path;
+    }
+
+    final filePath = '$downloadPath/$fileName';
+
+    // Check if file already exists, add number suffix if needed
+    String finalPath = filePath;
+    int counter = 1;
+    while (await File(finalPath).exists()) {
+      final extension = fileName.contains('.')
+          ? '.${fileName.split('.').last}'
+          : '';
+      final nameWithoutExt = fileName.contains('.')
+          ? fileName.substring(0, fileName.lastIndexOf('.'))
+          : fileName;
+      finalPath = '$downloadPath/${nameWithoutExt}_($counter)$extension';
+      counter++;
+    }
+
+    // Download file with auth headers using Dio
+    final dio = Dio();
+    await dio.download(
+      url,
+      finalPath,
+      options: Options(
+        headers: _authHeaders,
+      ),
+    );
+
+    // Hide download snackbar and show success
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: AppColors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Download complete'),
+                    Text(
+                      'Saved to Downloads',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.white.withAlpha(200),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.success500,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -692,33 +822,93 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.grey300,
-                borderRadius: BorderRadius.circular(2),
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.grey300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                'More Options',
+                style: AppTextStyles.h6.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            // Refresh option
             ListTile(
-              leading: const Icon(Icons.refresh),
-              title: const Text('Refresh'),
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryDark.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.refresh,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+              title: Text(
+                'Refresh',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'Reload ticket data',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _loadTicketDetail();
               },
             ),
+            // Share option
             ListTile(
-              leading: const Icon(Icons.share_outlined),
-              title: const Text('Share Ticket'),
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryDark.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.share_outlined,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+              title: Text(
+                'Share Ticket',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'Share ticket to other apps',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: Implement share
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -729,7 +919,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Consumer<TicketProvider>(
           builder: (context, provider, child) {
