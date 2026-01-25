@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/asset_paths.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/utils/toast_helper.dart';
+import '../../../core/utils/app_info.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/custom_button.dart';
 import '../../../shared/widgets/custom_text_field.dart';
@@ -183,10 +183,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Spacer to push AppVersion to center between button and bottom
                         const Spacer(),
 
-                        // App Version
+                        // App Version (dynamic from pubspec.yaml)
                         Center(
                           child: Text(
-                            'AppVersion ${AppConstants.appVersion}',
+                            'v${AppInfo.version}',
                             style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.textSecondary,
                             ),

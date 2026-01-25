@@ -1,7 +1,7 @@
 name: ticketing_app
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.1.0
+version: 0.2.0
 
 environment:
   sdk: ^3.9.2
@@ -44,10 +44,16 @@ dependencies:
   # Save to Gallery
   gal: ^2.3.0
 
+  # App Info (read version dynamically)
+  package_info_plus: ^8.3.0
+
   # Charts
   fl_chart: ^0.69.0
   cached_network_image: ^3.4.1
   url_launcher: ^6.3.2
+
+  # Firebase
+  firebase_core: ^4.4.0
 
 dev_dependencies:
   flutter_test:
