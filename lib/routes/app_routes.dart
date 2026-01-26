@@ -7,6 +7,7 @@ import '../features/onboarding/screens/onboarding_screen.dart';
 import '../features/tickets/screens/create_ticket_screen.dart';
 import '../features/tickets/screens/ticket_detail_screen.dart';
 import '../features/tickets/models/ticket_model.dart';
+import '../features/search/screens/search_screen.dart';
 
 class AppRoutes {
   // Route names
@@ -14,6 +15,7 @@ class AppRoutes {
   static const String onboarding = '/onboarding';
   static const String login = '/login';
   static const String home = '/home';
+  static const String search = '/search';
   static const String createTicket = '/tickets/create';
   static const String ticketDetail = '/tickets/detail';
 
@@ -44,6 +46,14 @@ class AppRoutes {
         path: home,
         name: 'home',
         builder: (context, state) => const MainScreen(),
+      ),
+      GoRoute(
+        path: search,
+        name: 'search',
+        builder: (context, state) {
+          final initialQuery = state.extra as String?;
+          return SearchScreen(initialQuery: initialQuery);
+        },
       ),
       GoRoute(
         path: createTicket,

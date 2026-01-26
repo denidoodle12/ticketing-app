@@ -52,6 +52,9 @@ dependencies:
   cached_network_image: ^3.4.1
   url_launcher: ^6.3.2
 
+  # Shimmer loading effect
+  shimmer: ^3.0.0
+
   # Firebase
   firebase_core: ^4.4.0
 

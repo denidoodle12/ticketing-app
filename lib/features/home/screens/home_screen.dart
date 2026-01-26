@@ -209,53 +209,36 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSearchBar() {
     return Row(
       children: [
-        // Search Input - pill shaped white background
+        // Search Input - pill shaped white background (tap to open search screen)
         Expanded(
-          child: Container(
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: TextField(
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textPrimary,
+          child: GestureDetector(
+            onTap: () {
+              context.push('/search');
+            },
+            child: Container(
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(30),
               ),
-              decoration: InputDecoration(
-                hintText: 'Cari ticket',
-                hintStyle: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.grey400,
-                ),
-                prefixIcon: Padding(
-                  padding: const EdgeInsets.only(left: 16, right: 8),
-                  child: Icon(
-                    Icons.search,
-                    color: AppColors.grey400,
-                    size: 22,
+              child: Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, right: 8),
+                    child: Icon(
+                      Icons.search,
+                      color: AppColors.grey400,
+                      size: 22,
+                    ),
                   ),
-                ),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 46,
-                  minHeight: 22,
-                ),
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 0,
-                  vertical: 15,
-                ),
+                  Text(
+                    'Search tickets...',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.grey400,
+                    ),
+                  ),
+                ],
               ),
-              onSubmitted: (value) {
-                // Navigate to tickets screen with search query
-                if (value.trim().isNotEmpty) {
-                  context.read<TicketProvider>().setSearchQuery(value);
-                  context
-                      .findAncestorStateOfType<MainScreenState>()
-                      ?.switchToTab(1);
-                }
-              },
             ),
           ),
         ),
@@ -271,10 +254,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: IconButton(
             onPressed: () {
-              // Navigate to tickets screen
-              context
-                  .findAncestorStateOfType<MainScreenState>()
-                  ?.switchToTab(1);
+              // Navigate to search screen
+              context.push('/search');
             },
             icon: Icon(
               Icons.tune,
