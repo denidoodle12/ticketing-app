@@ -16,17 +16,24 @@ class MainScreen extends StatefulWidget {
 class MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    TicketsScreen(),
-    ProfileScreen(),
-  ];
+  // Keys to force rebuild screens when tab changes
+  final GlobalKey<_TicketsScreenWrapperState> _ticketsKey = GlobalKey();
 
   void _onTabTapped(int index) {
+    // Notify tickets screen when switching to it
+    if (index == 1) {
+      _ticketsKey.currentState?.onTabSelected();
+    }
     setState(() {
       _currentIndex = index;
     });
   }
+
+  List<Widget> get _screens => [
+    const HomeScreen(),
+    _TicketsScreenWrapper(key: _ticketsKey),
+    const ProfileScreen(),
+  ];
 
   /// Public method to switch tabs - can be called via context.findAncestorStateOfType
   void switchToTab(int index) {
@@ -140,5 +147,29 @@ class MainScreenState extends State<MainScreen> {
         ),
       ),
     );
+  }
+}
+
+/// Wrapper for TicketsScreen to handle tab selection callback
+class _TicketsScreenWrapper extends StatefulWidget {
+  const _TicketsScreenWrapper({super.key});
+
+  @override
+  State<_TicketsScreenWrapper> createState() => _TicketsScreenWrapperState();
+}
+
+class _TicketsScreenWrapperState extends State<_TicketsScreenWrapper> {
+  Key _ticketsScreenKey = UniqueKey();
+
+  /// Called when this tab is selected - forces rebuild of TicketsScreen
+  void onTabSelected() {
+    setState(() {
+      _ticketsScreenKey = UniqueKey();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TicketsScreen(key: _ticketsScreenKey);
   }
 }

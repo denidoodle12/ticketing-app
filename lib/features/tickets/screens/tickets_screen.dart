@@ -31,6 +31,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
   final PagingController<int, Ticket> _pagingController =
       PagingController(firstPageKey: 1);
 
+  // Flag to track if filter has been initialized
+  bool _isFilterInitialized = false;
+
   final List<Map<String, dynamic>> _filterOptions = [
     {'id': 'all', 'label': 'All'},
     {'id': 'open', 'label': 'Open'},
@@ -69,6 +72,13 @@ class _TicketsScreenState extends State<TicketsScreen> {
   Future<void> _fetchPage(int pageKey) async {
     try {
       final ticketProvider = context.read<TicketProvider>();
+
+      // Reset filter on first page fetch if not initialized
+      // This ensures filter matches _selectedFilter = 'all' default state
+      if (!_isFilterInitialized && pageKey == 1) {
+        ticketProvider.setFilterStatusForPaging(null);
+        _isFilterInitialized = true;
+      }
 
       // Fetch tickets from provider/repository
       final response = await ticketProvider.fetchTicketsPage(
