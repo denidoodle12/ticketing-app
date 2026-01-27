@@ -207,64 +207,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Row(
-      children: [
-        // Search Input - pill shaped white background (tap to open search screen)
-        Expanded(
-          child: GestureDetector(
-            onTap: () {
-              context.push('/search');
-            },
-            child: Container(
-              height: 52,
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Row(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16, right: 8),
-                    child: Icon(
-                      Icons.search,
-                      color: AppColors.grey400,
-                      size: 22,
-                    ),
-                  ),
-                  Text(
-                    'Search tickets...',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.grey400,
-                    ),
-                  ),
-                ],
+    // Search Input - pill shaped white background (tap to open search screen)
+    return GestureDetector(
+      onTap: () {
+        context.push('/search');
+      },
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 8),
+              child: Icon(
+                Icons.search,
+                color: AppColors.grey400,
+                size: 22,
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 12),
-
-        // Filter Button - circular with light background
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: AppColors.white.withAlpha(40),
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            onPressed: () {
-              // Navigate to search screen
-              context.push('/search');
-            },
-            icon: Icon(
-              Icons.tune,
-              color: AppColors.white.withAlpha(220),
-              size: 22,
+            Expanded(
+              child: Text(
+                'Search tickets...',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.grey400,
+                ),
+              ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../providers/ticket_provider.dart';
+import '../../search/widgets/filter_bottom_sheet.dart';
 import '../models/ticket_model.dart';
 import '../widgets/ticket_card.dart';
 
@@ -21,6 +22,10 @@ class _TicketsScreenState extends State<TicketsScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounceTimer;
   String _selectedFilter = 'all';
+
+  // Additional filters from bottom sheet
+  Set<int> _selectedCategoryIds = {};
+  Set<String> _selectedPriorities = {};
 
   static const _pageSize = 10;
   final PagingController<int, Ticket> _pagingController =
@@ -48,6 +53,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ticketProvider = context.read<TicketProvider>();
       ticketProvider.loadStatuses();
+      ticketProvider.loadCategories();
       ticketProvider.loadTicketStats();
     });
   }
@@ -89,6 +95,20 @@ class _TicketsScreenState extends State<TicketsScreen> {
           final descriptionMatch =
               ticket.description.toLowerCase().contains(searchLower);
           return subjectMatch || descriptionMatch;
+        }).toList();
+      }
+
+      // Apply category filter if present
+      if (_selectedCategoryIds.isNotEmpty) {
+        newItems = newItems.where((ticket) {
+          return _selectedCategoryIds.contains(ticket.categoryId);
+        }).toList();
+      }
+
+      // Apply priority filter if present
+      if (_selectedPriorities.isNotEmpty) {
+        newItems = newItems.where((ticket) {
+          return _selectedPriorities.contains(ticket.priority.value);
         }).toList();
       }
 
@@ -164,6 +184,34 @@ class _TicketsScreenState extends State<TicketsScreen> {
     // Refresh list
     _pagingController.refresh();
   }
+
+  void _showFilterBottomSheet() {
+    final ticketProvider = context.read<TicketProvider>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FilterBottomSheet(
+        categories: ticketProvider.categories,
+        statuses: ticketProvider.statuses,
+        selectedCategoryIds: _selectedCategoryIds,
+        selectedStatusIds: {}, // Status already handled by chips above
+        selectedPriorities: _selectedPriorities,
+        onApply: (categoryIds, statusIds, priorities) {
+          setState(() {
+            _selectedCategoryIds = categoryIds;
+            _selectedPriorities = priorities;
+          });
+          // Refresh the list with new filters
+          _pagingController.refresh();
+        },
+      ),
+    );
+  }
+
+  bool get _hasActiveFilters =>
+      _selectedCategoryIds.isNotEmpty || _selectedPriorities.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -280,7 +328,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: 'Cari ticket',
+                        hintText: 'Search Tickets...',
                         hintStyle: AppTextStyles.bodyMedium.copyWith(
                           color: AppColors.grey400,
                         ),
@@ -315,16 +363,18 @@ class _TicketsScreenState extends State<TicketsScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.primary50,
+                    color: _hasActiveFilters
+                        ? AppColors.primaryDark
+                        : AppColors.primary50,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: IconButton(
-                    onPressed: () {
-                      // TODO: Show filter bottom sheet
-                    },
+                    onPressed: _showFilterBottomSheet,
                     icon: Icon(
                       Icons.tune_rounded,
-                      color: AppColors.primaryDark,
+                      color: _hasActiveFilters
+                          ? AppColors.white
+                          : AppColors.primaryDark,
                       size: 22,
                     ),
                   ),
