@@ -4,6 +4,7 @@ class Comment {
   final int ticketId;
   final int userId;
   final String userName;
+  final String? firstname;
   final String userRole;
   final String content;
   final String? attachment;
@@ -14,6 +15,7 @@ class Comment {
     required this.ticketId,
     required this.userId,
     required this.userName,
+    this.firstname,
     required this.userRole,
     required this.content,
     this.attachment,
@@ -26,6 +28,7 @@ class Comment {
       ticketId: json['ticket_id'] as int,
       userId: json['user_id'] as int,
       userName: json['user_name'] as String? ?? 'Unknown',
+      firstname: json['firstname'] as String?,
       userRole: json['user_role'] as String? ?? 'customer',
       content: json['content'] as String? ?? '',
       attachment: json['attachment'] as String?,
@@ -41,6 +44,7 @@ class Comment {
       'ticket_id': ticketId,
       'user_id': userId,
       'user_name': userName,
+      'firstname': firstname,
       'user_role': userRole,
       'content': content,
       'attachment': attachment,
@@ -54,8 +58,20 @@ class Comment {
   /// Check if this comment is from the current user (customer)
   bool get isFromCustomer => userRole.toLowerCase() == 'customer';
 
-  /// Get display name (extract name from email or use full name)
+  /// Get display name
+  /// For agent/admin/superadmin: "firstname.role" format
+  /// For customer: firstname or extracted from email
   String get displayName {
+    // For non-customer (agent/admin/superadmin), show "firstname.role" format
+    if (!isFromCustomer && firstname != null && firstname!.isNotEmpty) {
+      return '$firstname - $userRole';
+    }
+
+    // For customer or if firstname is not available, use firstname or extract from email
+    if (firstname != null && firstname!.isNotEmpty) {
+      return firstname!;
+    }
+
     if (userName.contains('@')) {
       return userName.split('@').first;
     }

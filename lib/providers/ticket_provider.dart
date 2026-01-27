@@ -250,13 +250,28 @@ class TicketProvider extends ChangeNotifier {
   }
 
   /// Load ticket detail by ID with comments
+  /// Comments are fetched from ms-chat service endpoint which includes firstname field
   Future<void> loadTicketDetail(int ticketId) async {
     _ticketDetailState = TicketState.loading;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _ticketDetailResponse = await _ticketRepository.getTicketById(ticketId);
+      // Fetch ticket detail and comments in parallel
+      final results = await Future.wait([
+        _ticketRepository.getTicketById(ticketId),
+        _ticketRepository.getTicketComments(ticketId),
+      ]);
+
+      final ticketResponse = results[0] as TicketDetailResponse;
+      final commentsResponse = results[1] as CommentsResponse;
+
+      // Use comments from ms-chat service (has firstname) instead of ticket response
+      _ticketDetailResponse = TicketDetailResponse(
+        ticket: ticketResponse.ticket,
+        comments: commentsResponse.comments.map((c) => c.toJson()).toList(),
+        totalComments: commentsResponse.total,
+      );
       _selectedTicket = _ticketDetailResponse?.ticket;
       _ticketDetailState = TicketState.loaded;
     } on NetworkException catch (e) {

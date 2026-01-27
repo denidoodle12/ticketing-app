@@ -85,6 +85,15 @@ class TicketRemoteDatasource {
     return TicketDetailResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// Get ticket comments from ms-chat service (includes firstname field)
+  Future<CommentsResponse> getTicketComments(int ticketId, {int page = 1, int limit = 50}) async {
+    final response = await _dio.get(
+      ApiEndpoints.ticketComments(ticketId),
+      queryParameters: {'page': page, 'limit': limit},
+    );
+    return CommentsResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
   /// Create new ticket
   /// Note: attachmentUrl is the URL returned from uploadFile(), not a file path
   Future<Ticket> createTicket({

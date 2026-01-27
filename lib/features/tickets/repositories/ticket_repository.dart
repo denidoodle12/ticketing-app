@@ -107,6 +107,24 @@ class TicketRepository {
     }
   }
 
+  /// Get ticket comments from ms-chat service (includes firstname field)
+  Future<CommentsResponse> getTicketComments(int ticketId, {int page = 1, int limit = 50}) async {
+    try {
+      if (_useMock) {
+        return CommentsResponse(comments: [], total: 0, page: page, limit: limit);
+      }
+      return await _remoteDatasource!.getTicketComments(ticketId, page: page, limit: limit);
+    } on NetworkException {
+      rethrow;
+    } on ServerException {
+      rethrow;
+    } on UnauthorizedException {
+      rethrow;
+    } catch (e) {
+      throw ServerException('Failed to load comments: $e');
+    }
+  }
+
   /// Create new ticket
   /// Note: attachmentUrl should be the URL returned from uploadFile(), not a file path
   Future<Ticket> createTicket({

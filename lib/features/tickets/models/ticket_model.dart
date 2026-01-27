@@ -1,6 +1,39 @@
 import 'ticket_category_model.dart';
 import 'ticket_status_model.dart';
 
+/// User info model for creator_info and assignee_info
+class UserInfo {
+  final int id;
+  final String name;
+  final String email;
+  final String? firstname;
+
+  UserInfo({
+    required this.id,
+    required this.name,
+    required this.email,
+    this.firstname,
+  });
+
+  factory UserInfo.fromJson(Map<String, dynamic> json) {
+    return UserInfo(
+      id: json['id'] as int,
+      name: json['name'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      firstname: json['firstname'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'firstname': firstname,
+    };
+  }
+}
+
 enum TicketPriority { low, medium, high, critical }
 
 extension TicketPriorityExtension on TicketPriority {
@@ -56,6 +89,8 @@ class Ticket {
   final String? attachment;
   final int createdBy;
   final int? assignedTo;
+  final UserInfo? creatorInfo;
+  final UserInfo? assigneeInfo;
   final TicketCategory? category;
   final TicketStatus? status;
   final DateTime? createdAt;
@@ -71,6 +106,8 @@ class Ticket {
     this.attachment,
     required this.createdBy,
     this.assignedTo,
+    this.creatorInfo,
+    this.assigneeInfo,
     this.category,
     this.status,
     this.createdAt,
@@ -90,6 +127,12 @@ class Ticket {
       attachment: json['attachment'] as String?,
       createdBy: json['created_by'] as int,
       assignedTo: json['assigned_to'] as int?,
+      creatorInfo: json['creator_info'] != null
+          ? UserInfo.fromJson(json['creator_info'] as Map<String, dynamic>)
+          : null,
+      assigneeInfo: json['assignee_info'] != null
+          ? UserInfo.fromJson(json['assignee_info'] as Map<String, dynamic>)
+          : null,
       category: json['category'] != null
           ? TicketCategory.fromJson(json['category'] as Map<String, dynamic>)
           : null,
@@ -129,6 +172,8 @@ class Ticket {
     String? attachment,
     int? createdBy,
     int? assignedTo,
+    UserInfo? creatorInfo,
+    UserInfo? assigneeInfo,
     TicketCategory? category,
     TicketStatus? status,
     DateTime? createdAt,
@@ -144,6 +189,8 @@ class Ticket {
       attachment: attachment ?? this.attachment,
       createdBy: createdBy ?? this.createdBy,
       assignedTo: assignedTo ?? this.assignedTo,
+      creatorInfo: creatorInfo ?? this.creatorInfo,
+      assigneeInfo: assigneeInfo ?? this.assigneeInfo,
       category: category ?? this.category,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
