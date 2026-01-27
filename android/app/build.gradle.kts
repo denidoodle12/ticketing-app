@@ -26,8 +26,8 @@ android {
         applicationId = "com.enigma.ticketing_app"
         minSdk = flutter.minSdkVersion  // Android 5.0
         targetSdk = 36  // Latest stable
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = flutter.versionCode  // from pubspec.yaml
+        versionName = flutter.versionName  // from pubspec.yaml
     }
 
     buildTypes {

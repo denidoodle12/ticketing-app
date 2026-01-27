@@ -29,7 +29,7 @@
 - Complete RBAC implementation with roles, permissions, and role_permissions
 - New endpoints for role and permission management
 - Enhanced validation error messages
-- User profile endpoints (`/users/me`)
+- User profile endpoints (`/users/me`) with **Profile Picture** support
 - **NEW:** Ticket Service (ms-ticket) with:
   - Ticket Categories CRUD
   - Ticket Status CRUD with dynamic transitions
@@ -500,9 +500,9 @@ Authorization: Bearer <jwt_token>
 
 ## 6. List All Users ⚠️ UPDATED
 
-| Method | Endpoint | Access              |
-| ------ | -------- | ------------------- |
-| `GET`  | `/users` | Admin/Super Admin   |
+| Method | Endpoint | Access            |
+| ------ | -------- | ----------------- |
+| `GET`  | `/users` | Admin/Super Admin |
 
 **Description:** Get all users. Only Admin (level 5+) can access.
 
@@ -551,9 +551,9 @@ Authorization: Bearer <jwt_token>
 
 ## 6.1. Get All Agents ✨ NEW
 
-| Method | Endpoint        | Access                     |
-| ------ | --------------- | -------------------------- |
-| `GET`  | `/users/agents` | Agent/Admin/Super Admin    |
+| Method | Endpoint        | Access                  |
+| ------ | --------------- | ----------------------- |
+| `GET`  | `/users/agents` | Agent/Admin/Super Admin |
 
 **Description:** Get all agents (users with role level = 2). Accessible by agents and above. Useful for assigning tickets.
 
@@ -2571,13 +2571,17 @@ GET /tickets?assigned_to=5&category_id=2
 | ------ | -------------- | ------------------- |
 | `GET`  | `/tickets/:id` | Authenticated Users |
 
-**Description:** Get ticket details by ID with chat history (comments).
+**Description:** Get ticket details by ID with chat history (comments) from ms-chat service.
 
 - **Customer:** Can only view own tickets
 - **Agent/Admin/Super Admin:** Can view all tickets
 
 > [!NOTE]
-> Comments are fetched from ms-chat service. If there are no comments, the `comments` field will not be included in the response.
+>
+> - Comments are fetched from **ms-chat service** (port 8083)
+> - If there are no comments, the `comments` field will not be included in the response
+> - Comments include attachment URLs if available
+> - Limited to 50 most recent comments
 
 **Success Response (200):**
 
@@ -2594,6 +2598,18 @@ GET /tickets?assigned_to=5&category_id=2
     "attachment": "/uploads/20260106112600_a1b2c3d4.pdf",
     "created_by": 10,
     "assigned_to": 5,
+    "creator_info": {
+      "id": 10,
+      "name": "John Customer",
+      "email": "customer@test.com",
+      "firstname": "John"
+    },
+    "assignee_info": {
+      "id": 5,
+      "name": "Agent Smith",
+      "email": "agent@test.com",
+      "firstname": "Agent"
+    },
     "category": { ... },
     "status": { ... },
     "created_at": "2026-01-06T11:30:00Z",
@@ -2608,6 +2624,7 @@ GET /tickets?assigned_to=5&category_id=2
         "user_name": "customer@test.com",
         "user_role": "customer",
         "content": "Halo, saya butuh bantuan",
+        "attachment": "/uploads/screenshot.png",
         "created_at": "2026-01-06T11:31:00Z"
       },
       {
@@ -2624,6 +2641,17 @@ GET /tickets?assigned_to=5&category_id=2
   }
 }
 ```
+
+**Comment Fields:**
+
+- `id`: Comment ID
+- `ticket_id`: Ticket ID
+- `user_id`: User who posted
+- `user_name`: User email/username
+- `user_role`: User role (customer, agent, admin)
+- `content`: Comment text
+- `attachment`: File URL (optional, only if file attached)
+- `created_at`: Timestamp
 
 **Error Responses:**
 
@@ -2678,11 +2706,11 @@ GET /tickets/status/1?page=1&limit=20
 
 **Assign Rules:**
 
-| Role | Can Assign? | Condition |
-|------|-------------|-----------|
-| Agent (level 5) | ✅ | Only tickets assigned to them, to other agents (level ≥5) |
-| Admin (level 7+) | ✅ | Any ticket, to agents or higher |
-| Customer (< 5) | ❌ | Cannot assign |
+| Role             | Can Assign? | Condition                                                 |
+| ---------------- | ----------- | --------------------------------------------------------- |
+| Agent (level 5)  | ✅          | Only tickets assigned to them, to other agents (level ≥5) |
+| Admin (level 7+) | ✅          | Any ticket, to agents or higher                           |
+| Customer (< 5)   | ❌          | Cannot assign                                             |
 
 **Request:**
 
@@ -2876,12 +2904,13 @@ curl -X POST http://localhost:8000/upload \
 
 **Access Control Rules:**
 
-| Role        | Access Level                                                  |
-| ----------- | ------------------------------------------------------------- |
-| Admin (5+)  | Can access ALL files                                          |
-| User (1-4)  | Can access: own uploads OR files attached to their tickets    |
+| Role       | Access Level                                               |
+| ---------- | ---------------------------------------------------------- |
+| Admin (5+) | Can access ALL files                                       |
+| User (1-4) | Can access: own uploads OR files attached to their tickets |
 
 **Detailed Access:**
+
 - **Own uploads:** Files uploaded by the user (`uploaded_by = user_id`)
 - **Ticket access:** Files attached to tickets where user is creator (`created_by`) or assignee (`assigned_to`)
 
@@ -2912,7 +2941,10 @@ curl -X GET http://localhost:8000/uploads/20260106112600_a1b2c3d4.png \
 - **403 Forbidden:**
 
 ```json
-{ "error": "forbidden", "message": "you don't have permission to access this file" }
+{
+  "error": "forbidden",
+  "message": "you don't have permission to access this file"
+}
 ```
 
 - **404 Not Found:**
@@ -2929,16 +2961,16 @@ Attachments are now tracked in the database for security and audit purposes.
 
 **Table: `attachments`**
 
-| Column        | Type      | Description                          |
-| ------------- | --------- | ------------------------------------ |
-| id            | int       | Primary key, auto-increment          |
-| filename      | string    | Unique generated filename            |
-| original_name | string    | Original filename from upload        |
-| file_size     | int64     | File size in bytes                   |
-| mime_type     | string    | MIME type (e.g., image/png)          |
-| uploaded_by   | int       | User ID who uploaded the file        |
-| ticket_id     | int (null)| Linked ticket ID (optional)          |
-| created_at    | timestamp | Upload timestamp                     |
+| Column        | Type       | Description                   |
+| ------------- | ---------- | ----------------------------- |
+| id            | int        | Primary key, auto-increment   |
+| filename      | string     | Unique generated filename     |
+| original_name | string     | Original filename from upload |
+| file_size     | int64      | File size in bytes            |
+| mime_type     | string     | MIME type (e.g., image/png)   |
+| uploaded_by   | int        | User ID who uploaded the file |
+| ticket_id     | int (null) | Linked ticket ID (optional)   |
+| created_at    | timestamp  | Upload timestamp              |
 
 ---
 
@@ -2988,17 +3020,17 @@ Resolved → In Progress (if issue persists)
 
 ### **RBAC Summary for Tickets:**
 
-| Action        | Customer       | Agent            | Admin  | Super Admin |
-| ------------- | -------------- | ---------------- | ------ | ----------- |
-| Create        | ✅ Own         | ✅ Own           | ✅ Own | ✅ Own      |
-| List All      | ❌ Own only    | ✅ All           | ✅ All | ✅ All      |
-| Get By ID     | ✅ Own only    | ✅ All           | ✅ All | ✅ All      |
-| Update        | ❌             | ✅ Assigned only | ✅ All | ✅ All      |
-| Update Status | ❌             | ✅ Assigned only | ✅ All | ✅ All      |
-| Assign Agent  | ❌             | ✅ Re-assign own | ✅     | ✅          |
-| Delete        | ❌             | ❌               | ❌     | ✅          |
-| Upload File   | ✅             | ✅               | ✅     | ✅          |
-| Download File | ✅ Own uploads/tickets | ✅ Own uploads/tickets | ✅ All | ✅ All |
+| Action        | Customer               | Agent                  | Admin  | Super Admin |
+| ------------- | ---------------------- | ---------------------- | ------ | ----------- |
+| Create        | ✅ Own                 | ✅ Own                 | ✅ Own | ✅ Own      |
+| List All      | ❌ Own only            | ✅ All                 | ✅ All | ✅ All      |
+| Get By ID     | ✅ Own only            | ✅ All                 | ✅ All | ✅ All      |
+| Update        | ❌                     | ✅ Assigned only       | ✅ All | ✅ All      |
+| Update Status | ❌                     | ✅ Assigned only       | ✅ All | ✅ All      |
+| Assign Agent  | ❌                     | ✅ Re-assign own       | ✅     | ✅          |
+| Delete        | ❌                     | ❌                     | ❌     | ✅          |
+| Upload File   | ✅                     | ✅                     | ✅     | ✅          |
+| Download File | ✅ Own uploads/tickets | ✅ Own uploads/tickets | ✅ All | ✅ All      |
 
 ---
 
@@ -3021,9 +3053,9 @@ Resolved → In Progress (if issue persists)
 
 **Query Parameters:**
 
-| Parameter | Type    | Description                     |
-| --------- | ------- | ------------------------------- |
-| `page`    | integer | Page number (default: 1)        |
+| Parameter | Type    | Description                            |
+| --------- | ------- | -------------------------------------- |
+| `page`    | integer | Page number (default: 1)               |
 | `limit`   | integer | Items per page (default: 50, max: 100) |
 
 **Example Request:**
@@ -3044,6 +3076,7 @@ curl -X GET "http://localhost:8083/tickets/1/comments?page=1&limit=50" \
       "ticket_id": 1,
       "user_id": 5,
       "user_name": "customer@test.com",
+      "firstname": "John",
       "user_role": "customer",
       "content": "Halo, saya butuh bantuan dengan masalah login",
       "created_at": "2026-01-20T09:00:00Z"
@@ -3053,6 +3086,7 @@ curl -X GET "http://localhost:8083/tickets/1/comments?page=1&limit=50" \
       "ticket_id": 1,
       "user_id": 10,
       "user_name": "agent@test.com",
+      "firstname": "Agent",
       "user_role": "agent",
       "content": "Baik, saya akan bantu. Bisa jelaskan masalahnya?",
       "created_at": "2026-01-20T09:05:00Z"
@@ -3199,25 +3233,25 @@ wscat -c "ws://localhost:8083/ws/tickets/1?token=$TOKEN"
 
 ### **TicketComment Database Model:**
 
-| Field       | Type      | Description                        |
-| ----------- | --------- | ---------------------------------- |
-| `id`        | int (PK)  | Auto-increment primary key         |
-| `ticket_id` | int       | Foreign key to ticket              |
-| `user_id`   | int       | ID of user who sent message        |
-| `user_name` | string    | Display name (email)               |
-| `user_role` | string    | Role: customer, agent, admin, etc. |
-| `content`   | text      | Message content                    |
-| `created_at`| timestamp | When message was sent              |
+| Field        | Type      | Description                        |
+| ------------ | --------- | ---------------------------------- |
+| `id`         | int (PK)  | Auto-increment primary key         |
+| `ticket_id`  | int       | Foreign key to ticket              |
+| `user_id`    | int       | ID of user who sent message        |
+| `user_name`  | string    | Display name (email)               |
+| `user_role`  | string    | Role: customer, agent, admin, etc. |
+| `content`    | text      | Message content                    |
+| `created_at` | timestamp | When message was sent              |
 
 ---
 
 ### **RBAC Summary for Chat:**
 
-| Action         | Customer       | Agent            | Admin  | Super Admin |
-| -------------- | -------------- | ---------------- | ------ | ----------- |
-| Read Comments  | ✅ Own tickets | ✅ Assigned      | ✅ All | ✅ All      |
-| Write Comments | ✅ Own tickets | ✅ Assigned      | ✅ All | ✅ All      |
-| WebSocket Chat | ✅ Own tickets | ✅ Assigned      | ✅ All | ✅ All      |
+| Action         | Customer       | Agent       | Admin  | Super Admin |
+| -------------- | -------------- | ----------- | ------ | ----------- |
+| Read Comments  | ✅ Own tickets | ✅ Assigned | ✅ All | ✅ All      |
+| Write Comments | ✅ Own tickets | ✅ Assigned | ✅ All | ✅ All      |
+| WebSocket Chat | ✅ Own tickets | ✅ Assigned | ✅ All | ✅ All      |
 
 ---
 
@@ -3594,15 +3628,15 @@ wscat -c "ws://localhost:8083/ws/tickets/1?token=$TOKEN"
 
 **Database Model:**
 
-| Field       | Type    | Description            |
-|-------------|---------|------------------------|
-| id          | int     | Primary key            |
-| ticket_id   | int     | Ticket ID              |
-| user_id     | int     | User who sent message  |
-| user_name   | string  | Display name           |
-| user_role   | string  | customer/agent/admin   |
-| content     | text    | Message content        |
-| created_at  | timestamp | Sent time            |
+| Field      | Type      | Description           |
+| ---------- | --------- | --------------------- |
+| id         | int       | Primary key           |
+| ticket_id  | int       | Ticket ID             |
+| user_id    | int       | User who sent message |
+| user_name  | string    | Display name          |
+| user_role  | string    | customer/agent/admin  |
+| content    | text      | Message content       |
+| created_at | timestamp | Sent time             |
 
 ## Version 2.7 (2026-01-06) - Agent Re-assign & Upload Limit
 
@@ -3653,7 +3687,57 @@ wscat -c "ws://localhost:8083/ws/tickets/1?token=$TOKEN"
 - Status transitions validated against database rules
 - Category and status must be active
 
-## Version 2.8 (2026-01-21) - Chat Attachment Support ✨ NEW
+## Version 2.9 (2026-01-22) - Profile Picture Support ✨ NEW
+
+- ✨ **Profile Picture Upload** - `POST /users/me/profile-picture` for uploading profile photos
+- ✨ **Profile Picture Field** - User profile (`/users/me`) now includes `profile_picture` URL
+- 🔒 **File Type Validation** - Allowed: jpg, jpeg, png (Images only)
+- 🔒 **File Size Limit** - Max 2MB per file
+- 📁 **Serve Files** - `GET /profile-pictures/:filename` to access uploaded photos
+
+**New Endpoints (ms-user-management):**
+
+| Method | Endpoint                      | Description                         |
+| ------ | ----------------------------- | ----------------------------------- |
+| `POST` | `/users/me/profile-picture`   | Upload profile photo (JWT required) |
+| `GET`  | `/profile-pictures/:filename` | Serve profile photos                |
+
+**Database Changes:**
+
+```sql
+ALTER TABLE users ADD COLUMN profile_picture VARCHAR(255);
+```
+
+---
+
+## Version 2.10 (2026-01-26) - Block Chat on Closed Tickets ✨ NEW
+
+- 🔒 **Closed Ticket Protection** - Chat disabled on tickets with `is_final` status (e.g., "closed")
+- 🔒 **REST API Block** - `POST /tickets/:id/comments` returns `403 Forbidden` with `ticket_closed` error
+- 🔒 **WebSocket Block** - Messages on closed tickets return error via WebSocket
+- 🔒 **Upload Block** - `POST /tickets/:id/comments/upload` blocked on closed tickets
+
+**Error Response (403 Forbidden):**
+
+```json
+{
+  "error": "ticket_closed",
+  "message": "cannot add comments to a closed ticket"
+}
+```
+
+**WebSocket Error Message:**
+
+```json
+{
+  "type": "error",
+  "content": "Cannot send messages to a closed ticket"
+}
+```
+
+**Note:** Reading comments (`GET /tickets/:id/comments`) and viewing chat history via WebSocket is still allowed on closed tickets.
+
+---
 
 - ✨ **Chat Attachment Upload** - `POST /tickets/:id/comments/upload` for uploading files in chat
 - ✨ **Attachment Field** - Comments now support optional `attachment` field
@@ -3666,10 +3750,10 @@ wscat -c "ws://localhost:8083/ws/tickets/1?token=$TOKEN"
 
 **New Endpoints (ms-chat):**
 
-| Method | Endpoint                        | Description                    |
-|--------|--------------------------------|--------------------------------|
-| `POST` | `/tickets/:id/comments/upload` | Upload attachment (JWT required)|
-| `GET`  | `/chat-uploads/:filename`      | Serve uploaded files           |
+| Method | Endpoint                       | Description                      |
+| ------ | ------------------------------ | -------------------------------- |
+| `POST` | `/tickets/:id/comments/upload` | Upload attachment (JWT required) |
+| `GET`  | `/chat-uploads/:filename`      | Serve uploaded files             |
 
 **Request Example - Create Comment with Attachment:**
 
@@ -3691,11 +3775,13 @@ wscat -c "ws://localhost:8083/ws/tickets/1?token=$TOKEN"
 ```
 
 **Database Changes:**
+
 ```sql
 ALTER TABLE ticket_comments ADD COLUMN attachment VARCHAR(255);
 ```
 
 **Validation Rules:**
+
 - Content and attachment are both optional
 - At least one (content OR attachment) must be present
 - Empty/whitespace-only content is rejected
@@ -3730,9 +3816,11 @@ ALTER TABLE ticket_comments ADD COLUMN attachment VARCHAR(255);
 - 📝 **Documentation** - Updated upload/download endpoints with security details
 
 **Database Changes:**
+
 - New table: `attachments` (id, filename, original_name, file_size, mime_type, uploaded_by, ticket_id, created_at)
 
 **Security Rules:**
+
 - File downloads require JWT authentication
 - Users can access: own uploads OR files attached to tickets they created/assigned to
 - Admin/Super Admin can access all files
