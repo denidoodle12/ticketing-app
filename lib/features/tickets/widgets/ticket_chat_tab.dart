@@ -107,6 +107,11 @@ class _TicketChatTabState extends State<TicketChatTab> with WidgetsBindingObserv
     return message.isNotEmpty || _selectedAttachmentPath != null;
   }
 
+  /// Check if ticket is closed (status is final)
+  bool get _isTicketClosed {
+    return widget.ticket.status?.isFinal == true;
+  }
+
   void _handleSend() {
     if (widget.isSending) return;
 
@@ -396,7 +401,11 @@ class _TicketChatTabState extends State<TicketChatTab> with WidgetsBindingObserv
           ),
 
           // Message input (fixed at bottom, SafeArea handles keyboard)
-          _buildMessageInput(),
+          // Hide input when ticket is closed (status is final)
+          if (!_isTicketClosed)
+            _buildMessageInput()
+          else
+            _buildClosedTicketBanner(),
         ],
       ),
     );
@@ -652,6 +661,38 @@ class _TicketChatTabState extends State<TicketChatTab> with WidgetsBindingObserv
                         ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClosedTicketBanner() {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.grey100,
+          border: Border(
+            top: BorderSide(color: AppColors.border),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 18,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'This ticket has been closed',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
