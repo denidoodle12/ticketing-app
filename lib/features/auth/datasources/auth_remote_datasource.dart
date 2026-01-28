@@ -95,4 +95,58 @@ class AuthRemoteDatasource {
     final data = response.data['data'] as Map<String, dynamic>;
     return User.fromJson(data);
   }
+
+  /// Change user password
+  /// Returns success message on success
+  Future<String> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _dioUser.put(
+        ApiEndpoints.userMeChangePassword,
+        data: {
+          'old_password': oldPassword,
+          'new_password': newPassword,
+        },
+      );
+
+      // API Response format: { "message": "password changed successfully" }
+      final message = response.data['message'] as String? ?? 'Password changed successfully';
+      return message;
+    } on DioException catch (e) {
+      if (e.error is AppException) {
+        throw e.error as AppException;
+      }
+
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          throw NetworkException('Connection timeout. Please try again.');
+        case DioExceptionType.connectionError:
+          throw NetworkException('No internet connection. Please check your network.');
+        case DioExceptionType.badResponse:
+          final statusCode = e.response?.statusCode;
+          final message = e.response?.data?['message'] ?? 'An error occurred';
+
+          if (statusCode == 400) {
+            throw ValidationException(message, {});
+          } else if (statusCode == 401) {
+            throw UnauthorizedException(message);
+          } else if (statusCode != null && statusCode >= 500) {
+            throw ServerException(message);
+          } else {
+            throw ServerException(message);
+          }
+        default:
+          throw ServerException('An unexpected error occurred');
+      }
+    } catch (e) {
+      if (e is AppException) {
+        rethrow;
+      }
+      throw ServerException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
 }

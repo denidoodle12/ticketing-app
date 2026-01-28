@@ -26,6 +26,9 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   File? _attachmentFile;
   String? _attachmentFileName;
 
+  // Track if form has been submitted at least once
+  bool _hasAttemptedSubmit = false;
+
   final List<Map<String, dynamic>> _priorityOptions = [
     {'value': 'low', 'label': 'Low', 'color': AppColors.success500},
     {'value': 'medium', 'label': 'Medium', 'color': AppColors.warning500},
@@ -242,6 +245,11 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   }
 
   Future<void> _submitTicket() async {
+    // Mark that user has attempted to submit
+    setState(() {
+      _hasAttemptedSubmit = true;
+    });
+
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategoryId == null) {
       ToastHelper.showError(context, 'Please select a category');
@@ -363,10 +371,13 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
         if (didPop) return;
         _handleBackAction();
       },
-      child: Scaffold(
-        backgroundColor: AppColors.white,
-        appBar: _buildAppBar(),
-        body: _buildBody(),
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Scaffold(
+          backgroundColor: AppColors.white,
+          appBar: _buildAppBar(),
+          body: _buildBody(),
+        ),
       ),
     );
   }
@@ -452,6 +463,10 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           padding: const EdgeInsets.all(20),
           child: Form(
             key: _formKey,
+            // Enable real-time validation only after first submit attempt
+            autovalidateMode: _hasAttemptedSubmit
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -10,6 +10,7 @@ class StorageKeys {
   static const String userFullName = 'user_full_name';
   static const String userRole = 'user_role';
   static const String userAvatarUrl = 'user_avatar_url';
+  static const String userIsFirstLogin = 'user_is_first_login';
 
   // App Preferences
   static const String isFirstLaunch = 'is_first_launch';

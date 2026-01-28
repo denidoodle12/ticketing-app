@@ -104,11 +104,15 @@ class AppTheme {
             width: 2,
           ),
         ),
-        labelStyle: AppTextStyles.labelMedium.copyWith(
+        labelStyle: AppTextStyles.bodyMedium.copyWith(
           color: AppColors.textSecondary,
         ),
         hintStyle: AppTextStyles.bodyMedium.copyWith(
           color: AppColors.textDisabled,
+        ),
+        floatingLabelStyle: AppTextStyles.bodySmall.copyWith(
+          color: AppColors.primaryDark,
+          fontWeight: FontWeight.w500,
         ),
         errorStyle: AppTextStyles.error,
       ),

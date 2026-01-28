@@ -4,6 +4,7 @@ class User {
   final String email;
   final String username;
   final String role;
+  final bool isFirstLogin;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -13,6 +14,7 @@ class User {
     required this.email,
     required this.username,
     required this.role,
+    this.isFirstLogin = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -57,6 +59,7 @@ class User {
         email: email as String,
         username: username as String,
         role: roleName,
+        isFirstLogin: json['is_first_login'] as bool? ?? false,
         createdAt: json['created_at'] != null
             ? DateTime.parse(json['created_at'] as String)
             : null,
@@ -76,6 +79,7 @@ class User {
       'email': email,
       'username': username,
       'role': role,
+      'is_first_login': isFirstLogin,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -87,6 +91,7 @@ class User {
     String? email,
     String? username,
     String? role,
+    bool? isFirstLogin,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -96,6 +101,7 @@ class User {
       email: email ?? this.email,
       username: username ?? this.username,
       role: role ?? this.role,
+      isFirstLogin: isFirstLogin ?? this.isFirstLogin,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

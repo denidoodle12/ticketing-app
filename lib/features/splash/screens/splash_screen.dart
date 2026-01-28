@@ -60,7 +60,12 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!hasCompletedOnboarding) {
       context.go(AppRoutes.onboarding);
     } else if (authProvider.isAuthenticated) {
-      context.go(AppRoutes.home);
+      // Check if first login - redirect to change password
+      if (authProvider.isFirstLogin) {
+        context.go(AppRoutes.changePassword, extra: true);
+      } else {
+        context.go(AppRoutes.home);
+      }
     } else {
       context.go(AppRoutes.login);
     }

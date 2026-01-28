@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/utils/toast_helper.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../home/screens/home_screen.dart';
 import '../../tickets/screens/tickets_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final bool showWelcomeToast;
+
+  const MainScreen({
+    super.key,
+    this.showWelcomeToast = false,
+  });
 
   @override
   State<MainScreen> createState() => MainScreenState();
@@ -18,6 +25,23 @@ class MainScreenState extends State<MainScreen> {
 
   // Keys to force rebuild screens when tab changes
   final GlobalKey<_TicketsScreenWrapperState> _ticketsKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // Show welcome toast after first frame if flag is set
+    if (widget.showWelcomeToast) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ToastHelper.showSuccess(
+            context,
+            'Welcome to ${AppConstants.appName}!',
+            description: 'Your account is ready to use.',
+          );
+        }
+      });
+    }
+  }
 
   void _onTabTapped(int index) {
     // Notify tickets screen when switching to it

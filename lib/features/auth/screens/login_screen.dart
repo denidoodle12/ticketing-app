@@ -27,43 +27,59 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _hasIdentifierInput = false;
   bool _hasPasswordInput = false;
 
+  // Track if form has been submitted at least once
+  bool _hasAttemptedSubmit = false;
+
   @override
   void initState() {
     super.initState();
-    _identifierController.addListener(_checkIdentifierInput);
-    _passwordController.addListener(_checkPasswordInput);
+    _identifierController.addListener(_onIdentifierChanged);
+    _passwordController.addListener(_onPasswordChanged);
   }
 
   @override
   void dispose() {
-    _identifierController.removeListener(_checkIdentifierInput);
-    _passwordController.removeListener(_checkPasswordInput);
+    _identifierController.removeListener(_onIdentifierChanged);
+    _passwordController.removeListener(_onPasswordChanged);
     _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _checkIdentifierInput() {
+  void _onIdentifierChanged() {
     final hasInput = _identifierController.text.isNotEmpty;
     if (hasInput != _hasIdentifierInput) {
       setState(() {
         _hasIdentifierInput = hasInput;
       });
     }
+    // Trigger rebuild for real-time validation after first submit attempt
+    if (_hasAttemptedSubmit) {
+      setState(() {});
+    }
   }
 
-  void _checkPasswordInput() {
+  void _onPasswordChanged() {
     final hasInput = _passwordController.text.isNotEmpty;
     if (hasInput != _hasPasswordInput) {
       setState(() {
         _hasPasswordInput = hasInput;
       });
     }
+    // Trigger rebuild for real-time validation after first submit attempt
+    if (_hasAttemptedSubmit) {
+      setState(() {});
+    }
   }
 
   bool get _canSubmit => _hasIdentifierInput && _hasPasswordInput;
 
   Future<void> _handleLogin() async {
+    // Mark that user has attempted to submit
+    setState(() {
+      _hasAttemptedSubmit = true;
+    });
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -77,12 +93,18 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      ToastHelper.showSuccess(
-        context,
-        'Success',
-        description: 'Login successful!',
-      );
-      context.go(AppRoutes.home);
+      // Check if first login - redirect to change password without toast
+      if (authProvider.isFirstLogin) {
+        context.go(AppRoutes.changePassword, extra: true);
+      } else {
+        // Normal login - show toast and go to home
+        ToastHelper.showSuccess(
+          context,
+          'Success',
+          description: 'Login successful!',
+        );
+        context.go(AppRoutes.home);
+      }
     } else {
       ToastHelper.showError(
         context,
@@ -97,10 +119,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
@@ -109,6 +133,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: IntrinsicHeight(
                   child: Form(
                     key: _formKey,
+                    // Enable real-time validation only after first submit attempt
+                    autovalidateMode: _hasAttemptedSubmit
+                        ? AutovalidateMode.onUserInteraction
+                        : AutovalidateMode.disabled,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -201,7 +229,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             );
-          },
+            },
+          ),
         ),
       ),
     );

@@ -23,9 +23,12 @@ class Result<T> {
 abstract class AuthRepository {
   Future<Result<User>> login(String identifier, String password);
   Future<Result<String>> register(String name, String email, String password);
+  Future<Result<String>> changePassword(String oldPassword, String newPassword);
   Future<bool> isLoggedIn();
   Future<void> logout();
   Future<User?> getCurrentUser();
+  Future<void> setFirstLoginComplete();
+  bool getIsFirstLogin();
 }
 
 /// Auth repository implementation
@@ -75,6 +78,7 @@ class AuthRepositoryImpl implements AuthRepository {
             username: user.username,
             fullName: user.fullName,
             role: user.role,
+            isFirstLogin: user.isFirstLogin,
           );
 
           return Result.success(user);
@@ -106,6 +110,7 @@ class AuthRepositoryImpl implements AuthRepository {
           username: user.username,
           fullName: user.fullName,
           role: user.role,
+          isFirstLogin: user.isFirstLogin,
         );
 
         return Result.success(user);
@@ -182,6 +187,7 @@ class AuthRepositoryImpl implements AuthRepository {
     final username = _localStorage.getUserUsername();
     final fullName = _localStorage.getUserFullName();
     final role = _localStorage.getUserRole();
+    final isFirstLogin = _localStorage.getUserIsFirstLogin();
 
     if (userId == null || email == null || username == null || fullName == null || role == null) {
       return null;
@@ -193,6 +199,50 @@ class AuthRepositoryImpl implements AuthRepository {
       username: username,
       fullName: fullName,
       role: role,
+      isFirstLogin: isFirstLogin,
     );
+  }
+
+  /// Change password
+  @override
+  Future<Result<String>> changePassword(
+    String oldPassword,
+    String newPassword,
+  ) async {
+    try {
+      final message = await _remoteDatasource!.changePassword(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+      );
+
+      // After successful password change, set isFirstLogin to false
+      await _localStorage.setUserIsFirstLogin(false);
+
+      return Result.success(message);
+    } on ValidationException catch (e) {
+      return Result.failure(ValidationFailure(e.message, e.errors));
+    } on UnauthorizedException catch (e) {
+      return Result.failure(UnauthorizedFailure(e.message));
+    } on NetworkException catch (e) {
+      return Result.failure(NetworkFailure(e.message));
+    } on ServerException catch (e) {
+      return Result.failure(ServerFailure(e.message));
+    } catch (e) {
+      return Result.failure(
+        ServerFailure('An unexpected error occurred: ${e.toString()}'),
+      );
+    }
+  }
+
+  /// Set first login complete
+  @override
+  Future<void> setFirstLoginComplete() async {
+    await _localStorage.setUserIsFirstLogin(false);
+  }
+
+  /// Get is first login flag
+  @override
+  bool getIsFirstLogin() {
+    return _localStorage.getUserIsFirstLogin();
   }
 }

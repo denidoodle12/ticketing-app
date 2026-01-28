@@ -27,6 +27,7 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _state == AuthState.authenticated;
   bool get isLoading => _state == AuthState.loading;
+  bool get isFirstLogin => _currentUser?.isFirstLogin ?? false;
 
   /// Check authentication status (called on splash screen)
   Future<void> checkAuthStatus() async {
@@ -105,6 +106,41 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       _setError('Failed to logout');
       _setState(AuthState.error);
+    }
+  }
+
+  /// Change password
+  Future<bool> changePassword(String oldPassword, String newPassword) async {
+    _setState(AuthState.loading);
+
+    try {
+      final result = await _authRepository.changePassword(oldPassword, newPassword);
+
+      if (result.isSuccess) {
+        // Update current user's isFirstLogin to false
+        if (_currentUser != null) {
+          _currentUser = _currentUser!.copyWith(isFirstLogin: false);
+        }
+        _setState(AuthState.authenticated);
+        return true;
+      } else {
+        _setError(result.failure!.message);
+        _setState(AuthState.authenticated);
+        return false;
+      }
+    } catch (e) {
+      _setError('An unexpected error occurred: ${e.toString()}');
+      _setState(AuthState.authenticated);
+      return false;
+    }
+  }
+
+  /// Set first login complete (updates local user state)
+  void setFirstLoginComplete() {
+    if (_currentUser != null) {
+      _currentUser = _currentUser!.copyWith(isFirstLogin: false);
+      _authRepository.setFirstLoginComplete();
+      notifyListeners();
     }
   }
 

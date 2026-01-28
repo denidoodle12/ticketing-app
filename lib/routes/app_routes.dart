@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/splash/screens/splash_screen.dart';
 import '../features/auth/screens/login_screen.dart';
+import '../features/auth/screens/change_password_screen.dart';
+import '../features/auth/screens/change_password_success_screen.dart';
 import '../features/main/screens/main_screen.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
 import '../features/tickets/screens/create_ticket_screen.dart';
@@ -14,6 +16,8 @@ class AppRoutes {
   static const String splash = '/';
   static const String onboarding = '/onboarding';
   static const String login = '/login';
+  static const String changePassword = '/change-password';
+  static const String changePasswordSuccess = '/change-password-success';
   static const String home = '/home';
   static const String search = '/search';
   static const String createTicket = '/tickets/create';
@@ -43,9 +47,30 @@ class AppRoutes {
         builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
+        path: changePassword,
+        name: 'changePassword',
+        builder: (context, state) {
+          final isFirstLogin = state.extra as bool? ?? false;
+          return ChangePasswordScreen(isFirstLogin: isFirstLogin);
+        },
+      ),
+      GoRoute(
+        path: changePasswordSuccess,
+        name: 'changePasswordSuccess',
+        builder: (context, state) => const ChangePasswordSuccessScreen(),
+      ),
+      GoRoute(
         path: home,
         name: 'home',
-        builder: (context, state) => const MainScreen(),
+        builder: (context, state) {
+          // Check if we need to show welcome toast (from change password success)
+          final extra = state.extra;
+          bool showWelcomeToast = false;
+          if (extra is Map<String, dynamic>) {
+            showWelcomeToast = extra['showWelcomeToast'] as bool? ?? false;
+          }
+          return MainScreen(showWelcomeToast: showWelcomeToast);
+        },
       ),
       GoRoute(
         path: search,

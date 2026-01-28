@@ -17,6 +17,7 @@ class AuthMockDatasource {
       'password': 'test123',
       'full_name': 'Test User',
       'role': 'customer',
+      'is_first_login': false,
     },
     {
       'id': 2,
@@ -25,6 +26,16 @@ class AuthMockDatasource {
       'password': 'deny123',
       'full_name': 'Deny Mobile Dev',
       'role': 'customer',
+      'is_first_login': false,
+    },
+    {
+      'id': 3,
+      'email': 'newuser@example.com',
+      'username': 'newuser',
+      'password': 'Newuser123',
+      'full_name': 'New User',
+      'role': 'customer',
+      'is_first_login': true,
     },
   ];
 
@@ -57,6 +68,7 @@ class AuthMockDatasource {
       email: userMap['email'],
       username: userMap['username'],
       role: userMap['role'],
+      isFirstLogin: userMap['is_first_login'] ?? false,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -154,6 +166,7 @@ class AuthMockDatasource {
       email: userMap['email'],
       username: userMap['username'],
       role: userMap['role'],
+      isFirstLogin: userMap['is_first_login'] ?? false,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -162,6 +175,50 @@ class AuthMockDatasource {
       success: true,
       message: 'User retrieved successfully',
       data: user,
+    );
+  }
+
+  /// Mock change password
+  Future<ApiResponse<String>> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required int userId,
+  }) async {
+    await Future.delayed(_mockDelay);
+
+    // Find user by ID
+    final userIndex = _mockUsers.indexWhere((user) => user['id'] == userId);
+
+    if (userIndex == -1) {
+      throw NotFoundException('User not found');
+    }
+
+    final userMap = _mockUsers[userIndex];
+
+    // Check old password
+    if (userMap['password'] != oldPassword) {
+      throw ValidationException(
+        'old password is incorrect',
+        {'old_password': 'Old password is incorrect'},
+      );
+    }
+
+    // Validate new password
+    if (newPassword.length < 8) {
+      throw ValidationException(
+        'Validation failed',
+        {'new_password': 'Password must be at least 8 characters'},
+      );
+    }
+
+    // Update password and set is_first_login to false
+    _mockUsers[userIndex]['password'] = newPassword;
+    _mockUsers[userIndex]['is_first_login'] = false;
+
+    return ApiResponse(
+      success: true,
+      message: 'password changed successfully',
+      data: 'password changed successfully',
     );
   }
 }

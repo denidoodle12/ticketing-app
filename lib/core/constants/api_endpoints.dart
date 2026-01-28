@@ -14,6 +14,7 @@ class ApiEndpoints {
   // User Service Endpoints (ms-user-management: port 8081)
   static const String userMe = '/users/me';
   static const String userMePermissions = '/users/me/permissions';
+  static const String userMeChangePassword = '/users/me/change-password';
 
   // Ticket Service Endpoints (ms-ticket)
   // Categories
