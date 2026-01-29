@@ -78,10 +78,11 @@ class MyApp extends StatelessWidget {
           ),
         ),
 
-        // Provide ProfileProvider
+        // Provide ProfileProvider with LocalStorage for data persistence
         ChangeNotifierProvider<ProfileProvider>(
           create: (context) => ProfileProvider(
             context.read<ProfileRepository>(),
+            localStorage: context.read<LocalStorage>(),
           ),
         ),
       ],

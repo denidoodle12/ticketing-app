@@ -144,6 +144,12 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Update current user (called from ProfileProvider after profile update)
+  void updateCurrentUser(User user) {
+    _currentUser = user;
+    notifyListeners();
+  }
+
   /// Clear error message
   void clearError() {
     _errorMessage = null;

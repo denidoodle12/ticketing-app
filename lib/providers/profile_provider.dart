@@ -1,18 +1,24 @@
 import 'package:flutter/foundation.dart';
 import '../features/auth/models/user_model.dart';
 import '../features/profile/repositories/profile_repository.dart';
+import '../data/datasources/local/local_storage.dart';
 
 enum ProfileState { initial, loading, loaded, error }
 
 class ProfileProvider extends ChangeNotifier {
   final ProfileRepository _repository;
+  final LocalStorage? _localStorage;
+
+  /// Callback to sync user data with AuthProvider
+  void Function(User)? onUserUpdated;
 
   ProfileState _state = ProfileState.initial;
   User? _user;
   String? _errorMessage;
   bool _isUpdating = false;
 
-  ProfileProvider(this._repository);
+  ProfileProvider(this._repository, {LocalStorage? localStorage})
+      : _localStorage = localStorage;
 
   // Getters
   ProfileState get state => _state;
@@ -54,6 +60,7 @@ class ProfileProvider extends ChangeNotifier {
 
     if (result.isSuccess) {
       _user = result.data;
+      await _syncUserData(_user!);
       notifyListeners();
       return true;
     } else {
@@ -73,12 +80,34 @@ class ProfileProvider extends ChangeNotifier {
 
     if (result.isSuccess) {
       _user = result.data;
+      await _syncUserData(_user!);
       notifyListeners();
       return true;
     } else {
       _setError(result.failure!.message);
       return false;
     }
+  }
+
+  /// Sync user data to local storage and notify callback
+  Future<void> _syncUserData(User user) async {
+    // Update local storage
+    if (_localStorage != null) {
+      await _localStorage.saveUserData(
+        userId: user.id.toString(),
+        email: user.email,
+        username: user.username,
+        fullName: user.name,
+        role: user.role,
+        isFirstLogin: user.isFirstLogin,
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        profilePicture: user.profilePicture,
+      );
+    }
+
+    // Notify AuthProvider via callback
+    onUserUpdated?.call(user);
   }
 
   /// Set user from external source (e.g., after login)

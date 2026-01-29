@@ -5,6 +5,7 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/api_config.dart';
 import '../../../core/utils/toast_helper.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../shared/widgets/custom_text_field.dart';
 import '../widgets/profile_avatar.dart';
@@ -114,10 +115,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _uploadImage(String path) async {
     final profileProvider = context.read<ProfileProvider>();
+    final authProvider = context.read<AuthProvider>();
     final success = await profileProvider.uploadProfilePicture(path);
 
     if (mounted) {
-      if (success) {
+      if (success && profileProvider.user != null) {
+        // Sync with AuthProvider
+        authProvider.updateCurrentUser(profileProvider.user!);
         ToastHelper.showSuccess(context, 'Profile picture updated');
       } else {
         ToastHelper.showError(
@@ -132,6 +136,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final profileProvider = context.read<ProfileProvider>();
+    final authProvider = context.read<AuthProvider>();
 
     final success = await profileProvider.updateProfile(
       name: _nameController.text.trim(),
@@ -140,7 +145,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
 
     if (mounted) {
-      if (success) {
+      if (success && profileProvider.user != null) {
+        // Sync with AuthProvider
+        authProvider.updateCurrentUser(profileProvider.user!);
         ToastHelper.showSuccess(context, 'Profile updated successfully');
         Navigator.pop(context);
       } else {
