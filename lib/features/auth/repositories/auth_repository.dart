@@ -197,7 +197,7 @@ class AuthRepositoryImpl implements AuthRepository {
       id: int.parse(userId),
       email: email,
       username: username,
-      fullName: fullName,
+      name: fullName,
       role: role,
       isFirstLogin: isFirstLogin,
     );

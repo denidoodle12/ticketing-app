@@ -7,7 +7,11 @@ class StorageKeys {
   static const String userId = 'user_id';
   static const String userEmail = 'user_email';
   static const String userUsername = 'user_username';
-  static const String userFullName = 'user_full_name';
+  static const String userName = 'user_name';
+  static const String userLastName = 'user_last_name';
+  static const String userFullName = 'user_full_name'; // Legacy, kept for backward compatibility
+  static const String userPhoneNumber = 'user_phone_number';
+  static const String userProfilePicture = 'user_profile_picture';
   static const String userRole = 'user_role';
   static const String userAvatarUrl = 'user_avatar_url';
   static const String userIsFirstLogin = 'user_is_first_login';

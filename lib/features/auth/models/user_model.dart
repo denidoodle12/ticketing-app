@@ -1,8 +1,11 @@
 class User {
   final int id;
-  final String fullName;
+  final String name;
+  final String? lastName;
   final String email;
   final String username;
+  final String? phoneNumber;
+  final String? profilePicture;
   final String role;
   final bool isFirstLogin;
   final DateTime? createdAt;
@@ -10,14 +13,25 @@ class User {
 
   User({
     required this.id,
-    required this.fullName,
+    required this.name,
+    this.lastName,
     required this.email,
     required this.username,
+    this.phoneNumber,
+    this.profilePicture,
     required this.role,
     this.isFirstLogin = false,
     this.createdAt,
     this.updatedAt,
   });
+
+  /// Full name combining name and lastName
+  String get fullName {
+    if (lastName != null && lastName!.isNotEmpty) {
+      return '$name $lastName';
+    }
+    return name;
+  }
 
   factory User.fromJson(Map<String, dynamic> json) {
     try {
@@ -55,9 +69,12 @@ class User {
 
       return User(
         id: id as int,
-        fullName: name as String,
+        name: name as String,
+        lastName: json['last_name'] as String?,
         email: email as String,
         username: username as String,
+        phoneNumber: json['phone_number'] as String?,
+        profilePicture: json['profile_picture'] as String?,
         role: roleName,
         isFirstLogin: json['is_first_login'] as bool? ?? false,
         createdAt: json['created_at'] != null
@@ -75,9 +92,12 @@ class User {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'name': fullName,
+      'name': name,
+      'last_name': lastName,
       'email': email,
       'username': username,
+      'phone_number': phoneNumber,
+      'profile_picture': profilePicture,
       'role': role,
       'is_first_login': isFirstLogin,
       'created_at': createdAt?.toIso8601String(),
@@ -87,9 +107,12 @@ class User {
 
   User copyWith({
     int? id,
-    String? fullName,
+    String? name,
+    String? lastName,
     String? email,
     String? username,
+    String? phoneNumber,
+    String? profilePicture,
     String? role,
     bool? isFirstLogin,
     DateTime? createdAt,
@@ -97,9 +120,12 @@ class User {
   }) {
     return User(
       id: id ?? this.id,
-      fullName: fullName ?? this.fullName,
+      name: name ?? this.name,
+      lastName: lastName ?? this.lastName,
       email: email ?? this.email,
       username: username ?? this.username,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      profilePicture: profilePicture ?? this.profilePicture,
       role: role ?? this.role,
       isFirstLogin: isFirstLogin ?? this.isFirstLogin,
       createdAt: createdAt ?? this.createdAt,
@@ -109,7 +135,7 @@ class User {
 
   @override
   String toString() {
-    return 'User(id: $id, fullName: $fullName, email: $email, username: $username, role: $role)';
+    return 'User(id: $id, name: $name, lastName: $lastName, email: $email, username: $username, phoneNumber: $phoneNumber, role: $role)';
   }
 
   @override
