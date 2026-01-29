@@ -258,6 +258,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   RegExp(r'[A-Z]').hasMatch(_newPasswordController.text),
                 ),
                 _buildPasswordRequirement(
+                  'At least 1 lowercase letter',
+                  RegExp(r'[a-z]').hasMatch(_newPasswordController.text),
+                ),
+                _buildPasswordRequirement(
                   'At least 1 number',
                   RegExp(r'[0-9]').hasMatch(_newPasswordController.text),
                 ),

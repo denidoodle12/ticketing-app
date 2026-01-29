@@ -28,8 +28,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
   Set<String> _selectedPriorities = {};
 
   static const _pageSize = 10;
-  final PagingController<int, Ticket> _pagingController =
-      PagingController(firstPageKey: 1);
+  final PagingController<int, Ticket> _pagingController = PagingController(
+    firstPageKey: 1,
+  );
 
   // Flag to track if filter has been initialized
   bool _isFilterInitialized = false;
@@ -100,10 +101,12 @@ class _TicketsScreenState extends State<TicketsScreen> {
       if (searchQuery.isNotEmpty) {
         final searchLower = searchQuery.toLowerCase();
         newItems = newItems.where((ticket) {
-          final subjectMatch =
-              ticket.subject.toLowerCase().contains(searchLower);
-          final descriptionMatch =
-              ticket.description.toLowerCase().contains(searchLower);
+          final subjectMatch = ticket.subject.toLowerCase().contains(
+            searchLower,
+          );
+          final descriptionMatch = ticket.description.toLowerCase().contains(
+            searchLower,
+          );
           return subjectMatch || descriptionMatch;
         }).toList();
       }
@@ -123,7 +126,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
       }
 
       // Determine if this is the last page based on API response
-      final isLastPage = !response.hasNext || response.tickets.length < _pageSize;
+      final isLastPage =
+          !response.hasNext || response.tickets.length < _pageSize;
 
       if (isLastPage) {
         _pagingController.appendLastPage(newItems);
@@ -136,6 +140,40 @@ class _TicketsScreenState extends State<TicketsScreen> {
     }
   }
 
+  /// Get status ID from filter ID
+  /// Uses loaded statuses first, falls back to hardcoded mapping if not available
+  int? _getStatusIdFromFilterId(
+    String filterId,
+    TicketProvider ticketProvider,
+  ) {
+    if (filterId == 'all') return null;
+
+    // Try to find from loaded statuses first
+    final statuses = ticketProvider.statuses;
+    if (statuses.isNotEmpty) {
+      final matchingStatus = statuses.where(
+        (s) =>
+            s.name.toLowerCase() == filterId.toLowerCase() ||
+            s.name.toLowerCase().replaceAll(' ', '_') == filterId.toLowerCase(),
+      );
+      if (matchingStatus.isNotEmpty) {
+        return matchingStatus.first.id;
+      }
+    }
+
+    // Fallback to hardcoded status mapping (based on typical backend status IDs)
+    // This ensures filter works even if statuses haven't loaded yet
+    final statusIdMapping = <String, int>{
+      'open': 1,
+      'in_progress': 2,
+      'pending': 3,
+      'resolved': 4,
+      'closed': 5,
+    };
+
+    return statusIdMapping[filterId.toLowerCase()];
+  }
+
   void _onFilterSelected(String filterId) {
     if (_selectedFilter == filterId) return;
 
@@ -144,18 +182,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
     });
 
     final ticketProvider = context.read<TicketProvider>();
-    if (filterId == 'all') {
-      ticketProvider.setFilterStatusForPaging(null);
-    } else {
-      // Find status ID from loaded statuses
-      final statuses = ticketProvider.statuses;
-      final matchingStatus = statuses.where(
-        (s) => s.name.toLowerCase() == filterId.toLowerCase(),
-      );
-      if (matchingStatus.isNotEmpty) {
-        ticketProvider.setFilterStatusForPaging(matchingStatus.first.id);
-      }
-    }
+    final statusId = _getStatusIdFromFilterId(filterId, ticketProvider);
+    ticketProvider.setFilterStatusForPaging(statusId);
 
     // Refresh the list
     _pagingController.refresh();
@@ -240,13 +268,12 @@ class _TicketsScreenState extends State<TicketsScreen> {
           _buildSearchBar(),
 
           // Ticket list
-          Expanded(
-            child: _buildTicketList(),
-          ),
+          Expanded(child: _buildTicketList()),
         ],
       ),
-      floatingActionButton:
-          isKeyboardVisible ? null : _buildCreateTicketButton(),
+      floatingActionButton: isKeyboardVisible
+          ? null
+          : _buildCreateTicketButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
@@ -289,22 +316,26 @@ class _TicketsScreenState extends State<TicketsScreen> {
               return GestureDetector(
                 onTap: () => _onFilterSelected(filterId),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.primaryDark : AppColors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color:
-                          isSelected ? AppColors.primaryDark : AppColors.border,
+                      color: isSelected
+                          ? AppColors.primaryDark
+                          : AppColors.border,
                       width: 1,
                     ),
                   ),
                   child: Text(
                     '${filter['label']} ($count)',
                     style: AppTextStyles.bodySmall.copyWith(
-                      color:
-                          isSelected ? AppColors.white : AppColors.primaryDark,
+                      color: isSelected
+                          ? AppColors.white
+                          : AppColors.primaryDark,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -400,10 +431,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withAlpha(15),
-                Colors.transparent,
-              ],
+              colors: [Colors.black.withAlpha(15), Colors.transparent],
             ),
           ),
         ),
@@ -429,9 +457,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
               onTap: () => _navigateToTicketDetail(ticket),
             ),
           ),
-          firstPageProgressIndicatorBuilder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
+          firstPageProgressIndicatorBuilder: (context) =>
+              const Center(child: CircularProgressIndicator()),
           newPageProgressIndicatorBuilder: (context) => const Center(
             child: Padding(
               padding: EdgeInsets.all(16),
@@ -439,8 +466,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
             ),
           ),
           noItemsFoundIndicatorBuilder: (context) => _buildEmptyState(
-            isSearchResult: _searchController.text.isNotEmpty ||
-                _selectedFilter != 'all',
+            isSearchResult:
+                _searchController.text.isNotEmpty || _selectedFilter != 'all',
           ),
           firstPageErrorIndicatorBuilder: (context) => _buildErrorState(
             _pagingController.error?.toString() ?? 'An error occurred',
@@ -565,10 +592,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
         backgroundColor: AppColors.primaryDark,
         foregroundColor: AppColors.white,
         elevation: 4,
-        child: const Icon(
-          Icons.add,
-          size: 28,
-        ),
+        child: const Icon(Icons.add, size: 28),
       ),
     );
   }

@@ -112,9 +112,9 @@ class _HomeScreenState extends State<HomeScreen> {
               // Title
               Text(
                 'Find your IT\nticketing here',
-                style: AppTextStyles.h3.copyWith(
+                style: AppTextStyles.h2.copyWith(
                   color: AppColors.white,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w500,
                   height: 1.2,
                 ),
               ),
@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hii, $fullName',
+                'Hi, $fullName',
                 style: AppTextStyles.bodyLarge.copyWith(
                   color: AppColors.white,
                   fontWeight: FontWeight.w600,
@@ -248,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Text(
           'Ticket Statistics',
-          style: AppTextStyles.h5.copyWith(
+          style: AppTextStyles.h6.copyWith(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
           ),
@@ -271,7 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Text(
           'Quick Action',
-          style: AppTextStyles.h5.copyWith(
+          style: AppTextStyles.h6.copyWith(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
           ),
@@ -345,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text(
               'Recent Tickets',
-              style: AppTextStyles.h5.copyWith(
+              style: AppTextStyles.h6.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.bold,
               ),

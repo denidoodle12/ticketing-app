@@ -3,7 +3,7 @@ class AppConstants {
   static const String appName = 'EnigTickets';
   static const String appTagline = 'Secure Enterprise Ticketing';
   static const String poweredBy = 'Powered by EnigmaCamp';
-  static const String appVersion = '0.1.0';
+  // Note: App version is now dynamic, use AppInfo.version instead
 
   // Environment
   static const bool useMockData = false; // Switch to false when API ready

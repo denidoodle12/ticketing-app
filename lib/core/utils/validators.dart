@@ -55,6 +55,11 @@ class Validators {
       return 'Passwords must contain at least 1 capital letter';
     }
 
+    // Check for at least one lowercase letter
+    if (!RegExp(r'[a-z]').hasMatch(value)) {
+      return 'Passwords must contain at least 1 lowercase letter';
+    }
+
     // Check for at least one number
     if (!RegExp(r'[0-9]').hasMatch(value)) {
       return 'Passwords must contain at least 1 number';
