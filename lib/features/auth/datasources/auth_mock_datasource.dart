@@ -64,7 +64,7 @@ class AuthMockDatasource {
     // Create user object
     final user = User(
       id: userMap['id'],
-      fullName: userMap['full_name'],
+      name: userMap['full_name'],
       email: userMap['email'],
       username: userMap['username'],
       role: userMap['role'],
@@ -162,7 +162,7 @@ class AuthMockDatasource {
 
     final user = User(
       id: userMap['id'],
-      fullName: userMap['full_name'],
+      name: userMap['full_name'],
       email: userMap['email'],
       username: userMap['username'],
       role: userMap['role'],

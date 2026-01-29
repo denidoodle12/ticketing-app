@@ -15,6 +15,9 @@ import 'features/tickets/datasources/ticket_mock_datasource.dart';
 import 'features/tickets/repositories/ticket_repository.dart';
 import 'providers/auth_provider.dart';
 import 'providers/ticket_provider.dart';
+import 'providers/profile_provider.dart';
+import 'features/profile/datasources/profile_remote_datasource.dart';
+import 'features/profile/repositories/profile_repository.dart';
 import 'routes/app_routes.dart';
 import 'shared/widgets/connectivity_wrapper.dart';
 
@@ -65,6 +68,20 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<TicketProvider>(
           create: (context) => TicketProvider(
             context.read<TicketRepository>(),
+          ),
+        ),
+
+        // Provide ProfileRepository
+        Provider<ProfileRepository>(
+          create: (context) => ProfileRepositoryImpl(
+            remoteDatasource: ProfileRemoteDatasource(),
+          ),
+        ),
+
+        // Provide ProfileProvider
+        ChangeNotifierProvider<ProfileProvider>(
+          create: (context) => ProfileProvider(
+            context.read<ProfileRepository>(),
           ),
         ),
       ],

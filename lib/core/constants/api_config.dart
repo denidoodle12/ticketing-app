@@ -1,4 +1,7 @@
 class ApiConfig {
+  // App Version
+  static const String appVersion = '1.0.0';
+
   // Environment Mode
   static const bool useMockData = false; // Set to true for testing without backend
 

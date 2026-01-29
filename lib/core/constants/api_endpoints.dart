@@ -15,6 +15,8 @@ class ApiEndpoints {
   static const String userMe = '/users/me';
   static const String userMePermissions = '/users/me/permissions';
   static const String userMeChangePassword = '/users/me/change-password';
+  static const String userMeProfilePicture = '/users/me/profile-picture';
+  static String profilePicture(String filename) => '/profile-pictures/$filename';
 
   // Ticket Service Endpoints (ms-ticket)
   // Categories

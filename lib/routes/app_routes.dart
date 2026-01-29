@@ -10,6 +10,7 @@ import '../features/tickets/screens/create_ticket_screen.dart';
 import '../features/tickets/screens/ticket_detail_screen.dart';
 import '../features/tickets/models/ticket_model.dart';
 import '../features/search/screens/search_screen.dart';
+import '../features/profile/screens/edit_profile_screen.dart';
 
 class AppRoutes {
   // Route names
@@ -22,6 +23,7 @@ class AppRoutes {
   static const String search = '/search';
   static const String createTicket = '/tickets/create';
   static const String ticketDetail = '/tickets/detail';
+  static const String editProfile = '/profile/edit';
 
   // Navigator key for global access
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -92,6 +94,11 @@ class AppRoutes {
           final ticket = state.extra as Ticket;
           return TicketDetailScreen(ticket: ticket);
         },
+      ),
+      GoRoute(
+        path: editProfile,
+        name: 'editProfile',
+        builder: (context, state) => const EditProfileScreen(),
       ),
     ],
   );
