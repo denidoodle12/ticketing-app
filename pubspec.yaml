@@ -33,6 +33,7 @@ dependencies:
   google_fonts: ^6.3.3
   app_settings: ^5.1.1
   image_picker: ^1.0.7
+  image_cropper: ^8.0.2
   file_picker: ^8.0.0
   path_provider: ^2.1.2
   share_plus: ^10.0.0

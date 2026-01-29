@@ -1,14 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/api_config.dart';
 import '../../../core/utils/toast_helper.dart';
+import '../../../core/utils/image_picker_helper.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../shared/widgets/custom_text_field.dart';
+import '../../../shared/widgets/loading_overlay.dart';
 import '../widgets/profile_avatar.dart';
+import '../widgets/image_preview_dialog.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -24,6 +27,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _phoneController = TextEditingController();
 
   bool _hasChanges = false;
+  bool _isUploadingImage = false;
+  String? _uploadMessage;
 
   @override
   void initState() {
@@ -68,59 +73,50 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
+    // Show source selection bottom sheet
+    final source = await ImagePickerHelper.showImageSourceSheet(context);
+    if (source == null || !mounted) return;
 
-    showModalBottomSheet(
+    // Pick and crop image
+    final croppedFile = await ImagePickerHelper.pickAndCropImage(
       context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('Take Photo'),
-              onTap: () async {
-                Navigator.pop(context);
-                final image = await picker.pickImage(
-                  source: ImageSource.camera,
-                  maxWidth: 512,
-                  maxHeight: 512,
-                  imageQuality: 80,
-                );
-                if (image != null) {
-                  _uploadImage(image.path);
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
-              onTap: () async {
-                Navigator.pop(context);
-                final image = await picker.pickImage(
-                  source: ImageSource.gallery,
-                  maxWidth: 512,
-                  maxHeight: 512,
-                  imageQuality: 80,
-                );
-                if (image != null) {
-                  _uploadImage(image.path);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
+      source: source,
+      cropCircle: true,
     );
+
+    if (croppedFile == null || !mounted) return;
+
+    // Show preview dialog
+    final shouldUpload = await ImagePreviewDialog.show(
+      context: context,
+      imageFile: croppedFile,
+    );
+
+    if (shouldUpload == true && mounted) {
+      _uploadImage(croppedFile);
+    } else if (shouldUpload == false && mounted) {
+      // User wants to retake - show picker again
+      _pickImage();
+    }
   }
 
-  Future<void> _uploadImage(String path) async {
+  Future<void> _uploadImage(File file) async {
+    setState(() {
+      _isUploadingImage = true;
+      _uploadMessage = 'Uploading photo...';
+    });
+
     final profileProvider = context.read<ProfileProvider>();
     final authProvider = context.read<AuthProvider>();
-    final success = await profileProvider.uploadProfilePicture(path);
+    final success = await profileProvider.uploadProfilePicture(file.path);
 
     if (mounted) {
+      setState(() {
+        _isUploadingImage = false;
+        _uploadMessage = null;
+      });
+
       if (success && profileProvider.user != null) {
-        // Sync with AuthProvider
         authProvider.updateCurrentUser(profileProvider.user!);
         ToastHelper.showSuccess(context, 'Profile picture updated');
       } else {
@@ -146,7 +142,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     if (mounted) {
       if (success && profileProvider.user != null) {
-        // Sync with AuthProvider
         authProvider.updateCurrentUser(profileProvider.user!);
         ToastHelper.showSuccess(context, 'Profile updated successfully');
         Navigator.pop(context);
@@ -165,7 +160,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Discard Changes?'),
-          content: const Text('You have unsaved changes. Are you sure you want to discard them?'),
+          content: const Text(
+            'You have unsaved changes. Are you sure you want to discard them?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -191,162 +188,159 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        backgroundColor: AppColors.white,
-        surfaceTintColor: AppColors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _discardChanges,
-        ),
-      ),
-      body: Consumer<ProfileProvider>(
-        builder: (context, profileProvider, child) {
-          final user = profileProvider.user;
+    return Consumer<ProfileProvider>(
+      builder: (context, profileProvider, child) {
+        final user = profileProvider.user;
+        final isLoading = _isUploadingImage || profileProvider.isUpdating;
 
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                // Avatar Section
-                Container(
-                  width: double.infinity,
-                  color: AppColors.white,
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      ProfileAvatar(
-                        imageUrl: user?.profilePicture != null
-                            ? '${ApiConfig.baseUrl}${user!.profilePicture}'
-                            : null,
-                        name: user?.fullName ?? 'User',
-                        size: 100,
-                        showEditIcon: true,
-                        onTap: profileProvider.isUpdating ? null : _pickImage,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Tap to change photo',
-                        style: AppTextStyles.caption,
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Form Section
-                Container(
-                  color: AppColors.white,
-                  padding: const EdgeInsets.all(16),
-                  child: Form(
-                    key: _formKey,
+        return LoadingOverlay(
+          isLoading: isLoading,
+          message: _uploadMessage ?? 'Saving...',
+          child: Scaffold(
+            backgroundColor: AppColors.scaffoldBackground,
+            appBar: AppBar(
+              title: const Text('Edit Profile'),
+              backgroundColor: AppColors.white,
+              surfaceTintColor: AppColors.white,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: isLoading ? null : _discardChanges,
+              ),
+            ),
+            body: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Avatar Section
+                  Container(
+                    width: double.infinity,
+                    color: AppColors.white,
+                    padding: const EdgeInsets.all(24),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Email (Read-only)
-                        _buildReadOnlyField(
-                          label: 'Email',
-                          value: user?.email ?? '',
-                          icon: Icons.email_outlined,
+                        ProfileAvatar(
+                          imageUrl: user?.profilePicture != null
+                              ? '${ApiConfig.baseUrl}${user!.profilePicture}'
+                              : null,
+                          name: user?.fullName ?? 'User',
+                          size: 100,
+                          showEditIcon: true,
+                          onTap: isLoading ? null : _pickImage,
                         ),
-                        const SizedBox(height: 16),
-
-                        // Username (Read-only)
-                        _buildReadOnlyField(
-                          label: 'Username',
-                          value: user?.username ?? '',
-                          icon: Icons.alternate_email,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Name
-                        CustomTextField(
-                          controller: _nameController,
-                          label: 'First Name',
-                          hint: 'Enter your first name',
-                          prefixIcon: const Icon(Icons.person_outline),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'First name is required';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Last Name
-                        CustomTextField(
-                          controller: _lastNameController,
-                          label: 'Last Name',
-                          hint: 'Enter your last name',
-                          prefixIcon: const Icon(Icons.person_outline),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Phone Number
-                        CustomTextField(
-                          controller: _phoneController,
-                          label: 'Phone Number',
-                          hint: 'Enter your phone number',
-                          prefixIcon: const Icon(Icons.phone_outlined),
-                          keyboardType: TextInputType.phone,
+                        const SizedBox(height: 12),
+                        Text(
+                          'Tap to change photo',
+                          style: AppTextStyles.caption,
                         ),
                       ],
                     ),
                   ),
-                ),
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
-                // Action Buttons
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: profileProvider.isUpdating
-                              ? null
-                              : _discardChanges,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                  // Form Section
+                  Container(
+                    color: AppColors.white,
+                    padding: const EdgeInsets.all(16),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Email (Read-only)
+                          _buildReadOnlyField(
+                            label: 'Email',
+                            value: user?.email ?? '',
+                            icon: Icons.email_outlined,
                           ),
-                          child: const Text('Discard'),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: (profileProvider.isUpdating || !_hasChanges)
-                              ? null
-                              : _saveProfile,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          const SizedBox(height: 16),
+
+                          // Username (Read-only)
+                          _buildReadOnlyField(
+                            label: 'Username',
+                            value: user?.username ?? '',
+                            icon: Icons.alternate_email,
                           ),
-                          child: profileProvider.isUpdating
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.white,
-                                  ),
-                                )
-                              : const Text('Save'),
-                        ),
+                          const SizedBox(height: 16),
+
+                          // Name
+                          CustomTextField(
+                            controller: _nameController,
+                            label: 'First Name',
+                            hint: 'Enter your first name',
+                            prefixIcon: const Icon(Icons.person_outline),
+                            enabled: !isLoading,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'First name is required';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Last Name
+                          CustomTextField(
+                            controller: _lastNameController,
+                            label: 'Last Name',
+                            hint: 'Enter your last name',
+                            prefixIcon: const Icon(Icons.person_outline),
+                            enabled: !isLoading,
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Phone Number
+                          CustomTextField(
+                            controller: _phoneController,
+                            label: 'Phone Number',
+                            hint: 'Enter your phone number',
+                            prefixIcon: const Icon(Icons.phone_outlined),
+                            keyboardType: TextInputType.phone,
+                            enabled: !isLoading,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 32),
-              ],
+                  const SizedBox(height: 24),
+
+                  // Action Buttons
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: isLoading ? null : _discardChanges,
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: const Text('Discard'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: (isLoading || !_hasChanges)
+                                ? null
+                                : _saveProfile,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: const Text('Save'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
