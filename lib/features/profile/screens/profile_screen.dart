@@ -26,12 +26,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  void _loadProfile() {
-    final authUser = context.read<AuthProvider>().currentUser;
-    if (authUser != null) {
-      context.read<ProfileProvider>().setUser(authUser);
+  Future<void> _loadProfile() async {
+    final profileProvider = context.read<ProfileProvider>();
+
+    // Always load fresh data from API
+    await profileProvider.loadProfile();
+
+    // Sync with AuthProvider after loading
+    if (mounted && profileProvider.user != null) {
+      context.read<AuthProvider>().updateCurrentUser(profileProvider.user!);
     }
-    context.read<ProfileProvider>().loadProfile();
   }
 
   @override
@@ -43,18 +47,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: AppColors.white,
         surfaceTintColor: AppColors.white,
       ),
-      body: Consumer<ProfileProvider>(
-        builder: (context, profileProvider, child) {
-          final user = profileProvider.user;
+      body: Consumer2<ProfileProvider, AuthProvider>(
+        builder: (context, profileProvider, authProvider, child) {
+          // Use ProfileProvider.user if available, fallback to AuthProvider
+          final user = profileProvider.user ?? authProvider.currentUser;
 
           if (profileProvider.isLoading && user == null) {
             return const Center(child: CircularProgressIndicator());
           }
 
           return RefreshIndicator(
-            onRefresh: () async {
-              await profileProvider.loadProfile();
-            },
+            onRefresh: _loadProfile,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
@@ -94,23 +97,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 8),
 
                         // Role Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary100,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            user?.role.toUpperCase() ?? '',
-                            style: AppTextStyles.labelSmall.copyWith(
-                              color: AppColors.primary600,
-                              fontWeight: FontWeight.w600,
+                        if (user?.role != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary100,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              user!.role.toUpperCase(),
+                              style: AppTextStyles.labelSmall.copyWith(
+                                color: AppColors.primary600,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),

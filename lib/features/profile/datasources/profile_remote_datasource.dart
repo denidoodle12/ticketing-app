@@ -26,6 +26,7 @@ class ProfileRemoteDatasource {
   }
 
   /// Update user profile
+  /// Note: PUT /users/me returns partial data, so we fetch full profile after update
   Future<User> updateProfile({
     String? name,
     String? lastName,
@@ -37,13 +38,14 @@ class ProfileRemoteDatasource {
       if (lastName != null) data['last_name'] = lastName;
       if (phoneNumber != null) data['phone_number'] = phoneNumber;
 
-      final response = await _dioUser.put(
+      // Update profile
+      await _dioUser.put(
         ApiEndpoints.userMe,
         data: data,
       );
 
-      final responseData = response.data['data'] as Map<String, dynamic>;
-      return User.fromJson(responseData);
+      // Fetch complete profile after update
+      return await getProfile();
     } on DioException catch (e) {
       if (e.error is AppException) {
         throw e.error as AppException;
@@ -54,19 +56,21 @@ class ProfileRemoteDatasource {
   }
 
   /// Upload profile picture
+  /// Note: Response may not include all user fields, so we fetch full profile after upload
   Future<User> uploadProfilePicture(String filePath) async {
     try {
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(filePath),
       });
 
-      final response = await _dioUser.post(
+      // Upload profile picture
+      await _dioUser.post(
         ApiEndpoints.userMeProfilePicture,
         data: formData,
       );
 
-      final data = response.data['data'] as Map<String, dynamic>;
-      return User.fromJson(data);
+      // Fetch complete profile after upload
+      return await getProfile();
     } on DioException catch (e) {
       if (e.error is AppException) {
         throw e.error as AppException;
