@@ -18,6 +18,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool _pushNotificationEnabled = true;
+
   @override
   void initState() {
     super.initState();
@@ -28,11 +30,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadProfile() async {
     final profileProvider = context.read<ProfileProvider>();
-
-    // Always load fresh data from API
     await profileProvider.loadProfile();
 
-    // Sync with AuthProvider after loading
     if (mounted && profileProvider.user != null) {
       context.read<AuthProvider>().updateCurrentUser(profileProvider.user!);
     }
@@ -41,15 +40,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: const Text('Settings'),
+        centerTitle: true,
         backgroundColor: AppColors.white,
         surfaceTintColor: AppColors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
       ),
       body: Consumer2<ProfileProvider, AuthProvider>(
         builder: (context, profileProvider, authProvider, child) {
-          // Use ProfileProvider.user if available, fallback to AuthProvider
           final user = profileProvider.user ?? authProvider.currentUser;
 
           if (profileProvider.isLoading && user == null) {
@@ -62,12 +63,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
                 children: [
-                  // Profile Header Card
-                  Container(
-                    width: double.infinity,
-                    color: AppColors.white,
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
+                  const SizedBox(height: 8),
+
+                  // Profile Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
                       children: [
                         // Avatar
                         ProfileAvatar(
@@ -75,107 +76,167 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ? '${ApiConfig.baseUrl}${user!.profilePicture}'
                               : null,
                           name: user?.fullName ?? 'User',
-                          size: 90,
+                          size: 56,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(width: 12),
 
-                        // Name
-                        Text(
-                          user?.fullName ?? 'User',
-                          style: AppTextStyles.h4,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-
-                        // Email
-                        Text(
-                          user?.email ?? '',
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Role Badge
-                        if (user?.role != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary100,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Text(
-                              user!.role.toUpperCase(),
-                              style: AppTextStyles.labelSmall.copyWith(
-                                color: AppColors.primary600,
-                                fontWeight: FontWeight.w600,
+                        // User Info
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Full Name
+                              Text(
+                                user?.fullName ?? 'User',
+                                style: AppTextStyles.bodyLarge.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 2),
+                              // Email
+                              Text(
+                                user?.email ?? '',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              // Role
+                              if (user?.role != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  user!.role.substring(0, 1).toUpperCase() +
+                                      user.role.substring(1).toLowerCase(),
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Menu Items
-                  Container(
-                    color: AppColors.white,
-                    child: Column(
-                      children: [
-                        ProfileMenuItem(
-                          icon: Icons.person_outline,
-                          title: 'Edit Profile',
-                          onTap: () {
-                            context.push(AppRoutes.editProfile);
-                          },
                         ),
-                        const Divider(height: 1, indent: 56),
-                        ProfileMenuItem(
-                          icon: Icons.lock_outline,
-                          title: 'Change Password',
-                          onTap: () {
-                            context.push(AppRoutes.changePassword);
-                          },
-                        ),
-                        const Divider(height: 1, indent: 56),
-                        ProfileMenuItem(
-                          icon: Icons.info_outline,
-                          title: 'About App',
-                          onTap: () {
-                            _showAboutDialog(context);
-                          },
+
+                        // Logout Icon
+                        IconButton(
+                          onPressed: () => _showLogoutDialog(context),
+                          icon: const Icon(
+                            Icons.logout,
+                            color: AppColors.textSecondary,
+                            size: 24,
+                          ),
+                          tooltip: 'Sign Out',
                         ),
                       ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Logout Button
-                  Container(
-                    color: AppColors.white,
-                    child: ProfileMenuItem(
-                      icon: Icons.logout,
-                      title: 'Logout',
-                      iconColor: AppColors.error500,
-                      textColor: AppColors.error500,
-                      showArrow: false,
-                      onTap: () => _showLogoutDialog(context),
                     ),
                   ),
 
                   const SizedBox(height: 32),
+
+                  // Menu Items
+                  Column(
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Divider(height: 1),
+                      ),
+                      ProfileMenuItem(
+                        icon: Icons.person_outline,
+                        title: 'User Profile',
+                        onTap: () => context.push(AppRoutes.editProfile),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Divider(height: 1),
+                      ),
+                      ProfileMenuItem(
+                        icon: Icons.lock_outline,
+                        title: 'Change Password',
+                        onTap: () => context.push(AppRoutes.changePassword),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Divider(height: 1),
+                      ),
+                      ProfileMenuItem(
+                        icon: Icons.help_outline,
+                        title: 'FAQs',
+                        onTap: () => _showAboutDialog(context),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Divider(height: 1),
+                      ),
+                      ProfileMenuItem(
+                        icon: Icons.notifications_outlined,
+                        title: 'Push Notification',
+                        showArrow: false,
+                        trailing: Switch(
+                          value: _pushNotificationEnabled,
+                          onChanged: (value) {
+                            setState(() {
+                              _pushNotificationEnabled = value;
+                            });
+                            // TODO: Implement push notification toggle
+                          },
+                          activeColor: AppColors.success500,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Divider(height: 1),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Support Card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppColors.grey100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'If you have any other query you can reach out to us.',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () {
+                              // TODO: Open WhatsApp or support
+                            },
+                            child: Text(
+                              'Contact Support',
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.primary500,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
 
                   // App Version
                   Text(
                     'Version ${ApiConfig.appVersion}',
                     style: AppTextStyles.caption,
                   ),
-                  const SizedBox(height: 24),
+
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
@@ -189,6 +250,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         title: const Text('About'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -226,8 +290,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -244,7 +311,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: TextButton.styleFrom(
               foregroundColor: AppColors.error500,
             ),
-            child: const Text('Logout'),
+            child: const Text('Sign Out'),
           ),
         ],
       ),

@@ -5,20 +5,16 @@ import '../../../core/themes/text_styles.dart';
 class ProfileMenuItem extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String? subtitle;
   final VoidCallback? onTap;
-  final Color? iconColor;
-  final Color? textColor;
+  final Widget? trailing;
   final bool showArrow;
 
   const ProfileMenuItem({
     super.key,
     required this.icon,
     required this.title,
-    this.subtitle,
     this.onTap,
-    this.iconColor,
-    this.textColor,
+    this.trailing,
     this.showArrow = true,
   });
 
@@ -27,48 +23,33 @@ class ProfileMenuItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: (iconColor ?? AppColors.primary500).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                icon,
-                color: iconColor ?? AppColors.primary500,
-                size: 22,
-              ),
+            // Icon
+            Icon(
+              icon,
+              color: AppColors.textSecondary,
+              size: 24,
             ),
             const SizedBox(width: 16),
+
+            // Title
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTextStyles.bodyLarge.copyWith(
-                      color: textColor ?? AppColors.textPrimary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ],
+              child: Text(
+                title,
+                style: AppTextStyles.bodyLarge.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-            if (showArrow)
-              Icon(
+
+            // Trailing widget or arrow
+            if (trailing != null)
+              trailing!
+            else if (showArrow)
+              const Icon(
                 Icons.chevron_right,
                 color: AppColors.textSecondary,
                 size: 24,

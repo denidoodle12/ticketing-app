@@ -3805,6 +3805,159 @@ ALTER TABLE ticket_comments ADD COLUMN attachment VARCHAR(255);
 
 ---
 
+## Version 2.11 (2026-01-27) - Internal Notes for Agents ✨ NEW
+
+- ✨ **Internal Notes** - Agents can add private notes to tickets (not visible to customers)
+- 🔒 **Agent-Only Access** - Only role level ≥ 2 can read/write internal notes
+- 📋 **Use Case** - Handoff notes when ticket is reassigned to another agent
+
+**New Endpoints (ms-ticket):**
+
+| Method | Endpoint                        | Description                              |
+| ------ | ------------------------------- | ---------------------------------------- |
+| `GET`  | `/tickets/:id/internal-notes`   | Get all internal notes (agent+ only)     |
+| `POST` | `/tickets/:id/internal-notes`   | Create internal note (agent+ only)       |
+
+**Request Example - Create Internal Note:**
+
+```json
+POST /tickets/70/internal-notes
+Authorization: Bearer <agent_token>
+
+{
+  "content": "Customer mengalami masalah login karena password expired. Sudah di-reset tapi masih gagal. Perlu eskalasi ke IT."
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "message": "internal note created successfully",
+  "data": {
+    "id": 1,
+    "ticket_id": 70,
+    "user_id": 5,
+    "user_name": "agent@company.com",
+    "firstname": "Agent",
+    "content": "Customer mengalami masalah login...",
+    "created_at": "2026-01-27T14:00:00Z"
+  }
+}
+```
+
+**Response - Get Internal Notes (200 OK):**
+
+```json
+{
+  "message": "internal notes retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "ticket_id": 70,
+      "user_id": 5,
+      "user_name": "agent@company.com",
+      "firstname": "Agent",
+      "content": "Customer mengalami masalah login...",
+      "created_at": "2026-01-27T14:00:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+**Error Response (403 Forbidden - Customer accessing):**
+
+```json
+{
+  "error": "forbidden",
+  "message": "internal notes are only accessible to agents and above"
+}
+```
+
+**Access Control:**
+
+| Role Level | Can Read | Can Write |
+|------------|----------|-----------|
+| Customer (1) | ❌ | ❌ |
+| Agent (2+) | ✅ | ✅ |
+| Admin (5+) | ✅ | ✅ |
+| Super Admin (10) | ✅ | ✅ |
+
+**Database Changes:**
+
+```sql
+CREATE TABLE ticket_internal_notes (
+    id SERIAL PRIMARY KEY,
+    ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    user_id INT NOT NULL,
+    user_name VARCHAR(255) NOT NULL,
+    firstname VARCHAR(100),
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+> [!IMPORTANT]
+> Internal notes cannot be edited or deleted after creation. They serve as an audit trail for ticket handling.
+
+---
+
+## Version 2.12 (2026-01-29) - Profile Update & Phone Number ✨ NEW
+
+- ✨ **Update Own Profile** - New `PUT /users/me` endpoint for all roles
+- ✨ **Phone Number Field** - Added optional `phone_number` field to User model
+- 📋 **Editable Fields** - Users can update: `name`, `last_name`, `phone_number`
+
+**New Endpoint (ms-user-management):**
+
+| Method | Endpoint       | Description                        |
+| ------ | -------------- | ---------------------------------- |
+| `PUT`  | `/users/me`    | Update own profile (all roles)     |
+
+**Request Example:**
+
+```json
+PUT /users/me
+Authorization: Bearer <token>
+
+{
+  "name": "John",
+  "last_name": "Doe",
+  "phone_number": "+6281234567890"
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "message": "profile updated successfully",
+  "data": {
+    "id": 1,
+    "email": "john@example.com",
+    "username": "johndoe",
+    "name": "John",
+    "last_name": "Doe",
+    "phone_number": "+6281234567890"
+  }
+}
+```
+
+**Notes:**
+- All fields are **optional** - send only what you want to update
+- `phone_number` max length: 20 characters
+- Empty string for `last_name` or `phone_number` will clear the value
+- Available to **all authenticated users** (customer, agent, admin, super_admin)
+
+**Database Changes:**
+
+```sql
+ALTER TABLE users ADD COLUMN phone_number VARCHAR(20);
+```
+
+---
+
 ## Version 2.7 (2026-01-07) - Attachment Security Fix
 
 - 🔒 **Security Fix (Bug #Bug-CT-001):** File download now requires ownership validation
