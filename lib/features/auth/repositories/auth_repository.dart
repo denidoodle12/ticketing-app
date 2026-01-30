@@ -71,14 +71,17 @@ class AuthRepositoryImpl implements AuthRepository {
             refreshToken: loginData.refreshToken ?? loginData.token,
           );
 
-          // Save user data
+          // Save user data (including profile picture if available)
           await _localStorage.saveUserData(
             userId: user.id.toString(),
             email: user.email,
             username: user.username,
-            fullName: user.fullName,
+            fullName: user.name,
             role: user.role,
             isFirstLogin: user.isFirstLogin,
+            lastName: user.lastName,
+            phoneNumber: user.phoneNumber,
+            profilePicture: user.profilePicture,
           );
 
           return Result.success(user);
@@ -103,14 +106,17 @@ class AuthRepositoryImpl implements AuthRepository {
           refreshToken: loginResponse.token,
         );
 
-        // Save user data
+        // Save user data (including profile picture if available)
         await _localStorage.saveUserData(
           userId: user.id.toString(),
           email: user.email,
           username: user.username,
-          fullName: user.fullName,
+          fullName: user.name,
           role: user.role,
           isFirstLogin: user.isFirstLogin,
+          lastName: user.lastName,
+          phoneNumber: user.phoneNumber,
+          profilePicture: user.profilePicture,
         );
 
         return Result.success(user);
@@ -185,7 +191,10 @@ class AuthRepositoryImpl implements AuthRepository {
     final userId = _localStorage.getUserId();
     final email = _localStorage.getUserEmail();
     final username = _localStorage.getUserUsername();
-    final fullName = _localStorage.getUserFullName();
+    final fullName = _localStorage.getUserName();
+    final lastName = _localStorage.getUserLastName();
+    final phoneNumber = _localStorage.getUserPhoneNumber();
+    final profilePicture = _localStorage.getUserProfilePicture();
     final role = _localStorage.getUserRole();
     final isFirstLogin = _localStorage.getUserIsFirstLogin();
 
@@ -198,6 +207,9 @@ class AuthRepositoryImpl implements AuthRepository {
       email: email,
       username: username,
       name: fullName,
+      lastName: lastName,
+      phoneNumber: phoneNumber,
+      profilePicture: profilePicture,
       role: role,
       isFirstLogin: isFirstLogin,
     );

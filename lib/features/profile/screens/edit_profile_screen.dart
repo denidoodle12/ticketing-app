@@ -1,11 +1,16 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:gal/gal.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/api_config.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../core/utils/image_picker_helper.dart';
+import '../../../core/utils/validators.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../shared/widgets/custom_text_field.dart';
@@ -29,6 +34,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _hasChanges = false;
   bool _isUploadingImage = false;
   String? _uploadMessage;
+  bool _hasAttemptedSubmit = false;
 
   @override
   void initState() {
@@ -61,6 +67,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _hasChanges = hasChanges;
         });
       }
+
+      // Trigger rebuild for real-time validation after first submit attempt
+      if (_hasAttemptedSubmit) {
+        setState(() {});
+      }
     }
   }
 
@@ -77,23 +88,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final source = await ImagePickerHelper.showImageSourceSheet(context);
     if (source == null || !mounted) return;
 
-    // Pick and crop image
-    final croppedFile = await ImagePickerHelper.pickAndCropImage(
+    // Pick and crop image with validation (checks file size before cropping)
+    final result = await ImagePickerHelper.pickAndCropImageWithValidation(
       context: context,
       source: source,
       cropCircle: true,
+      maxFileSizeMB: AppConstants.maxProfilePictureSizeMB,
     );
 
-    if (croppedFile == null || !mounted) return;
+    if (!mounted) return;
+
+    // Show error if validation failed
+    if (result.hasError) {
+      ToastHelper.showError(
+        context,
+        'Upload Failed',
+        description: result.error!,
+      );
+      return;
+    }
+
+    // User cancelled
+    if (result.file == null) return;
 
     // Show preview dialog
     final shouldUpload = await ImagePreviewDialog.show(
       context: context,
-      imageFile: croppedFile,
+      imageFile: result.file!,
     );
 
     if (shouldUpload == true && mounted) {
-      _uploadImage(croppedFile);
+      _uploadImage(result.file!);
     } else if (shouldUpload == false && mounted) {
       // User wants to retake - show picker again
       _pickImage();
@@ -118,17 +143,112 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (success && profileProvider.user != null) {
         authProvider.updateCurrentUser(profileProvider.user!);
-        ToastHelper.showSuccess(context, 'Profile picture updated');
+        ToastHelper.showSuccess(
+          context,
+          'Success',
+          description: 'Profile picture updated successfully',
+        );
       } else {
         ToastHelper.showError(
           context,
-          profileProvider.errorMessage ?? 'Failed to upload picture',
+          'Upload Failed',
+          description:
+              profileProvider.errorMessage ?? 'Failed to upload picture',
+        );
+      }
+    }
+  }
+
+  Future<void> _downloadProfilePicture() async {
+    final user = context.read<ProfileProvider>().user;
+    if (user?.profilePicture == null) {
+      ToastHelper.showError(
+        context,
+        'Download Failed',
+        description: 'No profile picture to download',
+      );
+      return;
+    }
+
+    setState(() {
+      _isUploadingImage = true;
+      _uploadMessage = 'Downloading photo...';
+    });
+
+    try {
+      // Request gallery permission
+      if (Platform.isAndroid) {
+        final hasAccess = await Gal.hasAccess(toAlbum: true);
+        if (!hasAccess) {
+          final granted = await Gal.requestAccess(toAlbum: true);
+          if (!granted && mounted) {
+            setState(() {
+              _isUploadingImage = false;
+              _uploadMessage = null;
+            });
+            ToastHelper.showError(
+              context,
+              'Permission Denied',
+              description: 'Gallery permission is required to save photo',
+            );
+            return;
+          }
+        }
+      }
+
+      final imageUrl = '${ApiConfig.baseUrl}${user!.profilePicture}';
+
+      // Download to temp directory first
+      final tempDir = await getTemporaryDirectory();
+      final fileName =
+          'profile_${user.username}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final tempPath = '${tempDir.path}/$fileName';
+
+      // Download file
+      final dio = Dio();
+      await dio.download(imageUrl, tempPath);
+
+      // Save to gallery with album name
+      await Gal.putImage(tempPath, album: 'Ticketing App');
+
+      // Delete temp file
+      final tempFile = File(tempPath);
+      if (await tempFile.exists()) {
+        await tempFile.delete();
+      }
+
+      if (mounted) {
+        setState(() {
+          _isUploadingImage = false;
+          _uploadMessage = null;
+        });
+        ToastHelper.showSuccess(
+          context,
+          'Success',
+          description: 'Photo saved to Gallery > Ticketing App',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUploadingImage = false;
+          _uploadMessage = null;
+        });
+        ToastHelper.showError(
+          context,
+          'Download Failed',
+          description: 'Failed to download photo. Please try again.',
         );
       }
     }
   }
 
   Future<void> _saveProfile() async {
+    // Mark that user has attempted to submit for real-time validation
+    setState(() {
+      _hasAttemptedSubmit = true;
+    });
+
     if (!_formKey.currentState!.validate()) return;
 
     final profileProvider = context.read<ProfileProvider>();
@@ -143,12 +263,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (mounted) {
       if (success && profileProvider.user != null) {
         authProvider.updateCurrentUser(profileProvider.user!);
-        ToastHelper.showSuccess(context, 'Profile updated successfully');
+        ToastHelper.showSuccess(
+          context,
+          'Success',
+          description: 'Profile updated successfully',
+        );
         Navigator.pop(context);
       } else {
         ToastHelper.showError(
           context,
-          profileProvider.errorMessage ?? 'Failed to update profile',
+          'Update Failed',
+          description:
+              profileProvider.errorMessage ?? 'Failed to update profile',
         );
       }
     }
@@ -231,6 +357,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           'Tap to change photo',
                           style: AppTextStyles.caption,
                         ),
+                        if (user?.profilePicture != null) ...[
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed:
+                                isLoading ? null : _downloadProfilePicture,
+                            icon: const Icon(Icons.download, size: 18),
+                            label: const Text('Download Photo'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primary500,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -243,6 +381,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Form(
                       key: _formKey,
+                      autovalidateMode: _hasAttemptedSubmit
+                          ? AutovalidateMode.onUserInteraction
+                          : AutovalidateMode.disabled,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -269,12 +410,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             hint: 'Enter your first name',
                             prefixIcon: const Icon(Icons.person_outline),
                             enabled: !isLoading,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'First name is required';
-                              }
-                              return null;
-                            },
+                            validator: Validators.profileFirstName,
                           ),
                           const SizedBox(height: 16),
 
@@ -285,6 +421,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             hint: 'Enter your last name',
                             prefixIcon: const Icon(Icons.person_outline),
                             enabled: !isLoading,
+                            validator: Validators.profileLastName,
                           ),
                           const SizedBox(height: 16),
 
@@ -296,6 +433,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             prefixIcon: const Icon(Icons.phone_outlined),
                             keyboardType: TextInputType.phone,
                             enabled: !isLoading,
+                            maxLength: AppConstants.maxPhoneNumberLength,
+                            validator: Validators.profilePhoneNumber,
                           ),
                         ],
                       ),

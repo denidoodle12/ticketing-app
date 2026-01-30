@@ -19,6 +19,8 @@ class AppConstants {
   // Validation
   static const int minPasswordLength = 8;
   static const int maxNameLength = 100;
+  static const int maxPhoneNumberLength = 20;
+  static const int maxProfilePictureSizeMB = 2; // 2MB
 
   // Allowed roles for this app (end-user app)
   static const String allowedRole = 'customer';

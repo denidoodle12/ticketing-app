@@ -89,6 +89,37 @@ class Validators {
     return null;
   }
 
+  /// Profile first name validation (required, no spaces only)
+  static String? profileFirstName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'First name is required';
+    }
+
+    if (value.trim().length > AppConstants.maxNameLength) {
+      return 'First name must be at most ${AppConstants.maxNameLength} characters';
+    }
+
+    return null;
+  }
+
+  /// Profile last name validation (optional, but no spaces only if filled)
+  static String? profileLastName(String? value) {
+    if (value == null || value.isEmpty) {
+      return null; // Optional field
+    }
+
+    // If user entered something, check if it's only spaces
+    if (value.trim().isEmpty) {
+      return 'Last name cannot be only spaces';
+    }
+
+    if (value.trim().length > AppConstants.maxNameLength) {
+      return 'Last name must be at most ${AppConstants.maxNameLength} characters';
+    }
+
+    return null;
+  }
+
   /// Phone number validation (Indonesian format)
   static String? phoneNumber(String? value) {
     if (value == null || value.isEmpty) {
@@ -99,6 +130,71 @@ class Validators {
 
     if (!phoneRegex.hasMatch(value)) {
       return 'Invalid phone number format';
+    }
+
+    return null;
+  }
+
+  /// Profile phone number validation (only digits, max 20 chars)
+  static String? profilePhoneNumber(String? value) {
+    if (value == null || value.isEmpty) {
+      return null; // Optional field
+    }
+
+    // Check if it's only spaces
+    if (value.trim().isEmpty) {
+      return 'Phone number cannot be only spaces';
+    }
+
+    // Check if phone number contains only digits (and optional + at start)
+    final digitsOnlyRegex = RegExp(r'^[+]?[0-9]+$');
+    if (!digitsOnlyRegex.hasMatch(value)) {
+      return 'Phone number can only contain digits';
+    }
+
+    // Check max length
+    if (value.length > AppConstants.maxPhoneNumberLength) {
+      return 'Phone number must be at most ${AppConstants.maxPhoneNumberLength} characters';
+    }
+
+    return null;
+  }
+
+  /// Old password validation (required only, no format check)
+  static String? oldPasswordRequired(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Current password is required';
+    }
+    return null;
+  }
+
+  /// Profile picture file size validation (max 2MB)
+  static String? profilePictureFileSize(int? fileSizeInBytes) {
+    if (fileSizeInBytes == null) {
+      return null;
+    }
+
+    final maxSizeInBytes = AppConstants.maxProfilePictureSizeMB * 1024 * 1024;
+
+    if (fileSizeInBytes > maxSizeInBytes) {
+      final fileSizeMB = (fileSizeInBytes / (1024 * 1024)).toStringAsFixed(1);
+      return 'File size ($fileSizeMB MB) exceeds maximum limit (${AppConstants.maxProfilePictureSizeMB}MB)';
+    }
+
+    return null;
+  }
+
+  /// Profile picture file type validation (only jpg, jpeg, png)
+  static String? profilePictureFileType(String? fileName) {
+    if (fileName == null || fileName.isEmpty) {
+      return null;
+    }
+
+    final extension = fileName.split('.').last.toLowerCase();
+    final allowedTypes = ['jpg', 'jpeg', 'png'];
+
+    if (!allowedTypes.contains(extension)) {
+      return 'Only JPG, JPEG, and PNG files are allowed';
     }
 
     return null;

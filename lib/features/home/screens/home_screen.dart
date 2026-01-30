@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/constants/api_config.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/ticket_provider.dart';
+import '../../../providers/profile_provider.dart';
 import '../../main/screens/main_screen.dart';
 import '../../tickets/widgets/ticket_card.dart';
 import '../widgets/ticket_statistics_card.dart';
@@ -21,8 +24,22 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TicketProvider>().loadHomeData();
+      _loadData();
     });
+  }
+
+  Future<void> _loadData() async {
+    // Load ticket data
+    context.read<TicketProvider>().loadHomeData();
+
+    // Load profile to get latest data including profile picture
+    final profileProvider = context.read<ProfileProvider>();
+    await profileProvider.loadProfile();
+
+    // Sync profile data with AuthProvider
+    if (mounted && profileProvider.user != null) {
+      context.read<AuthProvider>().updateCurrentUser(profileProvider.user!);
+    }
   }
 
   String _getGreeting() {
@@ -47,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.primaryDark,
       body: RefreshIndicator(
-        onRefresh: () => ticketProvider.loadHomeData(),
+        onRefresh: _loadData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
@@ -130,6 +147,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader(String fullName, String greeting) {
+    final user = context.watch<AuthProvider>().currentUser;
+    final profilePictureUrl = user?.profilePicture != null
+        ? '${ApiConfig.baseUrl}${user!.profilePicture}'
+        : null;
+
     return Row(
       children: [
         // Profile Avatar with white border
@@ -145,15 +167,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Padding(
             padding: const EdgeInsets.all(2),
-            child: CircleAvatar(
-              backgroundColor: AppColors.white.withAlpha(30),
-              child: Text(
-                fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
-                style: AppTextStyles.h5.copyWith(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            child: ClipOval(
+              child: profilePictureUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: profilePictureUrl,
+                      fit: BoxFit.cover,
+                      width: 42,
+                      height: 42,
+                      placeholder: (context, url) => _buildAvatarPlaceholder(fullName),
+                      errorWidget: (context, url, error) =>
+                          _buildAvatarPlaceholder(fullName),
+                    )
+                  : _buildAvatarPlaceholder(fullName),
             ),
           ),
         ),
@@ -203,6 +228,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAvatarPlaceholder(String fullName) {
+    return Container(
+      width: 42,
+      height: 42,
+      color: AppColors.white.withAlpha(30),
+      child: Center(
+        child: Text(
+          fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
+          style: AppTextStyles.h5.copyWith(
+            color: AppColors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
     );
   }
 

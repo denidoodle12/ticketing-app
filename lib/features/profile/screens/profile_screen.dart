@@ -42,7 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const Text('Profile'),
         centerTitle: true,
         backgroundColor: AppColors.white,
         surfaceTintColor: AppColors.white,

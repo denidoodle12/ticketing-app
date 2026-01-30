@@ -223,7 +223,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   hint: 'Enter your current password',
                   obscureText: true,
                   prefixIcon: const Icon(Icons.lock_outline),
-                  validator: Validators.password,
+                  validator: Validators.oldPasswordRequired,
                 ),
                 const SizedBox(height: 16),
 
