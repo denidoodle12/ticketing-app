@@ -128,16 +128,21 @@ class AuthRemoteDatasource {
           throw NetworkException('No internet connection. Please check your network.');
         case DioExceptionType.badResponse:
           final statusCode = e.response?.statusCode;
-          final message = e.response?.data?['message'] ?? 'An error occurred';
+          final message = e.response?.data?['message'] as String?;
 
           if (statusCode == 400) {
-            throw ValidationException(message, {});
+            throw ValidationException(
+              message ?? 'Invalid request. Please check your input.',
+              {},
+            );
           } else if (statusCode == 401) {
-            throw UnauthorizedException(message);
+            throw UnauthorizedException(
+              message ?? 'Current password is incorrect.',
+            );
           } else if (statusCode != null && statusCode >= 500) {
-            throw ServerException(message);
+            throw ServerException(message ?? 'Server error. Please try again later.');
           } else {
-            throw ServerException(message);
+            throw ServerException(message ?? 'An error occurred. Please try again.');
           }
         default:
           throw ServerException('An unexpected error occurred');

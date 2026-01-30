@@ -131,12 +131,24 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (!mounted) return;
 
     if (success) {
-      // Navigate to success screen
-      context.go(AppRoutes.changePasswordSuccess);
+      // Show success toast and go back
+      ToastHelper.showSuccess(
+        context,
+        'Success',
+        description: 'Password changed successfully.',
+      );
+
+      // For first login, navigate to home
+      if (widget.isFirstLogin) {
+        context.go(AppRoutes.home);
+      } else {
+        // Go back to previous screen
+        context.pop();
+      }
     } else {
       ToastHelper.showError(
         context,
-        'Error',
+        'Failed',
         description: authProvider.errorMessage ?? 'Failed to change password.',
       );
     }

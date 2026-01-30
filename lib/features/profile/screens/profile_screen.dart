@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/api_config.dart';
+import '../../../core/utils/app_info.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../routes/app_routes.dart';
@@ -232,11 +233,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   // App Version
                   Text(
-                    'Version ${ApiConfig.appVersion}',
+                    'Version ${AppInfo.version}',
                     style: AppTextStyles.caption,
                   ),
 
-                  const SizedBox(height: 32),
+                  // Extra padding for bottom navigation bar
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -264,7 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Version ${ApiConfig.appVersion}',
+              'Version ${AppInfo.version}',
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
