@@ -5,6 +5,7 @@ class Comment {
   final int userId;
   final String userName;
   final String? firstname;
+  final String? profilePicture;
   final String userRole;
   final String content;
   final String? attachment;
@@ -16,6 +17,7 @@ class Comment {
     required this.userId,
     required this.userName,
     this.firstname,
+    this.profilePicture,
     required this.userRole,
     required this.content,
     this.attachment,
@@ -29,6 +31,7 @@ class Comment {
       userId: json['user_id'] as int,
       userName: json['user_name'] as String? ?? 'Unknown',
       firstname: json['firstname'] as String?,
+      profilePicture: json['profile_picture'] as String?,
       userRole: json['user_role'] as String? ?? 'customer',
       content: json['content'] as String? ?? '',
       attachment: json['attachment'] as String?,
@@ -45,6 +48,7 @@ class Comment {
       'user_id': userId,
       'user_name': userName,
       'firstname': firstname,
+      'profile_picture': profilePicture,
       'user_role': userRole,
       'content': content,
       'attachment': attachment,
@@ -92,8 +96,18 @@ class Comment {
   String get formattedDate {
     final localTime = createdAt.toLocal();
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.year}';
   }
@@ -102,8 +116,18 @@ class Comment {
   String get formattedDateGroup {
     final localTime = createdAt.toLocal();
     const months = [
-      'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
-      'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'
+      'JANUARY',
+      'FEBRUARY',
+      'MARCH',
+      'APRIL',
+      'MAY',
+      'JUNE',
+      'JULY',
+      'AUGUST',
+      'SEPTEMBER',
+      'OCTOBER',
+      'NOVEMBER',
+      'DECEMBER',
     ];
     return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.year}';
   }
@@ -164,8 +188,18 @@ class TicketAttachment {
   String get formattedDate {
     final localTime = uploadedAt.toLocal();
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.year}';
   }
@@ -197,7 +231,8 @@ class CommentsResponse {
 
   factory CommentsResponse.fromJson(Map<String, dynamic> json) {
     return CommentsResponse(
-      comments: (json['data'] as List<dynamic>?)
+      comments:
+          (json['data'] as List<dynamic>?)
               ?.map((e) => Comment.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

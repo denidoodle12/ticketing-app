@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/constants/api_config.dart';
 import '../models/comment_model.dart';
 
 class ChatBubble extends StatelessWidget {
@@ -25,8 +26,9 @@ class ChatBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
-        crossAxisAlignment:
-            isFromCustomer ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isFromCustomer
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           // Agent name (only for agent messages)
           if (!isFromCustomer) ...[
@@ -43,8 +45,9 @@ class ChatBubble extends StatelessWidget {
           ],
 
           Row(
-            mainAxisAlignment:
-                isFromCustomer ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment: isFromCustomer
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // Agent avatar (left side)
@@ -54,9 +57,7 @@ class ChatBubble extends StatelessWidget {
               ],
 
               // Message bubble
-              Flexible(
-                child: _buildMessageBubble(context, isFromCustomer),
-              ),
+              Flexible(child: _buildMessageBubble(context, isFromCustomer)),
 
               // Customer avatar (right side)
               if (isFromCustomer) ...[
@@ -71,31 +72,64 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _buildAvatar({required bool isAgent}) {
+    final profilePicture = comment.profilePicture;
+    final hasProfilePicture =
+        profilePicture != null && profilePicture.isNotEmpty;
+
+    // Build full URL for profile picture
+    String? profilePictureUrl;
+    if (hasProfilePicture) {
+      if (profilePicture.startsWith('http')) {
+        profilePictureUrl = profilePicture;
+      } else {
+        profilePictureUrl = '${ApiConfig.baseUrl}$profilePicture';
+      }
+    }
+
     return Container(
       width: 32,
       height: 32,
       decoration: BoxDecoration(
         color: isAgent ? AppColors.grey200 : AppColors.primary100,
         shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow.withAlpha(40),
+            blurRadius: 4,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Center(
-        child: isAgent
-            ? Icon(
-                Icons.support_agent,
-                size: 18,
-                color: AppColors.textSecondary,
+      child: ClipOval(
+        child: hasProfilePicture
+            ? CachedNetworkImage(
+                imageUrl: profilePictureUrl!,
+                httpHeaders: authHeaders,
+                fit: BoxFit.cover,
+                width: 32,
+                height: 32,
+                placeholder: (context, url) => _buildDefaultAvatarIcon(isAgent),
+                errorWidget: (context, url, error) =>
+                    _buildDefaultAvatarIcon(isAgent),
               )
-            : Icon(
-                Icons.person,
-                size: 18,
-                color: AppColors.primary,
-              ),
+            : _buildDefaultAvatarIcon(isAgent),
       ),
     );
   }
 
+  Widget _buildDefaultAvatarIcon(bool isAgent) {
+    return Center(
+      child: isAgent
+          ? Icon(Icons.support_agent, size: 18, color: AppColors.textSecondary)
+          : Icon(Icons.person, size: 18, color: AppColors.primary),
+    );
+  }
+
   Widget _buildMessageBubble(BuildContext context, bool isFromCustomer) {
-    final hasAttachment = comment.attachment != null;
+    // Fix: Check both null AND empty string (API returns "" for no attachment)
+    final hasAttachment =
+        comment.attachment != null && comment.attachment!.isNotEmpty;
     final isImage = hasAttachment && _isImageFile(comment.attachment!);
 
     return Container(
@@ -110,9 +144,7 @@ class ChatBubble extends StatelessWidget {
           bottomLeft: Radius.circular(isFromCustomer ? 16 : 4),
           bottomRight: Radius.circular(isFromCustomer ? 4 : 16),
         ),
-        border: isFromCustomer
-            ? null
-            : Border.all(color: AppColors.border),
+        border: isFromCustomer ? null : Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadow.withAlpha(26),
@@ -223,10 +255,7 @@ class ChatBubble extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.grey300,
-                      AppColors.grey200,
-                    ],
+                    colors: [AppColors.grey300, AppColors.grey200],
                   ),
                 ),
                 child: Center(
@@ -260,11 +289,7 @@ class ChatBubble extends StatelessWidget {
                   color: AppColors.black.withAlpha(128),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Icon(
-                  Icons.fullscreen,
-                  size: 16,
-                  color: AppColors.white,
-                ),
+                child: Icon(Icons.fullscreen, size: 16, color: AppColors.white),
               ),
             ),
           ],

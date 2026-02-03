@@ -59,7 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final ticketProvider = context.watch<TicketProvider>();
     final user = authProvider.currentUser;
     final greeting = _getGreeting();
-    final fullName = user?.fullName ?? 'User';
+    // Use only first name for shorter, cleaner greeting
+    final firstName = user?.name ?? 'User';
 
     return Scaffold(
       backgroundColor: AppColors.primaryDark,
@@ -71,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Blue Header Section
-              _buildBlueHeaderSection(fullName, greeting),
+              _buildBlueHeaderSection(firstName, greeting),
 
               // Content below the header with white background and top border radius
               Container(
@@ -112,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBlueHeaderSection(String fullName, String greeting) {
+  Widget _buildBlueHeaderSection(String firstName, String greeting) {
     return Container(
       color: AppColors.primaryDark,
       child: SafeArea(
@@ -123,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header with avatar and greeting
-              _buildHeader(fullName, greeting),
+              _buildHeader(firstName, greeting),
               const SizedBox(height: 20),
 
               // Title
@@ -146,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeader(String fullName, String greeting) {
+  Widget _buildHeader(String firstName, String greeting) {
     final user = context.watch<AuthProvider>().currentUser;
     final profilePictureUrl = user?.profilePicture != null
         ? '${ApiConfig.baseUrl}${user!.profilePicture}'
@@ -160,10 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.white.withAlpha(180),
-              width: 2,
-            ),
+            border: Border.all(color: AppColors.white.withAlpha(180), width: 2),
           ),
           child: Padding(
             padding: const EdgeInsets.all(2),
@@ -174,11 +172,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       fit: BoxFit.cover,
                       width: 42,
                       height: 42,
-                      placeholder: (context, url) => _buildAvatarPlaceholder(fullName),
+                      placeholder: (context, url) =>
+                          _buildAvatarPlaceholder(firstName),
                       errorWidget: (context, url, error) =>
-                          _buildAvatarPlaceholder(fullName),
+                          _buildAvatarPlaceholder(firstName),
                     )
-                  : _buildAvatarPlaceholder(fullName),
+                  : _buildAvatarPlaceholder(firstName),
             ),
           ),
         ),
@@ -190,7 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hi, $fullName',
+                'Hi, $firstName',
                 style: AppTextStyles.bodyLarge.copyWith(
                   color: AppColors.white,
                   fontWeight: FontWeight.w600,
@@ -231,14 +230,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAvatarPlaceholder(String fullName) {
+  Widget _buildAvatarPlaceholder(String firstName) {
     return Container(
       width: 42,
       height: 42,
       color: AppColors.white.withAlpha(30),
       child: Center(
         child: Text(
-          fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
+          firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
           style: AppTextStyles.h5.copyWith(
             color: AppColors.white,
             fontWeight: FontWeight.bold,
@@ -264,11 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 16, right: 8),
-              child: Icon(
-                Icons.search,
-                color: AppColors.grey400,
-                size: 22,
-              ),
+              child: Icon(Icons.search, color: AppColors.grey400, size: 22),
             ),
             Expanded(
               child: Text(
@@ -395,9 +390,9 @@ class _HomeScreenState extends State<HomeScreen> {
             TextButton(
               onPressed: () {
                 // Switch to Tickets tab (index 1)
-                context
-                    .findAncestorStateOfType<MainScreenState>()
-                    ?.switchToTab(1);
+                context.findAncestorStateOfType<MainScreenState>()?.switchToTab(
+                  1,
+                );
               },
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,

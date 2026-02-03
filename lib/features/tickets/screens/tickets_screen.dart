@@ -587,7 +587,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 70, right: 4),
       child: FloatingActionButton(
-        heroTag: 'createTicketFab',
+        // Set to null to disable Hero animation and prevent duplicate tag conflict
+        // when TicketsScreen is rebuilt with UniqueKey on tab selection
+        heroTag: null,
         onPressed: _navigateToCreateTicket,
         backgroundColor: AppColors.primaryDark,
         foregroundColor: AppColors.white,
