@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/constants/asset_paths.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/custom_button.dart';
@@ -91,7 +92,7 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
       _focusNodes[index - 1].requestFocus();
     }
 
-    setState(() {}); // Update _canSubmit
+    setState(() {});
   }
 
   Future<void> _handleResend() async {
@@ -127,7 +128,6 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
     if (!mounted) return;
 
     if (success) {
-      // Navigate to reset password screen
       context.push(AppRoutes.resetPassword, extra: _code);
     } else {
       ToastHelper.showError(
@@ -136,7 +136,6 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
         description:
             authProvider.errorMessage ?? 'The code is invalid or expired.',
       );
-      // Clear the code fields
       for (final controller in _controllers) {
         controller.clear();
       }
@@ -144,160 +143,180 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
     }
   }
 
+  Widget _buildBackButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.pop(),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadow.withAlpha(20),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.arrow_back,
+            color: AppColors.primaryDark,
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => context.pop(),
-        ),
-      ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight - 48,
-                  ),
-                  child: IntrinsicHeight(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 24),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Back Button
+                _buildBackButton(),
+                const SizedBox(height: 24),
 
-                        // Illustration
-                        Container(
-                          width: 200,
-                          height: 200,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary50,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.verified_user,
-                            size: 100,
-                            color: AppColors.primary,
-                          ),
+                // Vector Illustration
+                Center(
+                  child: Image.asset(
+                    AssetPaths.vecVerificationCode,
+                    height: 220,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 250,
+                        width: 250,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary50,
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(height: 40),
-
-                        // Title
-                        Text(
-                          'Enter Verification Code',
-                          style: AppTextStyles.h2,
-                          textAlign: TextAlign.center,
+                        child: Icon(
+                          Icons.verified_user,
+                          size: 100,
+                          color: AppColors.primary,
                         ),
-                        const SizedBox(height: 12),
-
-                        // Description
-                        Text(
-                          'Code sent to $_maskedEmail\nThis code will expire in $_formattedTime',
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 40),
-
-                        // Code Input Fields
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(4, (index) {
-                            return Container(
-                              width: 60,
-                              height: 60,
-                              margin: EdgeInsets.only(
-                                right: index < 3 ? 16 : 0,
-                              ),
-                              child: TextField(
-                                controller: _controllers[index],
-                                focusNode: _focusNodes[index],
-                                keyboardType: TextInputType.number,
-                                textAlign: TextAlign.center,
-                                maxLength: 1,
-                                style: AppTextStyles.h3.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                decoration: InputDecoration(
-                                  counterText: '',
-                                  filled: true,
-                                  fillColor: AppColors.grey100,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: AppColors.primary,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                onChanged: (value) =>
-                                    _onCodeChanged(index, value),
-                              ),
-                            );
-                          }),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Resend Code
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Didn't receive code? ",
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: _canResend ? _handleResend : null,
-                              child: Text(
-                                'Resend Code',
-                                style: AppTextStyles.bodyMedium.copyWith(
-                                  color: _canResend
-                                      ? AppColors.primary
-                                      : AppColors.grey400,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 40),
-
-                        // Submit Button
-                        Consumer<AuthProvider>(
-                          builder: (context, authProvider, _) {
-                            return CustomButton(
-                              text: 'Verify Code',
-                              onPressed: _handleSubmit,
-                              isLoading: authProvider.isLoading,
-                              isEnabled: _canSubmit,
-                            );
-                          },
-                        ),
-
-                        const Spacer(),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
-              );
-            },
+                const SizedBox(height: 32),
+
+                // Title (left-aligned)
+                Text('Enter Verification Code', style: AppTextStyles.h3),
+                const SizedBox(height: 8),
+
+                // Description (left-aligned)
+                Text(
+                  'Code sent to $_maskedEmail',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'This code will expire in $_formattedTime',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.warning500,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Code Input Fields
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(4, (index) {
+                    return Container(
+                      width: 60,
+                      height: 60,
+                      margin: EdgeInsets.only(right: index < 3 ? 16 : 0),
+                      child: TextField(
+                        controller: _controllers[index],
+                        focusNode: _focusNodes[index],
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        maxLength: 1,
+                        style: AppTextStyles.h3.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: InputDecoration(
+                          counterText: '',
+                          filled: true,
+                          fillColor: AppColors.grey100,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: AppColors.primary,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onChanged: (value) => _onCodeChanged(index, value),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 24),
+
+                // Resend Code
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Didn't receive code? ",
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _canResend ? _handleResend : null,
+                      child: Text(
+                        'Resend Code',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: _canResend
+                              ? AppColors.primary
+                              : AppColors.grey400,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+
+                // Submit Button
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, _) {
+                    return CustomButton(
+                      text: 'Verify Code',
+                      onPressed: _handleSubmit,
+                      isLoading: authProvider.isLoading,
+                      isEnabled: _canSubmit,
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),

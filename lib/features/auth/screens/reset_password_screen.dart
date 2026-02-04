@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/constants/asset_paths.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../providers/auth_provider.dart';
@@ -51,7 +52,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         _hasNewPasswordInput = hasInput;
       });
     }
-    // Always rebuild to update password requirements indicator
     setState(() {});
   }
 
@@ -91,7 +91,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     if (!mounted) return;
 
     if (success) {
-      // Navigate to success screen
       context.go(AppRoutes.resetPasswordSuccess);
     } else {
       ToastHelper.showError(
@@ -102,18 +101,40 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     }
   }
 
+  Widget _buildBackButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.pop(),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadow.withAlpha(20),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.arrow_back,
+            color: AppColors.primaryDark,
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => context.pop(),
-        ),
-      ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SafeArea(
@@ -125,43 +146,49 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   ? AutovalidateMode.onUserInteraction
                   : AutovalidateMode.disabled,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Back Button
+                  _buildBackButton(),
                   const SizedBox(height: 24),
 
-                  // Illustration
-                  Container(
-                    width: 200,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary50,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.vpn_key,
-                      size: 100,
-                      color: AppColors.primary,
+                  // Vector Illustration
+                  Center(
+                    child: Image.asset(
+                      AssetPaths.vecResetPassword,
+                      height: 220,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 250,
+                          width: 250,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary50,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.vpn_key,
+                            size: 100,
+                            color: AppColors.primary,
+                          ),
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
 
-                  // Title
-                  Text(
-                    'Reset Password',
-                    style: AppTextStyles.h2,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
+                  // Title (left-aligned)
+                  Text('Create New Password', style: AppTextStyles.h3),
+                  const SizedBox(height: 8),
 
-                  // Description
+                  // Description (left-aligned)
                   Text(
-                    'Create a new password for your account.',
+                    'Your new password must be different from previously used passwords.',
                     style: AppTextStyles.bodyMedium.copyWith(
                       color: AppColors.textSecondary,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
 
                   // New Password Field
                   CustomTextField(
@@ -175,14 +202,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   const SizedBox(height: 12),
 
                   // Password requirements label
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Your password must contain:',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  Text(
+                    'Your password must contain:',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 8),

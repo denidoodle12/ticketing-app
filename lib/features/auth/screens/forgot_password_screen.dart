@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/constants/asset_paths.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../providers/auth_provider.dart';
@@ -67,7 +68,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (!mounted) return;
 
     if (success) {
-      // Navigate to verification code screen
       context.push(AppRoutes.verificationCode, extra: email);
     } else {
       ToastHelper.showError(
@@ -78,105 +78,120 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
   }
 
+  Widget _buildBackButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.pop(),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadow.withAlpha(20),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.arrow_back,
+            color: AppColors.primaryDark,
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => context.pop(),
-        ),
-      ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight - 48,
-                  ),
-                  child: IntrinsicHeight(
-                    child: Form(
-                      key: _formKey,
-                      autovalidateMode: _hasAttemptedSubmit
-                          ? AutovalidateMode.onUserInteraction
-                          : AutovalidateMode.disabled,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 24),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              autovalidateMode: _hasAttemptedSubmit
+                  ? AutovalidateMode.onUserInteraction
+                  : AutovalidateMode.disabled,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Back Button
+                  _buildBackButton(),
+                  const SizedBox(height: 24),
 
-                          // Illustration
-                          Container(
-                            width: 200,
-                            height: 200,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary50,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.lock_reset,
-                              size: 100,
-                              color: AppColors.primary,
-                            ),
+                  // Vector Illustration
+                  Center(
+                    child: Image.asset(
+                      AssetPaths.vecForgotPassword,
+                      height: 270,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 250,
+                          width: 250,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary50,
+                            shape: BoxShape.circle,
                           ),
-                          const SizedBox(height: 40),
-
-                          // Title
-                          Text(
-                            'Forgot Password?',
-                            style: AppTextStyles.h2,
-                            textAlign: TextAlign.center,
+                          child: Icon(
+                            Icons.lock_reset,
+                            size: 100,
+                            color: AppColors.primary,
                           ),
-                          const SizedBox(height: 12),
-
-                          // Description
-                          Text(
-                            'Enter your registered email address\nto receive a reset code.',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 40),
-
-                          // Email Input
-                          CustomTextField(
-                            controller: _emailController,
-                            label: 'Email Address',
-                            hint: 'Enter your email',
-                            keyboardType: TextInputType.emailAddress,
-                            prefixIcon: const Icon(Icons.email_outlined),
-                            validator: Validators.email,
-                          ),
-                          const SizedBox(height: 32),
-
-                          // Submit Button
-                          Consumer<AuthProvider>(
-                            builder: (context, authProvider, _) {
-                              return CustomButton(
-                                text: 'Send Reset Code',
-                                onPressed: _handleSubmit,
-                                isLoading: authProvider.isLoading,
-                                isEnabled: _canSubmit,
-                              );
-                            },
-                          ),
-
-                          const Spacer(),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ),
-                ),
-              );
-            },
+                  const SizedBox(height: 32),
+
+                  // Title (left-aligned)
+                  Text('Forgot Password?', style: AppTextStyles.h3),
+                  const SizedBox(height: 8),
+
+                  // Description (left-aligned)
+                  Text(
+                    'Enter your registered email address to receive a password reset code.',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Email Input
+                  CustomTextField(
+                    controller: _emailController,
+                    label: 'Email Address',
+                    hint: 'Enter your email',
+                    keyboardType: TextInputType.emailAddress,
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    validator: Validators.email,
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Submit Button
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, _) {
+                      return CustomButton(
+                        text: 'Send Reset Code',
+                        onPressed: _handleSubmit,
+                        isLoading: authProvider.isLoading,
+                        isEnabled: _canSubmit,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
