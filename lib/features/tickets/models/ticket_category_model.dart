@@ -17,8 +17,8 @@ class TicketCategory {
 
   factory TicketCategory.fromJson(Map<String, dynamic> json) {
     return TicketCategory(
-      id: json['id'] as int,
-      name: json['name'] as String,
+      id: json['id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
       description: json['description'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null

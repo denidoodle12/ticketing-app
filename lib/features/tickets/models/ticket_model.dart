@@ -17,7 +17,7 @@ class UserInfo {
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       firstname: json['firstname'] as String?,
@@ -25,12 +25,7 @@ class UserInfo {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'email': email,
-      'firstname': firstname,
-    };
+    return {'id': id, 'name': name, 'email': email, 'firstname': firstname};
   }
 }
 
@@ -116,16 +111,16 @@ class Ticket {
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
     return Ticket(
-      id: json['id'] as int,
-      subject: json['subject'] as String,
-      description: json['description'] as String,
-      categoryId: json['category_id'] as int,
-      statusId: json['status_id'] as int,
+      id: json['id'] as int? ?? 0,
+      subject: json['subject'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      categoryId: json['category_id'] as int? ?? 0,
+      statusId: json['status_id'] as int? ?? 0,
       priority: TicketPriorityExtension.fromString(
         json['priority'] as String? ?? 'medium',
       ),
       attachment: json['attachment'] as String?,
-      createdBy: json['created_by'] as int,
+      createdBy: json['created_by'] as int? ?? 0,
       assignedTo: json['assigned_to'] as int?,
       creatorInfo: json['creator_info'] != null
           ? UserInfo.fromJson(json['creator_info'] as Map<String, dynamic>)
@@ -223,7 +218,8 @@ class Ticket {
   }
 
   @override
-  String toString() => 'Ticket(id: $id, subject: $subject, status: ${status?.name})';
+  String toString() =>
+      'Ticket(id: $id, subject: $subject, status: ${status?.name})';
 
   @override
   bool operator ==(Object other) {
@@ -255,7 +251,8 @@ class TicketListResponse {
 
   factory TicketListResponse.fromJson(Map<String, dynamic> json) {
     return TicketListResponse(
-      tickets: (json['data'] as List<dynamic>?)
+      tickets:
+          (json['data'] as List<dynamic>?)
               ?.map((e) => Ticket.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

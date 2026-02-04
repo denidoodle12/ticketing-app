@@ -21,8 +21,8 @@ class TicketStatus {
 
   factory TicketStatus.fromJson(Map<String, dynamic> json) {
     return TicketStatus(
-      id: json['id'] as int,
-      name: json['name'] as String,
+      id: json['id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
       description: json['description'] as String?,
       isFinal: json['is_final'] as bool? ?? false,
       displayOrder: json['display_order'] as int? ?? 0,
@@ -51,9 +51,11 @@ class TicketStatus {
   String get displayName {
     return name
         .split('_')
-        .map((word) => word.isNotEmpty
-            ? '${word[0].toUpperCase()}${word.substring(1)}'
-            : '')
+        .map(
+          (word) => word.isNotEmpty
+              ? '${word[0].toUpperCase()}${word.substring(1)}'
+              : '',
+        )
         .join(' ');
   }
 
