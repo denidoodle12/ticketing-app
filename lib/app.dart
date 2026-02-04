@@ -9,6 +9,7 @@ import 'core/constants/api_config.dart';
 import 'data/datasources/local/local_storage.dart';
 import 'features/auth/datasources/auth_mock_datasource.dart';
 import 'features/auth/datasources/auth_remote_datasource.dart';
+import 'features/auth/datasources/forgot_password_remote_datasource.dart';
 import 'features/auth/repositories/auth_repository.dart';
 import 'features/tickets/datasources/ticket_remote_datasource.dart';
 import 'features/tickets/datasources/ticket_mock_datasource.dart';
@@ -25,11 +26,7 @@ class MyApp extends StatelessWidget {
   final SharedPreferences prefs;
   final FlutterSecureStorage secureStorage;
 
-  const MyApp({
-    super.key,
-    required this.prefs,
-    required this.secureStorage,
-  });
+  const MyApp({super.key, required this.prefs, required this.secureStorage});
 
   @override
   Widget build(BuildContext context) {
@@ -43,32 +40,37 @@ class MyApp extends StatelessWidget {
         // Provide AuthRepository
         Provider<AuthRepository>(
           create: (context) => AuthRepositoryImpl(
-            remoteDatasource: ApiConfig.useMockData ? null : AuthRemoteDatasource(),
+            remoteDatasource: ApiConfig.useMockData
+                ? null
+                : AuthRemoteDatasource(),
             mockDatasource: ApiConfig.useMockData ? AuthMockDatasource() : null,
+            forgotPasswordDatasource: ApiConfig.useMockData
+                ? null
+                : ForgotPasswordRemoteDatasource(),
             localStorage: context.read<LocalStorage>(),
           ),
         ),
 
         // Provide AuthProvider
         ChangeNotifierProvider<AuthProvider>(
-          create: (context) => AuthProvider(
-            context.read<AuthRepository>(),
-          ),
+          create: (context) => AuthProvider(context.read<AuthRepository>()),
         ),
 
         // Provide TicketRepository
         Provider<TicketRepository>(
           create: (context) => TicketRepository(
-            remoteDatasource: ApiConfig.useMockData ? null : TicketRemoteDatasource(),
-            mockDatasource: ApiConfig.useMockData ? TicketMockDatasource() : null,
+            remoteDatasource: ApiConfig.useMockData
+                ? null
+                : TicketRemoteDatasource(),
+            mockDatasource: ApiConfig.useMockData
+                ? TicketMockDatasource()
+                : null,
           ),
         ),
 
         // Provide TicketProvider
         ChangeNotifierProvider<TicketProvider>(
-          create: (context) => TicketProvider(
-            context.read<TicketRepository>(),
-          ),
+          create: (context) => TicketProvider(context.read<TicketRepository>()),
         ),
 
         // Provide ProfileRepository
@@ -93,9 +95,7 @@ class MyApp extends StatelessWidget {
           theme: AppTheme.lightTheme,
           routerConfig: AppRoutes.router,
           builder: (context, child) {
-            return ConnectivityWrapper(
-              child: child ?? const SizedBox.shrink(),
-            );
+            return ConnectivityWrapper(child: child ?? const SizedBox.shrink());
           },
         ),
       ),

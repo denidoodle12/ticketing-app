@@ -2,6 +2,7 @@ import '../models/user_model.dart';
 import '../../../data/datasources/local/local_storage.dart';
 import '../datasources/auth_mock_datasource.dart';
 import '../datasources/auth_remote_datasource.dart';
+import '../datasources/forgot_password_remote_datasource.dart';
 import '../../../core/constants/api_config.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/errors/exceptions.dart';
@@ -24,6 +25,9 @@ abstract class AuthRepository {
   Future<Result<User>> login(String identifier, String password);
   Future<Result<String>> register(String name, String email, String password);
   Future<Result<String>> changePassword(String oldPassword, String newPassword);
+  Future<Result<String>> requestPasswordReset(String email);
+  Future<Result<bool>> verifyResetToken(String token);
+  Future<Result<String>> resetPassword(String token, String newPassword);
   Future<bool> isLoggedIn();
   Future<void> logout();
   Future<User?> getCurrentUser();
@@ -35,15 +39,18 @@ abstract class AuthRepository {
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDatasource? _remoteDatasource;
   final AuthMockDatasource? _mockDatasource;
+  final ForgotPasswordRemoteDatasource? _forgotPasswordDatasource;
   final LocalStorage _localStorage;
 
   AuthRepositoryImpl({
     AuthRemoteDatasource? remoteDatasource,
     AuthMockDatasource? mockDatasource,
+    ForgotPasswordRemoteDatasource? forgotPasswordDatasource,
     required LocalStorage localStorage,
-  })  : _remoteDatasource = remoteDatasource,
-        _mockDatasource = mockDatasource,
-        _localStorage = localStorage;
+  }) : _remoteDatasource = remoteDatasource,
+       _mockDatasource = mockDatasource,
+       _forgotPasswordDatasource = forgotPasswordDatasource,
+       _localStorage = localStorage;
 
   /// Login with identifier (email or username) and password
   @override
@@ -61,7 +68,9 @@ class AuthRepositoryImpl implements AuthRepository {
           // Validate user role - only allow customers
           if (user.role.toLowerCase() != AppConstants.allowedRole) {
             return Result.failure(
-              ForbiddenFailure('Access denied. This application is for customers only.'),
+              ForbiddenFailure(
+                'Access denied. This application is for customers only.',
+              ),
             );
           }
 
@@ -90,13 +99,18 @@ class AuthRepositoryImpl implements AuthRepository {
         }
       } else {
         // Real API datasource returns LoginResponse directly (not wrapped in ApiResponse)
-        final loginResponse = await _remoteDatasource!.login(identifier, password);
+        final loginResponse = await _remoteDatasource!.login(
+          identifier,
+          password,
+        );
         final user = loginResponse.user;
 
         // Validate user role - only allow customers
         if (user.role.toLowerCase() != AppConstants.allowedRole) {
           return Result.failure(
-            ForbiddenFailure('Access denied. This application is for customers only.'),
+            ForbiddenFailure(
+              'Access denied. This application is for customers only.',
+            ),
           );
         }
 
@@ -123,8 +137,9 @@ class AuthRepositoryImpl implements AuthRepository {
       }
     } on UnauthorizedException catch (e) {
       // Provide user-friendly message for login failure
-      final message = e.message.toLowerCase().contains('unauthorized') ||
-                      e.message.toLowerCase().contains('invalid')
+      final message =
+          e.message.toLowerCase().contains('unauthorized') ||
+              e.message.toLowerCase().contains('invalid')
           ? 'Incorrect email/username or password.'
           : e.message;
       return Result.failure(UnauthorizedFailure(message));
@@ -156,9 +171,7 @@ class AuthRepositoryImpl implements AuthRepository {
       if (response.success && response.data != null) {
         return Result.success(response.message);
       } else {
-        return Result.failure(
-          ServerFailure(response.message),
-        );
+        return Result.failure(ServerFailure(response.message));
       }
     } on ValidationException catch (e) {
       return Result.failure(ValidationFailure(e.message, e.errors));
@@ -198,7 +211,11 @@ class AuthRepositoryImpl implements AuthRepository {
     final role = _localStorage.getUserRole();
     final isFirstLogin = _localStorage.getUserIsFirstLogin();
 
-    if (userId == null || email == null || username == null || fullName == null || role == null) {
+    if (userId == null ||
+        email == null ||
+        username == null ||
+        fullName == null ||
+        role == null) {
       return null;
     }
 
@@ -256,5 +273,73 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   bool getIsFirstLogin() {
     return _localStorage.getUserIsFirstLogin();
+  }
+
+  /// Request password reset - sends 4-digit code to email
+  @override
+  Future<Result<String>> requestPasswordReset(String email) async {
+    try {
+      final message = await _forgotPasswordDatasource!.requestPasswordReset(
+        email: email,
+      );
+      return Result.success(message);
+    } on ValidationException catch (e) {
+      return Result.failure(ValidationFailure(e.message, e.errors));
+    } on NetworkException catch (e) {
+      return Result.failure(NetworkFailure(e.message));
+    } on ServerException catch (e) {
+      return Result.failure(ServerFailure(e.message));
+    } catch (e) {
+      return Result.failure(
+        ServerFailure('An unexpected error occurred: ${e.toString()}'),
+      );
+    }
+  }
+
+  /// Verify reset token - check if 4-digit code is valid
+  @override
+  Future<Result<bool>> verifyResetToken(String token) async {
+    try {
+      final isValid = await _forgotPasswordDatasource!.verifyResetToken(
+        token: token,
+      );
+      return Result.success(isValid);
+    } on ValidationException catch (e) {
+      return Result.failure(ValidationFailure(e.message, e.errors));
+    } on UnauthorizedException catch (e) {
+      return Result.failure(UnauthorizedFailure(e.message));
+    } on NetworkException catch (e) {
+      return Result.failure(NetworkFailure(e.message));
+    } on ServerException catch (e) {
+      return Result.failure(ServerFailure(e.message));
+    } catch (e) {
+      return Result.failure(
+        ServerFailure('An unexpected error occurred: ${e.toString()}'),
+      );
+    }
+  }
+
+  /// Reset password using the 4-digit code
+  @override
+  Future<Result<String>> resetPassword(String token, String newPassword) async {
+    try {
+      final message = await _forgotPasswordDatasource!.resetPassword(
+        token: token,
+        newPassword: newPassword,
+      );
+      return Result.success(message);
+    } on ValidationException catch (e) {
+      return Result.failure(ValidationFailure(e.message, e.errors));
+    } on UnauthorizedException catch (e) {
+      return Result.failure(UnauthorizedFailure(e.message));
+    } on NetworkException catch (e) {
+      return Result.failure(NetworkFailure(e.message));
+    } on ServerException catch (e) {
+      return Result.failure(ServerFailure(e.message));
+    } catch (e) {
+      return Result.failure(
+        ServerFailure('An unexpected error occurred: ${e.toString()}'),
+      );
+    }
   }
 }

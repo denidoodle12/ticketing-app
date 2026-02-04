@@ -4,6 +4,10 @@ import '../features/splash/screens/splash_screen.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/auth/screens/change_password_screen.dart';
 import '../features/auth/screens/change_password_success_screen.dart';
+import '../features/auth/screens/forgot_password_screen.dart';
+import '../features/auth/screens/verification_code_screen.dart';
+import '../features/auth/screens/reset_password_screen.dart';
+import '../features/auth/screens/reset_password_success_screen.dart';
 import '../features/main/screens/main_screen.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
 import '../features/tickets/screens/create_ticket_screen.dart';
@@ -17,6 +21,10 @@ class AppRoutes {
   static const String splash = '/';
   static const String onboarding = '/onboarding';
   static const String login = '/login';
+  static const String forgotPassword = '/forgot-password';
+  static const String verificationCode = '/verification-code';
+  static const String resetPassword = '/reset-password';
+  static const String resetPasswordSuccess = '/reset-password-success';
   static const String changePassword = '/change-password';
   static const String changePasswordSuccess = '/change-password-success';
   static const String home = '/home';
@@ -26,7 +34,8 @@ class AppRoutes {
   static const String editProfile = '/profile/edit';
 
   // Navigator key for global access
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   // GoRouter configuration
   static final GoRouter router = GoRouter(
@@ -47,6 +56,32 @@ class AppRoutes {
         path: login,
         name: 'login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: forgotPassword,
+        name: 'forgotPassword',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: verificationCode,
+        name: 'verificationCode',
+        builder: (context, state) {
+          final email = state.extra as String? ?? '';
+          return VerificationCodeScreen(email: email);
+        },
+      ),
+      GoRoute(
+        path: resetPassword,
+        name: 'resetPassword',
+        builder: (context, state) {
+          final token = state.extra as String? ?? '';
+          return ResetPasswordScreen(token: token);
+        },
+      ),
+      GoRoute(
+        path: resetPasswordSuccess,
+        name: 'resetPasswordSuccess',
+        builder: (context, state) => const ResetPasswordSuccessScreen(),
       ),
       GoRoute(
         path: changePassword,

@@ -125,110 +125,126 @@ class _LoginScreenState extends State<LoginScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 48,
-                ),
-                child: IntrinsicHeight(
-                  child: Form(
-                    key: _formKey,
-                    // Enable real-time validation only after first submit attempt
-                    autovalidateMode: _hasAttemptedSubmit
-                        ? AutovalidateMode.onUserInteraction
-                        : AutovalidateMode.disabled,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 48),
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 48,
+                  ),
+                  child: IntrinsicHeight(
+                    child: Form(
+                      key: _formKey,
+                      // Enable real-time validation only after first submit attempt
+                      autovalidateMode: _hasAttemptedSubmit
+                          ? AutovalidateMode.onUserInteraction
+                          : AutovalidateMode.disabled,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 48),
 
-                        // App Logo
-                        Center(
-                          child: Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: AppColors.white,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.all(16),
-                            child: Image.asset(
-                              AssetPaths.appLogo,
-                              fit: BoxFit.contain,
+                          // App Logo
+                          Center(
+                            child: Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                color: AppColors.white,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.all(16),
+                              child: Image.asset(
+                                AssetPaths.appLogo,
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 32),
+                          const SizedBox(height: 32),
 
-                        // Title
-                        Text(
-                          'Welcome!',
-                          style: AppTextStyles.h2,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Log in to report an IT ticket.',
-                          style: AppTextStyles.bodyLarge.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Email/Username Field
-                        CustomTextField(
-                          controller: _identifierController,
-                          label: 'Email/Username',
-                          hint: 'Enter your email or username',
-                          keyboardType: TextInputType.text,
-                          prefixIcon: const Icon(Icons.account_circle_outlined),
-                          validator: Validators.emailOrUsername,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Password Field
-                        CustomTextField(
-                          controller: _passwordController,
-                          label: 'Password',
-                          hint: 'Enter your password',
-                          obscureText: true,
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          validator: Validators.password,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Login Button
-                        Consumer<AuthProvider>(
-                          builder: (context, authProvider, _) {
-                            return CustomButton(
-                              text: 'Login',
-                              onPressed: _handleLogin,
-                              isLoading: authProvider.isLoading,
-                              isEnabled: _canSubmit,
-                            );
-                          },
-                        ),
-
-                        // Spacer to push AppVersion to center between button and bottom
-                        const Spacer(),
-
-                        // App Version (dynamic from pubspec.yaml)
-                        Center(
-                          child: Text(
-                            'v${AppInfo.version}',
-                            style: AppTextStyles.bodySmall.copyWith(
+                          // Title
+                          Text('Welcome!', style: AppTextStyles.h2),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Log in to report an IT ticket.',
+                            style: AppTextStyles.bodyLarge.copyWith(
                               color: AppColors.textSecondary,
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 32),
 
-                        // Another spacer for equal spacing below
-                        const Spacer(),
-                      ],
+                          // Email/Username Field
+                          CustomTextField(
+                            controller: _identifierController,
+                            label: 'Email/Username',
+                            hint: 'Enter your email or username',
+                            keyboardType: TextInputType.text,
+                            prefixIcon: const Icon(
+                              Icons.account_circle_outlined,
+                            ),
+                            validator: Validators.emailOrUsername,
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Password Field
+                          CustomTextField(
+                            controller: _passwordController,
+                            label: 'Password',
+                            hint: 'Enter your password',
+                            obscureText: true,
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            validator: Validators.password,
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Forgot Password Link
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: () =>
+                                  context.push(AppRoutes.forgotPassword),
+                              child: Text(
+                                'Forgot Password?',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Login Button
+                          Consumer<AuthProvider>(
+                            builder: (context, authProvider, _) {
+                              return CustomButton(
+                                text: 'Login',
+                                onPressed: _handleLogin,
+                                isLoading: authProvider.isLoading,
+                                isEnabled: _canSubmit,
+                              );
+                            },
+                          ),
+
+                          // Spacer to push AppVersion to center between button and bottom
+                          const Spacer(),
+
+                          // App Version (dynamic from pubspec.yaml)
+                          Center(
+                            child: Text(
+                              'v${AppInfo.version}',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+
+                          // Another spacer for equal spacing below
+                          const Spacer(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
+              );
             },
           ),
         ),

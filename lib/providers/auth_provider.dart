@@ -3,13 +3,7 @@ import '../features/auth/models/user_model.dart';
 import '../features/auth/repositories/auth_repository.dart';
 
 /// Auth state enum
-enum AuthState {
-  initial,
-  loading,
-  authenticated,
-  unauthenticated,
-  error,
-}
+enum AuthState { initial, loading, authenticated, unauthenticated, error }
 
 /// Auth provider for state management
 class AuthProvider extends ChangeNotifier {
@@ -114,7 +108,10 @@ class AuthProvider extends ChangeNotifier {
     _setState(AuthState.loading);
 
     try {
-      final result = await _authRepository.changePassword(oldPassword, newPassword);
+      final result = await _authRepository.changePassword(
+        oldPassword,
+        newPassword,
+      );
 
       if (result.isSuccess) {
         // Update current user's isFirstLogin to false
@@ -167,5 +164,90 @@ class AuthProvider extends ChangeNotifier {
   void _setError(String message) {
     _errorMessage = message;
     notifyListeners();
+  }
+
+  // ========== Forgot Password Flow ==========
+
+  String? _resetToken;
+
+  /// Get the stored reset token
+  String? get resetToken => _resetToken;
+
+  /// Request password reset - sends 4-digit code to email
+  Future<bool> requestPasswordReset(String email) async {
+    _setState(AuthState.loading);
+    _errorMessage = null;
+
+    try {
+      final result = await _authRepository.requestPasswordReset(email);
+
+      if (result.isSuccess) {
+        _setState(AuthState.unauthenticated);
+        return true;
+      } else {
+        _setError(result.failure!.message);
+        _setState(AuthState.error);
+        return false;
+      }
+    } catch (e) {
+      _setError('An unexpected error occurred: ${e.toString()}');
+      _setState(AuthState.error);
+      return false;
+    }
+  }
+
+  /// Verify reset token - check if 4-digit code is valid
+  Future<bool> verifyResetToken(String token) async {
+    _setState(AuthState.loading);
+    _errorMessage = null;
+
+    try {
+      final result = await _authRepository.verifyResetToken(token);
+
+      if (result.isSuccess && result.data == true) {
+        // Store valid token for use in reset password step
+        _resetToken = token;
+        _setState(AuthState.unauthenticated);
+        return true;
+      } else {
+        _setError(result.failure?.message ?? 'Invalid or expired code.');
+        _setState(AuthState.error);
+        return false;
+      }
+    } catch (e) {
+      _setError('An unexpected error occurred: ${e.toString()}');
+      _setState(AuthState.error);
+      return false;
+    }
+  }
+
+  /// Reset password using the 4-digit code
+  Future<bool> resetPassword(String token, String newPassword) async {
+    _setState(AuthState.loading);
+    _errorMessage = null;
+
+    try {
+      final result = await _authRepository.resetPassword(token, newPassword);
+
+      if (result.isSuccess) {
+        // Clear stored token after successful reset
+        _resetToken = null;
+        _setState(AuthState.unauthenticated);
+        return true;
+      } else {
+        _setError(result.failure!.message);
+        _setState(AuthState.error);
+        return false;
+      }
+    } catch (e) {
+      _setError('An unexpected error occurred: ${e.toString()}');
+      _setState(AuthState.error);
+      return false;
+    }
+  }
+
+  /// Clear reset token (call when user cancels flow)
+  void clearResetToken() {
+    _resetToken = null;
   }
 }
