@@ -13,6 +13,8 @@
 | **ms-user-management** | `http://localhost:8081` |
 | **ms-ticket**          | `http://localhost:8082` |
 | **ms-chat**            | `http://localhost:8083` |
+| **ms-sla**             | `http://localhost:8084` |
+| **ms-notification**    | `http://localhost:8085` |
 
 ---
 
@@ -36,13 +38,26 @@
   - **Tickets CRUD** (main entity) with filters & pagination
   - File upload for attachments (10MB limit)
   - Priority levels (low, medium, high, critical)
-  - **Note:** SLA tracking will be implemented in next sprint
+  - **SLA Integration** - automatic due date calculation
+  - **Auto-Close** - automatically closes inactive tickets
 - **NEW:** Chat Service (ms-chat) with:
   - Real-time WebSocket chat for ticket comments
   - REST API for chat history
   - Room-based messaging (per ticket)
   - Automatic message persistence
   - **Attachment support** (upload files in chat, max 5MB)
+  - **User activity tracking** for auto-close feature
+- **NEW:** SLA Service (ms-sla) with:
+  - SLA Configuration per priority (CRUD)
+  - Automatic due date calculation based on priority
+  - Overdue ticket checking (cron job every 5 minutes)
+  - Warning notifications before deadline
+  - **Auto-close inactive tickets** (cron job every hour)
+  - **System configuration** for auto-close days
+- **NEW:** Notification Service (ms-notification) with:
+  - Email notifications via SMTP
+  - HTML email templates for overdue/warning alerts
+  - **Auto-close notification** email template
 
 ---
 
@@ -392,7 +407,7 @@ X-Super-Admin-Secret: <secret_key>
 
 # User Management Service (ms-user-management)
 
-## 4. Get My Profile ✨ NEW
+## 4. Get My Profile ⚠️ UPDATED
 
 | Method | Endpoint    | Access        |
 | ------ | ----------- | ------------- |
@@ -414,18 +429,26 @@ Authorization: Bearer <jwt_token>
     "username": "customer1",
     "name": "Customer One",
     "last_name": "User",
+    "profile_picture": "/profile-pictures/profile_5_20260127.jpg",
+    "phone": "081234567890",
     "role": {
       "id": 1,
       "name": "customer",
       "description": "Regular customer",
       "level": 1
     },
+    "is_active": true,
     "is_first_login": true,
     "created_at": "2025-12-08T10:00:00Z",
     "updated_at": "2025-12-08T10:00:00Z"
   }
 }
 ```
+
+> [!NOTE]
+>
+> - `phone` field is optional and may be `null` if not set
+> - `profile_picture` contains URL path to user's profile picture
 
 ---
 
@@ -495,6 +518,95 @@ Authorization: Bearer <jwt_token>
 | 400  | old password is incorrect |
 | 401  | Invalid or missing token  |
 | 500  | Failed to update password |
+
+---
+
+## 5.2. Update My Profile ✨ NEW
+
+| Method | Endpoint    | Access        |
+| ------ | ----------- | ------------- |
+| `PUT`  | `/users/me` | Authenticated |
+
+**Description:** Allows any authenticated user to update their own profile information (name, last_name, phone). Cannot update email, username, or role.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Request:**
+
+```json
+{
+  "name": "string (optional, min 1 char)",
+  "last_name": "string (optional, can be empty to clear)",
+  "phone": "string (optional, max 20 chars, can be empty to clear)"
+}
+```
+
+**Request Examples:**
+
+```json
+// Update all fields
+{
+  "name": "John",
+  "last_name": "Doe",
+  "phone": "081234567890"
+}
+
+// Update only name
+{
+  "name": "Jane"
+}
+
+// Clear phone number
+{
+  "phone": ""
+}
+```
+
+**Success Response (200):**
+
+```json
+{
+  "message": "profile updated successfully",
+  "data": {
+    "id": 5,
+    "email": "customer1@test.com",
+    "username": "customer1",
+    "name": "John",
+    "last_name": "Doe",
+    "profile_picture": "/profile-pictures/profile_5_20260127.jpg",
+    "phone": "081234567890",
+    "role": {
+      "id": 1,
+      "name": "customer",
+      "description": "Regular customer",
+      "level": 1
+    },
+    "is_active": true,
+    "is_first_login": false,
+    "created_at": "2025-12-08T10:00:00Z",
+    "updated_at": "2026-01-27T15:30:00Z"
+  }
+}
+```
+
+**Error Responses:**
+
+| Code | Error                    |
+| ---- | ------------------------ |
+| 400  | Validation failed        |
+| 401  | Invalid or missing token |
+| 500  | Failed to update profile |
+
+> [!NOTE]
+>
+> - This endpoint only updates the authenticated user's own profile
+> - Cannot update email, username, or role through this endpoint
+> - Use `PUT /users/:id` with admin privileges to update other users
+> - `phone` field accepts any string up to 20 characters
 
 ---
 
@@ -2422,7 +2534,7 @@ Open → In Progress → Pending → Resolved → Closed
 | ------ | ---------- | ------------------- |
 | `POST` | `/tickets` | Authenticated Users |
 
-**Description:** Create a new support ticket. Available to all authenticated users (customer, agent, admin, super_admin).
+**Description:** Create a new support ticket. Available to all authenticated users (customer, agent, admin, super_admin). Due date is automatically calculated based on priority via SLA service.
 
 **Request:**
 
@@ -2451,6 +2563,8 @@ Open → In Progress → Pending → Resolved → Closed
     "attachment": "/uploads/20260106112600_a1b2c3d4.pdf",
     "created_by": 10,
     "assigned_to": null,
+    "due_date": "2026-01-06T19:30:00Z",
+    "is_overdue": false,
     "category": {
       "id": 2,
       "name": "Account Access",
@@ -2471,6 +2585,15 @@ Open → In Progress → Pending → Resolved → Closed
 }
 ```
 
+**SLA Due Date Calculation:**
+
+| Priority | Resolution Time | Due Date Example (created 11:30) |
+| -------- | --------------- | -------------------------------- |
+| Low      | 72 hours (3d)   | 3 days later                     |
+| Medium   | 24 hours        | Next day 11:30                   |
+| High     | 8 hours         | Same day 19:30                   |
+| Critical | 4 hours         | Same day 15:30                   |
+
 **Business Rules:**
 
 - `status_id` automatically set to "open" (id: 1)
@@ -2478,6 +2601,9 @@ Open → In Progress → Pending → Resolved → Closed
 - `assigned_to` automatically set to `null` (unassigned)
 - Default `priority` is "medium" if not provided
 - Category must exist and be active
+- `due_date` automatically calculated from SLA based on priority
+- `is_overdue` defaults to `false`, updated by SLA cron job
+- If SLA service unavailable, ticket created without due_date (graceful fallback)
 
 **Error Responses:**
 
@@ -3813,10 +3939,10 @@ ALTER TABLE ticket_comments ADD COLUMN attachment VARCHAR(255);
 
 **New Endpoints (ms-ticket):**
 
-| Method | Endpoint                        | Description                              |
-| ------ | ------------------------------- | ---------------------------------------- |
-| `GET`  | `/tickets/:id/internal-notes`   | Get all internal notes (agent+ only)     |
-| `POST` | `/tickets/:id/internal-notes`   | Create internal note (agent+ only)       |
+| Method | Endpoint                      | Description                          |
+| ------ | ----------------------------- | ------------------------------------ |
+| `GET`  | `/tickets/:id/internal-notes` | Get all internal notes (agent+ only) |
+| `POST` | `/tickets/:id/internal-notes` | Create internal note (agent+ only)   |
 
 **Request Example - Create Internal Note:**
 
@@ -3877,12 +4003,12 @@ Authorization: Bearer <agent_token>
 
 **Access Control:**
 
-| Role Level | Can Read | Can Write |
-|------------|----------|-----------|
-| Customer (1) | ❌ | ❌ |
-| Agent (2+) | ✅ | ✅ |
-| Admin (5+) | ✅ | ✅ |
-| Super Admin (10) | ✅ | ✅ |
+| Role Level       | Can Read | Can Write |
+| ---------------- | -------- | --------- |
+| Customer (1)     | ❌       | ❌        |
+| Agent (2+)       | ✅       | ✅        |
+| Admin (5+)       | ✅       | ✅        |
+| Super Admin (10) | ✅       | ✅        |
 
 **Database Changes:**
 
@@ -3903,6 +4029,107 @@ CREATE TABLE ticket_internal_notes (
 
 ---
 
+## Version 2.14 (2026-01-30) - WebSocket Profile Picture ✨ NEW
+
+- 📸 **Real-time Profile Pictures** - WebSocket chat messages now include sender's `profile_picture`
+- 🚀 **Profile Picture on Connect** - Fetched once when user connects to WebSocket
+- 🔄 **Enriched Broadcast** - All chat messages in room receive profile picture
+
+**WebSocket Message Format (Updated):**
+
+```json
+{
+  "id": 1,
+  "ticket_id": 112,
+  "user_id": 56,
+  "user_name": "agent@company.com",
+  "firstname": "Goku",
+  "profile_picture": "/profile-pictures/profile_56_xxx.jpg",
+  "user_role": "agent",
+  "content": "Hello!",
+  "attachment": "",
+  "created_at": "2026-01-30T11:00:00Z"
+}
+```
+
+---
+
+## Version 2.13 (2026-01-29) - Profile Picture in Responses ✨ NEW
+
+- ✨ **Profile Picture Lookup** - Comments, internal notes, and ticket details now include user profile pictures
+- 🔄 **Batch User Lookup** - New internal endpoint for efficient batch user info fetching
+- 📸 **Enriched Responses** - `profile_picture` field added to comment, internal note, and ticket creator/assignee info
+
+**New Internal Endpoint (ms-user-management):**
+
+| Method | Endpoint                | Description                        |
+| ------ | ----------------------- | ---------------------------------- |
+| `GET`  | `/internal/users/batch` | Batch lookup user info with photos |
+
+**Request:**
+
+```
+GET /internal/users/batch?ids=1,2,3
+X-Internal-Token: <token>
+```
+
+**Updated Response - GET Comments:**
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "user_id": 5,
+      "user_name": "agent@company.com",
+      "firstname": "Agent",
+      "profile_picture": "/profile-pictures/abc123.jpg",
+      "content": "Hello!",
+      "created_at": "2026-01-29T10:00:00Z"
+    }
+  ]
+}
+```
+
+**Updated Response - GET Internal Notes:**
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "user_id": 5,
+      "user_name": "agent@company.com",
+      "profile_picture": "/profile-pictures/abc123.jpg",
+      "content": "Internal handoff note",
+      "created_at": "2026-01-29T10:00:00Z"
+    }
+  ]
+}
+```
+
+**Updated Response - GET Ticket Details:**
+
+```json
+{
+  "data": {
+    "id": 70,
+    "creator_info": {
+      "id": 1,
+      "name": "John",
+      "profile_picture": "/profile-pictures/john.jpg"
+    },
+    "assignee_info": {
+      "id": 5,
+      "name": "Agent",
+      "profile_picture": "/profile-pictures/agent.jpg"
+    }
+  }
+}
+```
+
+---
+
 ## Version 2.12 (2026-01-29) - Profile Update & Phone Number ✨ NEW
 
 - ✨ **Update Own Profile** - New `PUT /users/me` endpoint for all roles
@@ -3911,9 +4138,9 @@ CREATE TABLE ticket_internal_notes (
 
 **New Endpoint (ms-user-management):**
 
-| Method | Endpoint       | Description                        |
-| ------ | -------------- | ---------------------------------- |
-| `PUT`  | `/users/me`    | Update own profile (all roles)     |
+| Method | Endpoint    | Description                    |
+| ------ | ----------- | ------------------------------ |
+| `PUT`  | `/users/me` | Update own profile (all roles) |
 
 **Request Example:**
 
@@ -3945,6 +4172,7 @@ Authorization: Bearer <token>
 ```
 
 **Notes:**
+
 - All fields are **optional** - send only what you want to update
 - `phone_number` max length: 20 characters
 - Empty string for `last_name` or `phone_number` will clear the value
@@ -3997,6 +4225,122 @@ ALTER TABLE users ADD COLUMN phone_number VARCHAR(20);
 - 🔧 **Validation** - Name uniqueness check, whitespace trimming
 - 🔧 **Status Support** - Active/Inactive categories with `is_active` flag
 - 🗄️ **Auto-migration** - `ticket_categories` table created automatically
+
+---
+
+## Dashboard Statistics ✨ UPDATED
+
+### Get Dashboard Statistics
+
+| Method | Endpoint           | Access        |
+| ------ | ------------------ | ------------- |
+| `GET`  | `/dashboard/stats` | Authenticated |
+
+**Description:** Returns summary statistics of tickets for dashboard display. Uses **counter-based approach with O(1) query performance** for all user roles. Statistics are pre-computed and stored in the `ticket_stats` table, updated automatically during ticket CRUD operations.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Role-Based Filtering:**
+
+| Role              | Level | Data Returned                              |
+| ----------------- | ----- | ------------------------------------------ |
+| Customer          | < 2   | Only tickets created by the user           |
+| Agent             | 2     | Tickets created by OR assigned to the user |
+| Admin/Super Admin | >= 5  | All tickets (global statistics)            |
+
+**Success Response (200):**
+
+```json
+{
+  "data": {
+    "total_tickets": 150,
+    "open_count": 25,
+    "in_progress_count": 45,
+    "resolved_count": 80,
+    "overdue_count": 5
+  }
+}
+```
+
+| Field               | Type    | Description                                 |
+| ------------------- | ------- | ------------------------------------------- |
+| `total_tickets`     | integer | Total number of tickets (filtered by role)  |
+| `open_count`        | integer | Number of tickets with status `open`        |
+| `in_progress_count` | integer | Number of tickets with status `in_progress` |
+| `resolved_count`    | integer | Number of tickets with status `resolved`    |
+| `overdue_count`     | integer | Number of tickets with `is_overdue = true`  |
+
+**Error Responses:**
+
+| Code | Error                    |
+| ---- | ------------------------ |
+| 401  | Invalid or missing token |
+| 500  | Failed to get statistics |
+
+---
+
+### Recalculate Dashboard Counters
+
+| Method | Endpoint                 | Access      |
+| ------ | ------------------------ | ----------- |
+| `POST` | `/dashboard/recalculate` | Super Admin |
+
+**Description:** Recalculates all dashboard counters from actual ticket data. Used to fix counter drift if synchronization issues occur.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Success Response (200):**
+
+```json
+{
+  "message": "counters recalculated successfully"
+}
+```
+
+**Error Responses:**
+
+| Code | Error                     |
+| ---- | ------------------------- |
+| 401  | Invalid or missing token  |
+| 403  | Access denied (not admin) |
+| 500  | Failed to recalculate     |
+
+---
+
+### Database Schema
+
+**Table: `ticket_stats`** (Unified)
+
+| Column              | Type        | Description                        |
+| ------------------- | ----------- | ---------------------------------- |
+| `id`                | SERIAL      | Primary key                        |
+| `user_id`           | INT         | User ID (0 = global stats)         |
+| `role_type`         | VARCHAR(20) | "global", "creator", or "assignee" |
+| `total_tickets`     | INT         | Total ticket count                 |
+| `open_count`        | INT         | Open status count                  |
+| `in_progress_count` | INT         | In-progress status count           |
+| `resolved_count`    | INT         | Resolved status count              |
+| `overdue_count`     | INT         | Overdue ticket count               |
+| `updated_at`        | TIMESTAMP   | Last update time                   |
+
+**Index:** `idx_user_role` on `(user_id, role_type)` for O(1) lookups.
+
+> [!NOTE]
+>
+> - Statistics use **O(1) query time** via pre-computed counters
+> - Counters are synchronized automatically on ticket create/update/delete
+> - Counters are recalculated on service startup to ensure accuracy
+> - `overdue_count` is updated when ms-sla marks tickets as overdue
+
+---
 
 ## Version 2.4 (2025-12-30) - Verify Reset Token
 
@@ -4058,6 +4402,17 @@ ALTER TABLE users ADD COLUMN phone_number VARCHAR(20);
 - 🔧 Register requires `username` field
 - 🔧 All user responses include `username`
 
+## Version 3.0 (2026-02-03) - SLA Edition
+
+- ✨ **SLA Service (ms-sla)** - SLA management with automatic due date calculation
+- ✨ **Notification Service (ms-notification)** - Email notifications via SMTP
+- ✨ Tickets now include `due_date` and `is_overdue` fields
+- ✨ SLA configurations per priority (CRUD via `/sla-configs`)
+- ✨ Overdue checker cron job (every 5 minutes)
+- ✨ Email notifications for overdue and warning alerts
+- ✨ Filter tickets by `is_overdue` status
+- 🔧 Ticket response includes SLA fields
+
 ## Version 2.0 (2025-12-08) - RBAC Edition
 
 - ✨ JWT tokens include `role` claim
@@ -4073,3 +4428,745 @@ ALTER TABLE users ADD COLUMN phone_number VARCHAR(20);
 - Initial API specification
 - Basic authentication endpoints
 - String-based role support
+
+---
+
+# SLA Service (ms-sla)
+
+## Get All SLA Configs
+
+| Method | Endpoint       | Access |
+| ------ | -------------- | ------ |
+| `GET`  | `/sla-configs` | Public |
+
+**Description:** Get all SLA configurations.
+
+**Success Response (200):**
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "priority": "low",
+      "response_time_min": 1440,
+      "resolve_time_min": 4320,
+      "warning_time_min": 60,
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "priority": "medium",
+      "response_time_min": 240,
+      "resolve_time_min": 1440,
+      "warning_time_min": 30,
+      "is_active": true
+    },
+    {
+      "id": 3,
+      "priority": "high",
+      "response_time_min": 60,
+      "resolve_time_min": 480,
+      "warning_time_min": 30,
+      "is_active": true
+    },
+    {
+      "id": 4,
+      "priority": "critical",
+      "response_time_min": 15,
+      "resolve_time_min": 240,
+      "warning_time_min": 10,
+      "is_active": true
+    }
+  ],
+  "message": "SLA configs retrieved successfully"
+}
+```
+
+---
+
+## Get SLA Config by Priority
+
+| Method | Endpoint                 | Access |
+| ------ | ------------------------ | ------ |
+| `GET`  | `/sla-configs/:priority` | Public |
+
+**Path Parameters:**
+
+- `priority` - `low`, `medium`, `high`, `critical`
+
+**Success Response (200):**
+
+```json
+{
+  "data": {
+    "id": 4,
+    "priority": "critical",
+    "response_time_min": 15,
+    "resolve_time_min": 240,
+    "warning_time_min": 10,
+    "is_active": true
+  }
+}
+```
+
+---
+
+## Create SLA Config
+
+| Method | Endpoint       | Access      |
+| ------ | -------------- | ----------- |
+| `POST` | `/sla-configs` | Super Admin |
+
+**Request:**
+
+```json
+{
+  "priority": "urgent",
+  "response_time_min": 10,
+  "resolve_time_min": 120,
+  "warning_time_min": 5
+}
+```
+
+---
+
+## Update SLA Config
+
+| Method | Endpoint           | Access      |
+| ------ | ------------------ | ----------- |
+| `PUT`  | `/sla-configs/:id` | Super Admin |
+
+**Request:**
+
+```json
+{
+  "response_time_min": 20,
+  "resolve_time_min": 180,
+  "warning_time_min": 10,
+  "is_active": true
+}
+```
+
+---
+
+## Delete SLA Config
+
+| Method   | Endpoint           | Access      |
+| -------- | ------------------ | ----------- |
+| `DELETE` | `/sla-configs/:id` | Super Admin |
+
+---
+
+## SLA Default Configuration
+
+| Priority | Response Time | Resolution Time | Warning Before |
+| -------- | ------------- | --------------- | -------------- |
+| Low      | 24 hours      | 72 hours (3d)   | 60 min         |
+| Medium   | 4 hours       | 24 hours        | 30 min         |
+| High     | 1 hour        | 8 hours         | 30 min         |
+| Critical | 15 min        | 4 hours         | 10 min         |
+
+---
+
+# Audit Log Service (ms-sla) ✨ NEW
+
+The Audit Log service records important events related to SLA and ticket operations. All audit logs are stored in the `audit_logs` table within the ms-sla database.
+
+## Event Types
+
+| Event Type          | Description                     | Triggered By      |
+| ------------------- | ------------------------------- | ----------------- |
+| `sla_overdue`       | Ticket becomes overdue          | ms-sla scheduler  |
+| `notification_sent` | Email notification sent         | ms-sla scheduler  |
+| `status_change`     | Ticket status changed           | ms-ticket service |
+| `ticket_assigned`   | Ticket assigned to agent        | ms-ticket service |
+| `first_response`    | Agent's first response recorded | ms-ticket/ms-chat |
+
+---
+
+## Get All Audit Logs
+
+| Method | Endpoint      | Access            |
+| ------ | ------------- | ----------------- |
+| `GET`  | `/audit-logs` | Admin/Super Admin |
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Query Parameters:**
+
+| Parameter     | Type    | Description                            |
+| ------------- | ------- | -------------------------------------- |
+| `event_type`  | string  | Filter by event type                   |
+| `entity_type` | string  | Filter by entity type (e.g., "ticket") |
+| `entity_id`   | integer | Filter by entity ID (e.g., ticket_id)  |
+| `page`        | integer | Page number (default: 1)               |
+| `limit`       | integer | Items per page (default: 20, max: 100) |
+
+**Success Response (200):**
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "event_type": "status_change",
+      "entity_type": "ticket",
+      "entity_id": 42,
+      "description": "Ticket #42 status changed from 'open' to 'in_progress'",
+      "metadata": "{\"old_status\":\"open\",\"new_status\":\"in_progress\",\"changed_by\":5,\"changed_at\":\"2026-02-04T10:30:00Z\"}",
+      "created_by": 5,
+      "created_at": "2026-02-04T10:30:00Z"
+    },
+    {
+      "id": 2,
+      "event_type": "sla_overdue",
+      "entity_type": "ticket",
+      "entity_id": 38,
+      "description": "Ticket #38 is overdue by 2 hours",
+      "metadata": "{\"overdue_by\":\"2h0m\",\"recipient_email\":\"agent@test.com\",\"detected_at\":\"2026-02-04T10:00:00Z\"}",
+      "created_by": null,
+      "created_at": "2026-02-04T10:00:00Z"
+    }
+  ],
+  "total": 150,
+  "page": 1,
+  "limit": 20
+}
+```
+
+**Error Responses:**
+
+| Code | Error                      |
+| ---- | -------------------------- |
+| 400  | Unknown query parameter    |
+| 400  | Page must be non-negative  |
+| 400  | Limit must be non-negative |
+| 401  | Invalid or missing token   |
+| 403  | Admin access required      |
+
+**Validation:**
+
+> [!NOTE]
+>
+> - Unknown query parameters will be rejected with an error listing valid parameter names
+> - `page` and `limit` must be non-negative numbers (>= 0)
+> - `page=0` defaults to page 1, `limit=0` defaults to 20
+
+**Example Error Response (typo in parameter):**
+
+```json
+{
+  "error": "unknown query parameter(s): entitiy_id",
+  "valid_params": ["event_type", "entity_type", "entity_id", "page", "limit"],
+  "hint": "check for typos in parameter names"
+}
+```
+
+**Example Error Response (negative page):**
+
+```json
+{
+  "error": "page must be a non-negative number",
+  "hint": "use page=1 for the first page, or page=0 for default"
+}
+
+---
+
+## Get Audit Log by ID
+
+| Method | Endpoint          | Access            |
+| ------ | ----------------- | ----------------- |
+| `GET`  | `/audit-logs/:id` | Admin/Super Admin |
+
+**Headers:**
+
+```
+
+Authorization: Bearer <jwt_token>
+
+````
+
+**Success Response (200):**
+
+```json
+{
+  "data": {
+    "id": 1,
+    "event_type": "ticket_assigned",
+    "entity_type": "ticket",
+    "entity_id": 42,
+    "description": "Ticket #42 assigned to user #5",
+    "metadata": "{\"assigned_to\":5,\"assigned_by\":10,\"assigned_at\":\"2026-02-04T09:00:00Z\"}",
+    "created_by": 10,
+    "created_at": "2026-02-04T09:00:00Z"
+  }
+}
+````
+
+**Error Responses:**
+
+| Code | Error                |
+| ---- | -------------------- |
+| 400  | Invalid audit log ID |
+| 404  | Audit log not found  |
+
+---
+
+## Get Audit Logs by Ticket ID
+
+| Method | Endpoint                 | Access            |
+| ------ | ------------------------ | ----------------- |
+| `GET`  | `/audit-logs/ticket/:id` | Admin/Super Admin |
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Description:** Get all audit logs related to a specific ticket, useful for viewing ticket activity history.
+
+**Success Response (200):**
+
+```json
+{
+  "data": [
+    {
+      "id": 5,
+      "event_type": "status_change",
+      "entity_type": "ticket",
+      "entity_id": 42,
+      "description": "Ticket #42 status changed from 'in_progress' to 'resolved'",
+      "metadata": "{\"old_status\":\"in_progress\",\"new_status\":\"resolved\",\"changed_by\":5}",
+      "created_by": 5,
+      "created_at": "2026-02-04T14:00:00Z"
+    },
+    {
+      "id": 3,
+      "event_type": "notification_sent",
+      "entity_type": "ticket",
+      "entity_id": 42,
+      "description": "Notification 'overdue' sent for ticket #42 to agent@test.com",
+      "metadata": "{\"notification_type\":\"overdue\",\"recipient_email\":\"agent@test.com\"}",
+      "created_by": null,
+      "created_at": "2026-02-04T12:00:00Z"
+    },
+    {
+      "id": 2,
+      "event_type": "sla_overdue",
+      "entity_type": "ticket",
+      "entity_id": 42,
+      "description": "Ticket #42 is overdue by 30 min",
+      "metadata": "{\"overdue_by\":\"30m\",\"recipient_email\":\"agent@test.com\"}",
+      "created_by": null,
+      "created_at": "2026-02-04T12:00:00Z"
+    },
+    {
+      "id": 1,
+      "event_type": "ticket_assigned",
+      "entity_type": "ticket",
+      "entity_id": 42,
+      "description": "Ticket #42 assigned to user #5",
+      "metadata": "{\"assigned_to\":5,\"assigned_by\":10}",
+      "created_by": 10,
+      "created_at": "2026-02-04T09:00:00Z"
+    }
+  ],
+  "ticket_id": 42,
+  "total": 4
+}
+```
+
+---
+
+## Internal Endpoints
+
+> [!NOTE]
+> These endpoints are for service-to-service communication only and require the `X-Internal-Token` header.
+
+### Log Status Change
+
+| Method | Endpoint                             | Access   |
+| ------ | ------------------------------------ | -------- |
+| `POST` | `/internal/audit-logs/status-change` | Internal |
+
+**Headers:**
+
+```
+X-Internal-Token: <internal_token>
+```
+
+**Request:**
+
+```json
+{
+  "ticket_id": 42,
+  "old_status": "open",
+  "new_status": "in_progress",
+  "changed_by": 5
+}
+```
+
+**Success Response (201):**
+
+```json
+{
+  "message": "status change logged"
+}
+```
+
+---
+
+### Log Ticket Assignment
+
+| Method | Endpoint                               | Access   |
+| ------ | -------------------------------------- | -------- |
+| `POST` | `/internal/audit-logs/ticket-assigned` | Internal |
+
+**Headers:**
+
+```
+X-Internal-Token: <internal_token>
+```
+
+**Request:**
+
+```json
+{
+  "ticket_id": 42,
+  "assigned_to": 5,
+  "assigned_by": 10
+}
+```
+
+**Success Response (201):**
+
+```json
+{
+  "message": "ticket assignment logged"
+}
+```
+
+---
+
+### Log First Response
+
+| Method | Endpoint                              | Access   |
+| ------ | ------------------------------------- | -------- |
+| `POST` | `/internal/audit-logs/first-response` | Internal |
+
+**Headers:**
+
+```
+X-Internal-Token: <internal_token>
+```
+
+**Request:**
+
+```json
+{
+  "ticket_id": 42,
+  "responded_by": 5
+}
+```
+
+**Success Response (201):**
+
+```json
+{
+  "message": "first response logged"
+}
+```
+
+---
+
+### Log Notification Sent
+
+| Method | Endpoint                                 | Access   |
+| ------ | ---------------------------------------- | -------- |
+| `POST` | `/internal/audit-logs/notification-sent` | Internal |
+
+**Headers:**
+
+```
+X-Internal-Token: <internal_token>
+```
+
+**Request:**
+
+```json
+{
+  "ticket_id": 42,
+  "notification_type": "assignment",
+  "recipient_email": "agent@test.com"
+}
+```
+
+**Success Response (201):**
+
+```json
+{
+  "message": "notification sent logged"
+}
+```
+
+---
+
+## Audit Log Database Schema
+
+```sql
+CREATE TABLE audit_logs (
+    id SERIAL PRIMARY KEY,
+    event_type VARCHAR(50) NOT NULL,     -- sla_overdue, status_change, etc.
+    entity_type VARCHAR(50) NOT NULL,    -- ticket, user
+    entity_id INTEGER NOT NULL,          -- ticket_id
+    description TEXT,
+    metadata JSONB,                      -- Additional JSON data
+    created_by INTEGER,                  -- User who triggered (if applicable)
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for query performance
+CREATE INDEX idx_audit_logs_event_type ON audit_logs(event_type);
+CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+```
+
+---
+
+# Auto-Close Inactive Tickets Feature
+
+## Overview
+
+Fitur otomatis menutup ticket yang tidak direspon oleh user selama X hari (default: 3 hari). Konfigurasi disimpan di database `system_configs`.
+
+## Flow Diagram
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    AUTO-CLOSE FLOW                                │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. Agent sends message (via WebSocket chat)                     │
+│     └── Set waiting_for_user_since = NOW()                       │
+│                                                                  │
+│  2. User replies                                                 │
+│     ├── Set last_user_reply_at = NOW()                           │
+│     └── Clear waiting_for_user_since = NULL                      │
+│                                                                  │
+│  3. Cron job (every hour) checks:                                │
+│     WHERE waiting_for_user_since IS NOT NULL                     │
+│       AND waiting_for_user_since < NOW() - X days                │
+│       AND status NOT IN ('closed', 'resolved')                   │
+│     └── Auto-close ticket and send notification                  │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Database Changes
+
+### Ticket Table (ms-ticket)
+
+New columns added:
+
+| Column                   | Type      | Description                                       |
+| ------------------------ | --------- | ------------------------------------------------- |
+| `last_user_reply_at`     | TIMESTAMP | Waktu terakhir user membalas                      |
+| `waiting_for_user_since` | TIMESTAMP | Waktu mulai menunggu reply (set saat agent reply) |
+
+### System Config Table (ms-sla)
+
+```sql
+CREATE TABLE system_configs (
+    id SERIAL PRIMARY KEY,
+    config_key VARCHAR(50) UNIQUE NOT NULL,
+    config_value VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Default config
+INSERT INTO system_configs (config_key, config_value, description)
+VALUES ('auto_close_inactive_days', '3', 'Days to wait before auto-closing inactive ticket');
+```
+
+---
+
+## Internal API Endpoints (ms-ticket)
+
+### Mark User Activity
+
+Called by ms-chat when **user** sends a message.
+
+| Method | Endpoint                              | Access   |
+| ------ | ------------------------------------- | -------- |
+| `PUT`  | `/internal/tickets/:id/user-activity` | Internal |
+
+**Headers:**
+
+```
+X-Internal-Token: <internal_token>
+```
+
+**Success Response (200):**
+
+```json
+{
+  "message": "user activity recorded",
+  "data": {
+    "id": 123,
+    "last_user_reply_at": "2026-02-05T10:00:00Z"
+  }
+}
+```
+
+---
+
+### Mark Waiting for User
+
+Called by ms-chat when **agent** sends a message.
+
+| Method | Endpoint                                 | Access   |
+| ------ | ---------------------------------------- | -------- |
+| `PUT`  | `/internal/tickets/:id/waiting-for-user` | Internal |
+
+**Headers:**
+
+```
+X-Internal-Token: <internal_token>
+```
+
+**Success Response (200):**
+
+```json
+{
+  "message": "waiting for user marked",
+  "data": {
+    "id": 123,
+    "waiting_for_user_since": "2026-02-05T10:00:00Z"
+  }
+}
+```
+
+---
+
+### Get Inactive Tickets
+
+Called by ms-sla scheduler to get tickets waiting for user > X days.
+
+| Method | Endpoint                            | Access   |
+| ------ | ----------------------------------- | -------- |
+| `GET`  | `/internal/tickets/inactive?days=3` | Internal |
+
+**Headers:**
+
+```
+X-Internal-Token: <internal_token>
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description        |
+| --------- | ---- | -------- | ------- | ------------------ |
+| `days`    | int  | No       | 3       | Days of inactivity |
+
+**Success Response (200):**
+
+```json
+{
+  "data": [
+    {
+      "id": 123,
+      "subject": "Login Issue",
+      "created_by": 5,
+      "waiting_for_user_since": "2026-02-01T10:00:00Z"
+    }
+  ],
+  "count": 1,
+  "message": "inactive tickets retrieved"
+}
+```
+
+---
+
+### Auto-Close Ticket
+
+Called by ms-sla scheduler to auto-close a ticket.
+
+| Method | Endpoint                           | Access   |
+| ------ | ---------------------------------- | -------- |
+| `PUT`  | `/internal/tickets/:id/auto-close` | Internal |
+
+**Headers:**
+
+```
+X-Internal-Token: <internal_token>
+```
+
+**Success Response (200):**
+
+```json
+{
+  "message": "ticket auto-closed due to inactivity",
+  "data": {
+    "id": 123,
+    "old_status_id": 2,
+    "new_status_id": 4
+  }
+}
+```
+
+---
+
+## WebSocket Chat Integration
+
+When messages are sent via WebSocket (ms-chat):
+
+| Sender                  | Action                                             |
+| ----------------------- | -------------------------------------------------- |
+| Agent (role_level >= 2) | Calls `PUT /internal/tickets/:id/waiting-for-user` |
+| User (role_level < 2)   | Calls `PUT /internal/tickets/:id/user-activity`    |
+
+---
+
+## Scheduler (ms-sla)
+
+**InactiveChecker** runs every hour (`0 * * * *`):
+
+1. Get `auto_close_inactive_days` from `system_configs` table
+2. Fetch inactive tickets via `GET /internal/tickets/inactive?days=X`
+3. For each ticket:
+   - Call `PUT /internal/tickets/:id/auto-close`
+   - Send email notification to user
+   - Log audit event `ticket_auto_closed`
+
+---
+
+## Email Notification
+
+When ticket is auto-closed, user receives email:
+
+**Subject:** `[AUTO-CLOSED] Ticket #123 ditutup otomatis karena tidak ada respons`
+
+**Template:** `ticket_auto_close`
+
+```html
+<h1>🔒 Ticket Ditutup Otomatis</h1>
+<p>
+  Ticket berikut telah ditutup secara otomatis karena tidak ada respons dalam 3
+  hari:
+</p>
+<ul>
+  <li><strong>Ticket ID:</strong> #123</li>
+  <li><strong>Subject:</strong> Login Issue</li>
+</ul>
+<p>Jika Anda masih memerlukan bantuan, silakan buat ticket baru.</p>
+```

@@ -7,14 +7,11 @@ class TicketCard extends StatelessWidget {
   final Ticket ticket;
   final VoidCallback? onTap;
 
-  const TicketCard({
-    super.key,
-    required this.ticket,
-    this.onTap,
-  });
+  const TicketCard({super.key, required this.ticket, this.onTap});
 
   Color _getStatusColor() {
-    final statusName = ticket.status?.name.toLowerCase().replaceAll('_', ' ') ?? 'open';
+    final statusName =
+        ticket.status?.name.toLowerCase().replaceAll('_', ' ') ?? 'open';
     switch (statusName) {
       case 'open':
         return AppColors.statusOpen;
@@ -32,7 +29,8 @@ class TicketCard extends StatelessWidget {
   }
 
   Color _getStatusBgColor() {
-    final statusName = ticket.status?.name.toLowerCase().replaceAll('_', ' ') ?? 'open';
+    final statusName =
+        ticket.status?.name.toLowerCase().replaceAll('_', ' ') ?? 'open';
     switch (statusName) {
       case 'open':
         return AppColors.primary50;
@@ -50,7 +48,8 @@ class TicketCard extends StatelessWidget {
   }
 
   String _getStatusDisplayName() {
-    final statusName = ticket.status?.name.toLowerCase().replaceAll('_', ' ') ?? 'open';
+    final statusName =
+        ticket.status?.name.toLowerCase().replaceAll('_', ' ') ?? 'open';
     switch (statusName) {
       case 'open':
         return 'Open';
@@ -83,13 +82,13 @@ class TicketCard extends StatelessWidget {
   String _getPriorityLabel() {
     switch (ticket.priority) {
       case TicketPriority.critical:
-        return 'Critical Priority';
+        return 'Critical';
       case TicketPriority.high:
-        return 'High Priority';
+        return 'High';
       case TicketPriority.medium:
-        return 'Medium Priority';
+        return 'Medium';
       case TicketPriority.low:
-        return 'Low Priority';
+        return 'Low';
     }
   }
 
@@ -101,15 +100,15 @@ class TicketCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: AppColors.shadow.withAlpha(20),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                color: AppColors.shadow.withAlpha(15),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -126,7 +125,6 @@ class TicketCard extends StatelessWidget {
                       style: AppTextStyles.bodyMedium.copyWith(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w600,
-                        fontSize: 15,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -135,19 +133,18 @@ class TicketCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: 10,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: _getStatusBgColor(),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       _getStatusDisplayName(),
-                      style: AppTextStyles.caption.copyWith(
+                      style: AppTextStyles.labelSmall.copyWith(
                         color: _getStatusColor(),
                         fontWeight: FontWeight.w600,
-                        fontSize: 11,
                       ),
                     ),
                   ),
@@ -158,40 +155,22 @@ class TicketCard extends StatelessWidget {
               // Row 2: Category and Priority
               Row(
                 children: [
-                  // Category with background
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.grey100,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.grid_view_rounded,
-                          size: 14,
-                          color: AppColors.primaryDark,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          ticket.category?.name ?? 'Unknown',
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                  Icon(
+                    Icons.folder_outlined,
+                    size: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    ticket.category?.name ?? 'Unknown',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Priority dot
                   Container(
-                    width: 8,
-                    height: 8,
+                    width: 6,
+                    height: 6,
                     decoration: BoxDecoration(
                       color: _getPriorityColor(),
                       shape: BoxShape.circle,
@@ -200,25 +179,23 @@ class TicketCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     _getPriorityLabel(),
-                    style: AppTextStyles.caption.copyWith(
+                    style: AppTextStyles.bodySmall.copyWith(
                       color: _getPriorityColor(),
-                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
 
               // Row 3: Description
               Text(
                 ticket.description,
                 style: AppTextStyles.bodySmall.copyWith(
                   color: AppColors.textSecondary,
-                  fontSize: 13,
                   height: 1.4,
                 ),
-                maxLines: 3,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 10),
@@ -227,32 +204,29 @@ class TicketCard extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    Icons.access_time,
+                    Icons.access_time_rounded,
                     size: 14,
-                    color: AppColors.primaryDark,
+                    color: AppColors.textSecondary,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     ticket.timeAgo,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.primaryDark,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   if (ticket.attachment != null) ...[
                     const SizedBox(width: 12),
                     Icon(
-                      Icons.attach_file,
+                      Icons.attach_file_rounded,
                       size: 14,
                       color: AppColors.textSecondary,
                     ),
                     const SizedBox(width: 2),
                     Text(
                       'Attachment',
-                      style: AppTextStyles.caption.copyWith(
+                      style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textSecondary,
-                        fontSize: 12,
                       ),
                     ),
                   ],
