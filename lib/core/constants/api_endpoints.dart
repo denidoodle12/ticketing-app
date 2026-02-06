@@ -16,7 +16,8 @@ class ApiEndpoints {
   static const String userMePermissions = '/users/me/permissions';
   static const String userMeChangePassword = '/users/me/change-password';
   static const String userMeProfilePicture = '/users/me/profile-picture';
-  static String profilePicture(String filename) => '/profile-pictures/$filename';
+  static String profilePicture(String filename) =>
+      '/profile-pictures/$filename';
 
   // Ticket Service Endpoints (ms-ticket)
   // Categories
@@ -40,4 +41,7 @@ class ApiEndpoints {
 
   // Chat Uploads (Comment attachments)
   static String chatUploads(String filename) => '/chat-uploads/$filename';
+
+  // Dashboard Statistics
+  static const String dashboardStats = '/dashboard/stats';
 }

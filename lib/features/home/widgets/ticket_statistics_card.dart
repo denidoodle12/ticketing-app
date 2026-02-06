@@ -2,44 +2,44 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../main/screens/main_screen.dart';
 
-/// Statistics filter type for ticket statistics
-enum StatisticsFilterType { status, priority, category }
+/// Data model for ticket statistics from API
+class TicketStatsData {
+  final int totalTickets;
+  final int openCount;
+  final int inProgressCount;
+  final int resolvedCount;
 
-/// Data model for chart section
-class ChartSectionData {
-  final String label;
-  final int count;
-  final Color color;
-
-  const ChartSectionData({
-    required this.label,
-    required this.count,
-    required this.color,
+  const TicketStatsData({
+    required this.totalTickets,
+    required this.openCount,
+    required this.inProgressCount,
+    required this.resolvedCount,
   });
 
-  double get percentage => count > 0 ? count.toDouble() : 0;
+  factory TicketStatsData.fromMap(Map<String, int> statusCounts) {
+    final open = statusCounts['open'] ?? 0;
+    final inProgress = statusCounts['in_progress'] ?? 0;
+    final resolved = statusCounts['resolved'] ?? 0;
+    return TicketStatsData(
+      totalTickets: open + inProgress + resolved,
+      openCount: open,
+      inProgressCount: inProgress,
+      resolvedCount: resolved,
+    );
+  }
 }
 
-/// Ticket Statistics Card with donut chart
+/// Modern Ticket Statistics Card with donut chart
 class TicketStatisticsCard extends StatefulWidget {
   final Map<String, int> statusCounts;
-  final Map<String, int> priorityCounts;
-  final Map<String, int> categoryCounts;
   final bool isLoading;
-  final StatisticsFilterType initialFilter;
-  final ValueChanged<StatisticsFilterType>? onFilterChanged;
-  final bool showHeader;
 
   const TicketStatisticsCard({
     super.key,
     required this.statusCounts,
-    this.priorityCounts = const {},
-    this.categoryCounts = const {},
     this.isLoading = false,
-    this.initialFilter = StatisticsFilterType.status,
-    this.onFilterChanged,
-    this.showHeader = true,
   });
 
   @override
@@ -47,169 +47,50 @@ class TicketStatisticsCard extends StatefulWidget {
 }
 
 class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
-  late StatisticsFilterType _selectedFilter;
   int? _touchedIndex;
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedFilter = widget.initialFilter;
-  }
+  TicketStatsData get _stats => TicketStatsData.fromMap(widget.statusCounts);
 
-  List<ChartSectionData> get _chartData {
-    switch (_selectedFilter) {
-      case StatisticsFilterType.status:
-        return _getStatusChartData();
-      case StatisticsFilterType.priority:
-        return _getPriorityChartData();
-      case StatisticsFilterType.category:
-        return _getCategoryChartData();
-    }
-  }
+  List<_ChartItem> get _chartItems => [
+    _ChartItem(
+      label: 'Open',
+      count: _stats.openCount,
+      color: const Color(0xFF64B5F6), // Light blue
+    ),
+    _ChartItem(
+      label: 'In Progress',
+      count: _stats.inProgressCount,
+      color: const Color(0xFF1565C0), // Dark blue
+    ),
+    _ChartItem(
+      label: 'Resolved',
+      count: _stats.resolvedCount,
+      color: const Color(0xFF0D47A1), // Navy blue
+    ),
+  ];
 
-  List<ChartSectionData> _getStatusChartData() {
-    return [
-      ChartSectionData(
-        label: 'Open',
-        count: widget.statusCounts['open'] ?? 0,
-        color: AppColors.statusOpen,
-      ),
-      ChartSectionData(
-        label: 'In Progress',
-        count: widget.statusCounts['in_progress'] ?? 0,
-        color: AppColors.statusInProgress,
-      ),
-      ChartSectionData(
-        label: 'Pending',
-        count: widget.statusCounts['pending'] ?? 0,
-        color: AppColors.primary400,
-      ),
-      ChartSectionData(
-        label: 'Resolved',
-        count: widget.statusCounts['resolved'] ?? 0,
-        color: AppColors.statusResolved,
-      ),
-      ChartSectionData(
-        label: 'Closed',
-        count: widget.statusCounts['closed'] ?? 0,
-        color: AppColors.statusClosed,
-      ),
-    ];
-  }
-
-  List<ChartSectionData> _getPriorityChartData() {
-    return [
-      ChartSectionData(
-        label: 'Low',
-        count: widget.priorityCounts['low'] ?? 0,
-        color: AppColors.priorityLow,
-      ),
-      ChartSectionData(
-        label: 'Medium',
-        count: widget.priorityCounts['medium'] ?? 0,
-        color: AppColors.priorityMedium,
-      ),
-      ChartSectionData(
-        label: 'High',
-        count: widget.priorityCounts['high'] ?? 0,
-        color: AppColors.priorityHigh,
-      ),
-      ChartSectionData(
-        label: 'Critical',
-        count: widget.priorityCounts['critical'] ?? 0,
-        color: AppColors.priorityUrgent,
-      ),
-    ];
-  }
-
-  List<ChartSectionData> _getCategoryChartData() {
-    final colors = [
-      AppColors.primary500,
-      AppColors.accent500,
-      AppColors.warning500,
-      AppColors.success500,
-      AppColors.error500,
-      AppColors.primary400,
-      AppColors.accent400,
-    ];
-
-    return widget.categoryCounts.entries.map((entry) {
-      final index = widget.categoryCounts.keys.toList().indexOf(entry.key);
-      return ChartSectionData(
-        label: entry.key,
-        count: entry.value,
-        color: colors[index % colors.length],
-      );
-    }).toList();
-  }
-
-  int get _totalCount {
-    return _chartData.fold(0, (sum, item) => sum + item.count);
-  }
-
-  String get _filterLabel {
-    switch (_selectedFilter) {
-      case StatisticsFilterType.status:
-        return 'By Status';
-      case StatisticsFilterType.priority:
-        return 'By Priority';
-      case StatisticsFilterType.category:
-        return 'By Category';
-    }
-  }
+  int get _totalCount => _stats.totalTickets;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow.withAlpha(20),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.showHeader) ...[
-            _buildHeader(),
-            const SizedBox(height: 20),
-          ] else ...[
-            // Show Overview label and filter dropdown
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Overview',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.black,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                _buildFilterDropdown(),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (widget.isLoading)
-            const SizedBox(
-              height: 200,
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_totalCount == 0)
-            _buildEmptyState()
-          else ...[
-            _buildDonutChart(),
-            const SizedBox(height: 20),
-            _buildLegend(),
-          ],
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        _buildHeader(),
+        const SizedBox(height: 16),
+
+        // Content
+        if (widget.isLoading)
+          const SizedBox(
+            height: 180,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_totalCount == 0)
+          _buildEmptyState()
+        else
+          _buildChartWithLegend(),
+      ],
     );
   }
 
@@ -217,88 +98,48 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'Ticket Statistics',
-          style: AppTextStyles.h5.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        _buildFilterDropdown(),
-      ],
-    );
-  }
-
-  Widget _buildFilterDropdown() {
-    return PopupMenuButton<StatisticsFilterType>(
-      onSelected: (filter) {
-        setState(() {
-          _selectedFilter = filter;
-          _touchedIndex = null;
-        });
-        widget.onFilterChanged?.call(filter);
-      },
-      offset: const Offset(0, 40),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      itemBuilder: (context) => [
-        _buildPopupMenuItem(StatisticsFilterType.status, 'By Status'),
-        _buildPopupMenuItem(StatisticsFilterType.priority, 'By Priority'),
-        _buildPopupMenuItem(StatisticsFilterType.category, 'By Category'),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _filterLabel,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.primary500,
-                fontWeight: FontWeight.w600,
+              'Ticket Overview',
+              style: AppTextStyles.h6.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.keyboard_arrow_down,
-              size: 18,
-              color: AppColors.primary500,
+            Text(
+              'All Time',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  PopupMenuItem<StatisticsFilterType> _buildPopupMenuItem(
-    StatisticsFilterType filter,
-    String label,
-  ) {
-    final isSelected = _selectedFilter == filter;
-    return PopupMenuItem<StatisticsFilterType>(
-      value: filter,
-      child: Row(
-        children: [
-          if (isSelected)
-            Icon(Icons.check, size: 18, color: AppColors.primary500)
-          else
-            const SizedBox(width: 18),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: isSelected ? AppColors.primary500 : AppColors.textPrimary,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        GestureDetector(
+          onTap: () {
+            // Navigate to tickets screen
+            context.findAncestorStateOfType<MainScreenState>()?.switchToTab(1);
+          },
+          child: Text(
+            'See Details',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.primary500,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildEmptyState() {
-    return SizedBox(
-      height: 200,
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        color: AppColors.grey50,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -317,147 +158,158 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
     );
   }
 
-  Widget _buildDonutChart() {
-    final dataWithValues = _chartData.where((d) => d.count > 0).toList();
+  Widget _buildChartWithLegend() {
+    final dataWithValues = _chartItems.where((d) => d.count > 0).toList();
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-      child: SizedBox(
-        height: 220,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            PieChart(
-              PieChartData(
-                pieTouchData: PieTouchData(
-                  touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                    setState(() {
-                      if (!event.isInterestedForInteractions ||
-                          pieTouchResponse == null ||
-                          pieTouchResponse.touchedSection == null) {
-                        _touchedIndex = null;
-                        return;
-                      }
-                      _touchedIndex =
-                          pieTouchResponse.touchedSection!.touchedSectionIndex;
-                    });
-                  },
-                ),
-                borderData: FlBorderData(show: false),
-                sectionsSpace: 3,
-                centerSpaceRadius: 70,
-                sections: _buildChartSections(dataWithValues),
-              ),
-            ),
-            // Center text
-            Column(
-              mainAxisSize: MainAxisSize.min,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Donut Chart
+        Expanded(
+          flex: 5,
+          child: SizedBox(
+            height: 180,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Text(
-                  _totalCount.toString(),
-                  style: AppTextStyles.h1.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 40,
+                PieChart(
+                  PieChartData(
+                    pieTouchData: PieTouchData(
+                      touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                        setState(() {
+                          if (!event.isInterestedForInteractions ||
+                              pieTouchResponse == null ||
+                              pieTouchResponse.touchedSection == null) {
+                            _touchedIndex = null;
+                            return;
+                          }
+                          _touchedIndex = pieTouchResponse
+                              .touchedSection!
+                              .touchedSectionIndex;
+                        });
+                      },
+                    ),
+                    borderData: FlBorderData(show: false),
+                    sectionsSpace: 3,
+                    centerSpaceRadius: 50,
+                    sections: _buildChartSections(dataWithValues),
                   ),
                 ),
-                Text(
-                  'Total Tickets',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                // Center text
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _totalCount.toString(),
+                      style: AppTextStyles.h2.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Total Ticket',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
-      ),
+
+        const SizedBox(width: 40),
+
+        // Legend with percentages
+        Expanded(
+          flex: 4,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _chartItems.map((item) {
+              final percentage = _totalCount > 0
+                  ? (item.count / _totalCount * 100).toStringAsFixed(0)
+                  : '0';
+              return _buildLegendItem(item, percentage);
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 
   List<PieChartSectionData> _buildChartSections(
-    List<ChartSectionData> dataWithValues,
+    List<_ChartItem> dataWithValues,
   ) {
     return dataWithValues.asMap().entries.map((entry) {
       final index = entry.key;
       final data = entry.value;
       final isTouched = index == _touchedIndex;
-      final radius = isTouched ? 22.0 : 18.0;
-      final percentage = (_totalCount > 0)
-          ? (data.count / _totalCount * 100).toStringAsFixed(0)
-          : '0';
+      final radius = isTouched ? 24.0 : 20.0;
 
       return PieChartSectionData(
         color: data.color,
         value: data.count.toDouble(),
-        title: '$percentage%',
+        title: '',
         radius: radius,
-        titleStyle: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: data.color,
-        ),
-        titlePositionPercentageOffset: 1.8,
-        badgePositionPercentageOffset: 1.0,
+        borderSide: isTouched
+            ? BorderSide(color: AppColors.white, width: 2)
+            : BorderSide.none,
       );
     }).toList();
   }
 
-  Widget _buildLegend() {
-    final dataWithValues = _chartData.where((d) => d.count > 0).toList();
-
-    return Column(
-      children: dataWithValues.asMap().entries.map((entry) {
-        final index = entry.key;
-        final data = entry.value;
-        final isLast = index == dataWithValues.length - 1;
-        return _buildLegendRow(data.label, data.count, data.color, isLast);
-      }).toList(),
-    );
-  }
-
-  Widget _buildLegendRow(String label, int count, Color color, bool isLast) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Row(
-            children: [
-              // Square color indicator
-              Container(
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Label
-              Expanded(
-                child: Text(
-                  label,
-                  style: AppTextStyles.bodyMedium.copyWith(
+  Widget _buildLegendItem(_ChartItem item, String percentage) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          // Color dot
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: item.color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Percentage and label
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$percentage%',
+                  style: AppTextStyles.h6.copyWith(
                     color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-              // Count
-              Text(
-                count.toString(),
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
+                Text(
+                  item.label,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        if (!isLast) Divider(height: 1, color: AppColors.grey200),
-      ],
+        ],
+      ),
     );
   }
+}
+
+class _ChartItem {
+  final String label;
+  final int count;
+  final Color color;
+
+  const _ChartItem({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
 }
