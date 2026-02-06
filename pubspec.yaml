@@ -56,6 +56,9 @@ dependencies:
   # Shimmer loading effect
   shimmer: ^3.0.0
 
+  # Password Strength Indicator
+  flutter_password_strength: ^0.1.6
+
   # Firebase
   firebase_core: ^4.4.0
 

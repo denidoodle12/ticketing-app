@@ -87,6 +87,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
         limit: _pageSize,
       );
 
+      // Check if widget is still mounted before updating controller
+      if (!mounted) return;
+
       // Filter out closed tickets if "All" is selected
       var newItems = response.tickets.toList();
       if (_selectedFilter == 'all') {
@@ -136,7 +139,10 @@ class _TicketsScreenState extends State<TicketsScreen> {
         _pagingController.appendPage(newItems, nextPageKey);
       }
     } catch (error) {
-      _pagingController.error = error;
+      // Check if widget is still mounted before setting error
+      if (mounted) {
+        _pagingController.error = error;
+      }
     }
   }
 

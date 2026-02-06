@@ -7,17 +7,18 @@ import '../../../core/constants/asset_paths.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../shared/widgets/custom_button.dart';
 import '../../../shared/widgets/custom_text_field.dart';
+import '../../../shared/widgets/gradient_header.dart';
+import '../../../shared/widgets/form_card.dart';
+import '../../../shared/widgets/section_label.dart';
 import '../../../routes/app_routes.dart';
+import '../widgets/password_strength_indicator.dart';
+import '../widgets/password_requirements.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   final bool isFirstLogin;
 
-  const ChangePasswordScreen({
-    super.key,
-    this.isFirstLogin = false,
-  });
+  const ChangePasswordScreen({super.key, this.isFirstLogin = false});
 
   @override
   State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
@@ -32,8 +33,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _hasOldPasswordInput = false;
   bool _hasNewPasswordInput = false;
   bool _hasConfirmPasswordInput = false;
-
-  // Track if form has been submitted at least once
   bool _hasAttemptedSubmit = false;
 
   @override
@@ -58,38 +57,25 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   void _onOldPasswordChanged() {
     final hasInput = _oldPasswordController.text.isNotEmpty;
     if (hasInput != _hasOldPasswordInput) {
-      setState(() {
-        _hasOldPasswordInput = hasInput;
-      });
+      setState(() => _hasOldPasswordInput = hasInput);
     }
-    // Trigger rebuild for real-time validation after first submit attempt
-    if (_hasAttemptedSubmit) {
-      setState(() {});
-    }
+    if (_hasAttemptedSubmit) setState(() {});
   }
 
   void _onNewPasswordChanged() {
     final hasInput = _newPasswordController.text.isNotEmpty;
     if (hasInput != _hasNewPasswordInput) {
-      setState(() {
-        _hasNewPasswordInput = hasInput;
-      });
+      setState(() => _hasNewPasswordInput = hasInput);
     }
-    // Always rebuild to update password requirements indicator
     setState(() {});
   }
 
   void _onConfirmPasswordChanged() {
     final hasInput = _confirmPasswordController.text.isNotEmpty;
     if (hasInput != _hasConfirmPasswordInput) {
-      setState(() {
-        _hasConfirmPasswordInput = hasInput;
-      });
+      setState(() => _hasConfirmPasswordInput = hasInput);
     }
-    // Trigger rebuild for real-time validation after first submit attempt
-    if (_hasAttemptedSubmit) {
-      setState(() {});
-    }
+    if (_hasAttemptedSubmit) setState(() {});
   }
 
   bool get _canSubmit =>
@@ -97,14 +83,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   String? _validateNewPassword(String? value) {
     final passwordError = Validators.password(value);
-    if (passwordError != null) {
-      return passwordError;
-    }
-
+    if (passwordError != null) return passwordError;
     if (value == _oldPasswordController.text) {
       return 'New password must be different from old password';
     }
-
     return null;
   }
 
@@ -113,14 +95,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   }
 
   Future<void> _handleChangePassword() async {
-    // Mark that user has attempted to submit
-    setState(() {
-      _hasAttemptedSubmit = true;
-    });
-
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    setState(() => _hasAttemptedSubmit = true);
+    if (!_formKey.currentState!.validate()) return;
 
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.changePassword(
@@ -131,18 +107,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (!mounted) return;
 
     if (success) {
-      // Show success toast and go back
       ToastHelper.showSuccess(
         context,
         'Success',
         description: 'Password changed successfully.',
       );
-
-      // For first login, navigate to home
       if (widget.isFirstLogin) {
         context.go(AppRoutes.home);
       } else {
-        // Go back to previous screen
         context.pop();
       }
     } else {
@@ -158,179 +130,170 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
-      appBar: widget.isFirstLogin
-          ? null
-          : AppBar(
-              backgroundColor: AppColors.white,
-              elevation: 0,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                onPressed: () => context.pop(),
-              ),
-              title: Text(
-                'Change Password',
-                style: AppTextStyles.h5,
-              ),
-            ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-            key: _formKey,
-            // Enable real-time validation only after first submit attempt
-            autovalidateMode: _hasAttemptedSubmit
-                ? AutovalidateMode.onUserInteraction
-                : AutovalidateMode.disabled,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (widget.isFirstLogin) ...[
-                  const SizedBox(height: 32),
-
-                  // App Logo
-                  Center(
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      padding: const EdgeInsets.all(12),
-                      child: Image.asset(
-                        AssetPaths.appLogo,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-
-                // Title
-                Text(
-                  widget.isFirstLogin
-                      ? 'Create New Password'
-                      : 'Change Your Password',
-                  style: AppTextStyles.h3,
-                ),
-                const SizedBox(height: 8),
-
-                // Description
-                Text(
-                  widget.isFirstLogin
-                      ? 'For security reasons, please change your password before continuing.'
-                      : 'Enter your current password and create a new password.',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Old Password Field
-                CustomTextField(
-                  controller: _oldPasswordController,
-                  label: 'Current Password',
-                  hint: 'Enter your current password',
-                  obscureText: true,
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  validator: Validators.oldPasswordRequired,
-                ),
-                const SizedBox(height: 16),
-
-                // New Password Field
-                CustomTextField(
-                  controller: _newPasswordController,
-                  label: 'New Password',
-                  hint: 'Enter your new password',
-                  obscureText: true,
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  validator: _validateNewPassword,
-                ),
-                const SizedBox(height: 12),
-
-                // Password requirements label
-                Text(
-                  'Your password must contain:',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // Password requirements
-                _buildPasswordRequirement(
-                  'At least 8 characters',
-                  _newPasswordController.text.length >= 8,
-                ),
-                _buildPasswordRequirement(
-                  'At least 1 capital letter',
-                  RegExp(r'[A-Z]').hasMatch(_newPasswordController.text),
-                ),
-                _buildPasswordRequirement(
-                  'At least 1 lowercase letter',
-                  RegExp(r'[a-z]').hasMatch(_newPasswordController.text),
-                ),
-                _buildPasswordRequirement(
-                  'At least 1 number',
-                  RegExp(r'[0-9]').hasMatch(_newPasswordController.text),
-                ),
-                const SizedBox(height: 16),
-
-                // Confirm Password Field
-                CustomTextField(
-                  controller: _confirmPasswordController,
-                  label: 'Confirm New Password',
-                  hint: 'Re-enter your new password',
-                  obscureText: true,
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  validator: _validateConfirmPassword,
-                ),
-                const SizedBox(height: 32),
-
-                // Change Password Button
-                Consumer<AuthProvider>(
-                  builder: (context, authProvider, _) {
-                    return CustomButton(
-                      text: 'Change Password',
-                      onPressed: _handleChangePassword,
-                      isLoading: authProvider.isLoading,
-                      isEnabled: _canSubmit,
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-              ],
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: GradientHeader(
+                title: widget.isFirstLogin
+                    ? 'Create Password'
+                    : 'Change Password',
+                subtitle: widget.isFirstLogin
+                    ? 'Create a strong password to keep your account safe'
+                    : 'Enter your current password and create a new one',
+                icon: Icons.lock_outline,
+                showBackButton: !widget.isFirstLogin,
+                backgroundColor: AppColors.white,
+              ),
             ),
-          ),
-        ),
+            SliverToBoxAdapter(child: _buildFormContent()),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildPasswordRequirement(String text, bool isMet) {
+  Widget _buildFormContent() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Icon(
-            isMet ? Icons.check_circle : Icons.circle_outlined,
-            size: 14,
-            color: isMet ? AppColors.success : AppColors.textSecondary,
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              text,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: isMet ? AppColors.success : AppColors.textSecondary,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Form(
+        key: _formKey,
+        autovalidateMode: _hasAttemptedSubmit
+            ? AutovalidateMode.onUserInteraction
+            : AutovalidateMode.disabled,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // First login logo
+            if (widget.isFirstLogin) ...[
+              Center(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.shadow.withAlpha(20),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Image.asset(AssetPaths.appLogo, fit: BoxFit.contain),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Current Password Section
+            const SectionLabel(label: 'Current Password'),
+            const SizedBox(height: 12),
+            FormCard(
+              child: CustomTextField(
+                controller: _oldPasswordController,
+                hint: 'Enter your current password',
+                obscureText: true,
+                prefixIcon: const Icon(Icons.lock_outline),
+                validator: Validators.oldPasswordRequired,
               ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 24),
+
+            // New Password Section
+            const SectionLabel(label: 'New Password'),
+            const SizedBox(height: 12),
+            FormCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CustomTextField(
+                    controller: _newPasswordController,
+                    hint: 'Enter your new password',
+                    obscureText: true,
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    validator: _validateNewPassword,
+                  ),
+                  if (_newPasswordController.text.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    PasswordStrengthIndicator(
+                      password: _newPasswordController.text,
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  PasswordRequirements(password: _newPasswordController.text),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Confirm Password Section
+            const SectionLabel(label: 'Confirm Password'),
+            const SizedBox(height: 12),
+            FormCard(
+              child: CustomTextField(
+                controller: _confirmPasswordController,
+                hint: 'Re-enter your new password',
+                obscureText: true,
+                prefixIcon: const Icon(Icons.lock_outline),
+                validator: _validateConfirmPassword,
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Change Password Button
+            Consumer<AuthProvider>(
+              builder: (context, authProvider, _) {
+                return SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: (_canSubmit && !authProvider.isLoading)
+                        ? _handleChangePassword
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary500,
+                      foregroundColor: AppColors.white,
+                      disabledBackgroundColor: AppColors.grey300,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: authProvider.isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.white,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            'Change Password',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: _canSubmit
+                                  ? AppColors.white
+                                  : AppColors.textDisabled,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

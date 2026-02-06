@@ -15,6 +15,8 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../shared/widgets/custom_text_field.dart';
 import '../../../shared/widgets/loading_overlay.dart';
+import '../../../shared/widgets/form_card.dart';
+import '../../../shared/widgets/section_label.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/image_preview_dialog.dart';
 
@@ -58,20 +60,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void _onFieldChanged() {
     final user = context.read<ProfileProvider>().user;
     if (user != null) {
-      final hasChanges = _nameController.text != user.name ||
+      final hasChanges =
+          _nameController.text != user.name ||
           _lastNameController.text != (user.lastName ?? '') ||
           _phoneController.text != (user.phoneNumber ?? '');
 
       if (hasChanges != _hasChanges) {
-        setState(() {
-          _hasChanges = hasChanges;
-        });
+        setState(() => _hasChanges = hasChanges);
       }
-
-      // Trigger rebuild for real-time validation after first submit attempt
-      if (_hasAttemptedSubmit) {
-        setState(() {});
-      }
+      if (_hasAttemptedSubmit) setState(() {});
     }
   }
 
@@ -84,11 +81,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    // Show source selection bottom sheet
     final source = await ImagePickerHelper.showImageSourceSheet(context);
     if (source == null || !mounted) return;
 
-    // Pick and crop image with validation (checks file size before cropping)
     final result = await ImagePickerHelper.pickAndCropImageWithValidation(
       context: context,
       source: source,
@@ -98,7 +93,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     if (!mounted) return;
 
-    // Show error if validation failed
     if (result.hasError) {
       ToastHelper.showError(
         context,
@@ -108,10 +102,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
 
-    // User cancelled
     if (result.file == null) return;
 
-    // Show preview dialog
     final shouldUpload = await ImagePreviewDialog.show(
       context: context,
       imageFile: result.file!,
@@ -120,7 +112,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (shouldUpload == true && mounted) {
       _uploadImage(result.file!);
     } else if (shouldUpload == false && mounted) {
-      // User wants to retake - show picker again
       _pickImage();
     }
   }
@@ -176,7 +167,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
 
     try {
-      // Request gallery permission
       if (Platform.isAndroid) {
         final hasAccess = await Gal.hasAccess(toAlbum: true);
         if (!hasAccess) {
@@ -197,25 +187,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
 
       final imageUrl = '${ApiConfig.baseUrl}${user!.profilePicture}';
-
-      // Download to temp directory first
       final tempDir = await getTemporaryDirectory();
       final fileName =
           'profile_${user.username}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final tempPath = '${tempDir.path}/$fileName';
 
-      // Download file
       final dio = Dio();
       await dio.download(imageUrl, tempPath);
-
-      // Save to gallery with album name
       await Gal.putImage(tempPath, album: 'Ticketing App');
 
-      // Delete temp file
       final tempFile = File(tempPath);
-      if (await tempFile.exists()) {
-        await tempFile.delete();
-      }
+      if (await tempFile.exists()) await tempFile.delete();
 
       if (mounted) {
         setState(() {
@@ -244,11 +226,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    // Mark that user has attempted to submit for real-time validation
-    setState(() {
-      _hasAttemptedSubmit = true;
-    });
-
+    setState(() => _hasAttemptedSubmit = true);
     if (!_formKey.currentState!.validate()) return;
 
     final profileProvider = context.read<ProfileProvider>();
@@ -285,24 +263,45 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Discard Changes?'),
-          content: const Text(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Discard Changes?',
+            style: AppTextStyles.h5.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
             'You have unsaved changes. Are you sure you want to discard them?',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(
+                'Keep Editing',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 Navigator.pop(context);
               },
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.error500,
+              child: Text(
+                'Discard',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.error500,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              child: const Text('Discard'),
             ),
           ],
         ),
@@ -323,159 +322,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           isLoading: isLoading,
           message: _uploadMessage ?? 'Saving...',
           child: Scaffold(
-            backgroundColor: AppColors.scaffoldBackground,
-            appBar: AppBar(
-              title: const Text('Edit Profile'),
-              backgroundColor: AppColors.white,
-              surfaceTintColor: AppColors.white,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: isLoading ? null : _discardChanges,
-              ),
-            ),
-            body: SingleChildScrollView(
-              child: Column(
-                children: [
-                  // Avatar Section
-                  Container(
-                    width: double.infinity,
-                    color: AppColors.white,
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        ProfileAvatar(
-                          imageUrl: user?.profilePicture != null
-                              ? '${ApiConfig.baseUrl}${user!.profilePicture}'
-                              : null,
-                          name: user?.fullName ?? 'User',
-                          size: 100,
-                          showEditIcon: true,
-                          onTap: isLoading ? null : _pickImage,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Tap to change photo',
-                          style: AppTextStyles.caption,
-                        ),
-                        if (user?.profilePicture != null) ...[
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            onPressed:
-                                isLoading ? null : _downloadProfilePicture,
-                            icon: const Icon(Icons.download, size: 18),
-                            label: const Text('Download Photo'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.primary500,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Form Section
-                  Container(
-                    color: AppColors.white,
-                    padding: const EdgeInsets.all(16),
-                    child: Form(
-                      key: _formKey,
-                      autovalidateMode: _hasAttemptedSubmit
-                          ? AutovalidateMode.onUserInteraction
-                          : AutovalidateMode.disabled,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Email (Read-only)
-                          _buildReadOnlyField(
-                            label: 'Email',
-                            value: user?.email ?? '',
-                            icon: Icons.email_outlined,
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Username (Read-only)
-                          _buildReadOnlyField(
-                            label: 'Username',
-                            value: user?.username ?? '',
-                            icon: Icons.alternate_email,
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Name
-                          CustomTextField(
-                            controller: _nameController,
-                            label: 'First Name',
-                            hint: 'Enter your first name',
-                            prefixIcon: const Icon(Icons.person_outline),
-                            enabled: !isLoading,
-                            validator: Validators.profileFirstName,
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Last Name
-                          CustomTextField(
-                            controller: _lastNameController,
-                            label: 'Last Name',
-                            hint: 'Enter your last name',
-                            prefixIcon: const Icon(Icons.person_outline),
-                            enabled: !isLoading,
-                            validator: Validators.profileLastName,
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Phone Number
-                          CustomTextField(
-                            controller: _phoneController,
-                            label: 'Phone Number',
-                            hint: 'Enter your phone number',
-                            prefixIcon: const Icon(Icons.phone_outlined),
-                            keyboardType: TextInputType.phone,
-                            enabled: !isLoading,
-                            maxLength: AppConstants.maxPhoneNumberLength,
-                            validator: Validators.profilePhoneNumber,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Action Buttons
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: isLoading ? null : _discardChanges,
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: const Text('Discard'),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: (isLoading || !_hasChanges)
-                                ? null
-                                : _saveProfile,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: const Text('Save'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-                ],
-              ),
+            backgroundColor: AppColors.white,
+            body: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: _buildHeader(user, isLoading)),
+                SliverToBoxAdapter(child: _buildFormContent(user, isLoading)),
+              ],
             ),
           ),
         );
@@ -483,13 +335,271 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildReadOnlyField({
-    required String label,
-    required String value,
-    required IconData icon,
-  }) {
+  Widget _buildHeader(user, bool isLoading) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary600, AppColors.primary500],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Custom AppBar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  _buildActionButton(
+                    icon: Icons.arrow_back,
+                    onTap: isLoading ? null : _discardChanges,
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Edit Profile',
+                        style: AppTextStyles.h5.copyWith(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 44),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Avatar Section
+            _buildAvatarSection(user, isLoading),
+            const SizedBox(height: 24),
+            // Curved bottom
+            Container(
+              height: 24,
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarSection(user, bool isLoading) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.white.withAlpha(76), width: 3),
+          ),
+          child: ProfileAvatar(
+            imageUrl: user?.profilePicture != null
+                ? '${ApiConfig.baseUrl}${user!.profilePicture}'
+                : null,
+            name: user?.fullName ?? 'User',
+            size: 110,
+            showEditIcon: true,
+            onTap: isLoading ? null : _pickImage,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Tap avatar to change photo',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.white.withAlpha(204),
+          ),
+        ),
+        if (user?.profilePicture != null) ...[
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: isLoading ? null : _downloadProfilePicture,
+            icon: Icon(
+              Icons.download_rounded,
+              size: 18,
+              color: AppColors.white.withAlpha(230),
+            ),
+            label: Text(
+              'Download Photo',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.white.withAlpha(230),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildActionButton({required IconData icon, VoidCallback? onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.white.withAlpha(51),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: AppColors.white, size: 22),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormContent(user, bool isLoading) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Account Info (Read-only)
+          const SectionLabel(label: 'Account Information'),
+          const SizedBox(height: 12),
+          FormCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _buildReadOnlyField(
+                  label: 'Email',
+                  value: user?.email ?? '',
+                  icon: Icons.email_outlined,
+                  isFirst: true,
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                _buildReadOnlyField(
+                  label: 'Username',
+                  value: '@${user?.username ?? ''}',
+                  icon: Icons.alternate_email,
+                  isLast: true,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Personal Info (Editable)
+          const SectionLabel(label: 'Personal Information'),
+          const SizedBox(height: 12),
+          FormCard(
+            child: Form(
+              key: _formKey,
+              autovalidateMode: _hasAttemptedSubmit
+                  ? AutovalidateMode.onUserInteraction
+                  : AutovalidateMode.disabled,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFieldLabel('First Name', isRequired: true),
+                  const SizedBox(height: 8),
+                  CustomTextField(
+                    controller: _nameController,
+                    hint: 'Enter your first name',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    enabled: !isLoading,
+                    validator: Validators.profileFirstName,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildFieldLabel('Last Name'),
+                  const SizedBox(height: 8),
+                  CustomTextField(
+                    controller: _lastNameController,
+                    hint: 'Enter your last name',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    enabled: !isLoading,
+                    validator: Validators.profileLastName,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildFieldLabel('Phone Number'),
+                  const SizedBox(height: 8),
+                  CustomTextField(
+                    controller: _phoneController,
+                    hint: 'Enter your phone number',
+                    prefixIcon: const Icon(Icons.phone_outlined),
+                    keyboardType: TextInputType.phone,
+                    enabled: !isLoading,
+                    maxLength: AppConstants.maxPhoneNumberLength,
+                    validator: Validators.profilePhoneNumber,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Action Buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: isLoading ? null : _discardChanges,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: const BorderSide(color: AppColors.border),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Discard',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: (isLoading || !_hasChanges) ? null : _saveProfile,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary500,
+                    foregroundColor: AppColors.white,
+                    disabledBackgroundColor: AppColors.grey300,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Save Changes',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: (isLoading || !_hasChanges)
+                          ? AppColors.textDisabled
+                          : AppColors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(String label, {bool isRequired = false}) {
+    return Row(
       children: [
         Text(
           label,
@@ -497,40 +607,87 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             color: AppColors.textSecondary,
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: AppColors.grey100,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
+        if (isRequired) ...[
+          const SizedBox(width: 4),
+          Text(
+            '*',
+            style: AppTextStyles.labelMedium.copyWith(
+              color: AppColors.error500,
+            ),
           ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: AppColors.textSecondary,
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  value,
-                  style: AppTextStyles.bodyMedium.copyWith(
+        ],
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField({
+    required String label,
+    required String value,
+    required IconData icon,
+    bool isFirst = false,
+    bool isLast = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary50,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: AppColors.primary500, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTextStyles.labelSmall.copyWith(
                     color: AppColors.textSecondary,
                   ),
                 ),
-              ),
-              Icon(
-                Icons.lock_outline,
-                color: AppColors.textDisabled,
-                size: 16,
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.grey100,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_outline,
+                  size: 12,
+                  color: AppColors.textDisabled,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Fixed',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textDisabled,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -4,11 +4,7 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 
 /// Statistics filter type for ticket statistics
-enum StatisticsFilterType {
-  status,
-  priority,
-  category,
-}
+enum StatisticsFilterType { status, priority, category }
 
 /// Data model for chart section
 class ChartSectionData {
@@ -243,9 +239,7 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
         widget.onFilterChanged?.call(filter);
       },
       offset: const Offset(0, 40),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       itemBuilder: (context) => [
         _buildPopupMenuItem(StatisticsFilterType.status, 'By Status'),
         _buildPopupMenuItem(StatisticsFilterType.priority, 'By Priority'),
@@ -253,9 +247,7 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -288,11 +280,7 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
       child: Row(
         children: [
           if (isSelected)
-            Icon(
-              Icons.check,
-              size: 18,
-              color: AppColors.primary500,
-            )
+            Icon(Icons.check, size: 18, color: AppColors.primary500)
           else
             const SizedBox(width: 18),
           const SizedBox(width: 8),
@@ -315,11 +303,7 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.pie_chart_outline,
-              size: 48,
-              color: AppColors.grey300,
-            ),
+            Icon(Icons.pie_chart_outline, size: 48, color: AppColors.grey300),
             const SizedBox(height: 12),
             Text(
               'No ticket data available',
@@ -338,9 +322,7 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
 
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         height: 220,
         child: Stack(
@@ -474,11 +456,7 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
             ],
           ),
         ),
-        if (!isLast)
-          Divider(
-            height: 1,
-            color: AppColors.grey200,
-          ),
+        if (!isLast) Divider(height: 1, color: AppColors.grey200),
       ],
     );
   }
