@@ -7,10 +7,7 @@ import 'ticket_status_badge.dart';
 class TicketDetailTab extends StatefulWidget {
   final Ticket ticket;
 
-  const TicketDetailTab({
-    super.key,
-    required this.ticket,
-  });
+  const TicketDetailTab({super.key, required this.ticket});
 
   @override
   State<TicketDetailTab> createState() => _TicketDetailTabState();
@@ -34,8 +31,18 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
   String _formatDateForTimeline(DateTime dateTime) {
     final localTime = dateTime.toLocal();
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final hour = localTime.hour;
     final minute = localTime.minute.toString().padLeft(2, '0');
@@ -79,8 +86,8 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadow.withAlpha(20),
-            blurRadius: 12,
+            color: AppColors.shadow.withAlpha(15),
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
@@ -143,8 +150,8 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadow.withAlpha(20),
-            blurRadius: 12,
+            color: AppColors.shadow.withAlpha(15),
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
@@ -205,9 +212,7 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
           // Status
           _buildInfoRowWithWidget(
             'Status',
-            TicketStatusBadge(
-              status: widget.ticket.status?.name ?? 'open',
-            ),
+            TicketStatusBadge(status: widget.ticket.status?.name ?? 'open'),
           ),
           _buildDivider(),
 
@@ -237,11 +242,7 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
   }
 
   Widget _buildDivider() {
-    return Divider(
-      height: 24,
-      thickness: 1,
-      color: AppColors.grey100,
-    );
+    return Divider(height: 24, thickness: 1, color: AppColors.grey100);
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -308,7 +309,8 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
     final currentStatus = (widget.ticket.status?.name ?? 'open').toLowerCase();
 
     // Only show status change if current status is different from "open"
-    final hasStatusChange = currentStatus != 'open' &&
+    final hasStatusChange =
+        currentStatus != 'open' &&
         widget.ticket.updatedAt != null &&
         widget.ticket.createdAt != null;
 
@@ -337,8 +339,8 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadow.withAlpha(20),
-            blurRadius: 12,
+            color: AppColors.shadow.withAlpha(15),
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
@@ -395,25 +397,18 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
                   color: isCurrent ? AppColors.primaryDark : AppColors.white,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isCurrent ? AppColors.primaryDark : AppColors.grey300,
+                    color: isCurrent
+                        ? AppColors.primaryDark
+                        : AppColors.grey300,
                     width: 2,
                   ),
                 ),
                 child: isCurrent
-                    ? const Icon(
-                        Icons.circle,
-                        size: 8,
-                        color: AppColors.white,
-                      )
+                    ? const Icon(Icons.circle, size: 8, color: AppColors.white)
                     : null,
               ),
               if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    color: AppColors.grey200,
-                  ),
-                ),
+                Expanded(child: Container(width: 2, color: AppColors.grey200)),
             ],
           ),
           const SizedBox(width: 12),

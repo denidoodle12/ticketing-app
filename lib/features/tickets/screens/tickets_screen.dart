@@ -332,7 +332,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                     border: Border.all(
                       color: isSelected
                           ? AppColors.primaryDark
-                          : AppColors.border,
+                          : AppColors.grey300,
                       width: 1,
                     ),
                   ),
@@ -341,8 +341,10 @@ class _TicketsScreenState extends State<TicketsScreen> {
                     style: AppTextStyles.bodySmall.copyWith(
                       color: isSelected
                           ? AppColors.white
-                          : AppColors.primaryDark,
-                      fontWeight: FontWeight.w500,
+                          : AppColors.textPrimary,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
                     ),
                   ),
                 ),
@@ -592,15 +594,34 @@ class _TicketsScreenState extends State<TicketsScreen> {
   Widget _buildCreateTicketButton() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 70, right: 4),
-      child: FloatingActionButton(
-        // Set to null to disable Hero animation and prevent duplicate tag conflict
-        // when TicketsScreen is rebuilt with UniqueKey on tab selection
-        heroTag: null,
-        onPressed: _navigateToCreateTicket,
-        backgroundColor: AppColors.primaryDark,
-        foregroundColor: AppColors.white,
-        elevation: 4,
-        child: const Icon(Icons.add, size: 28),
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.primary, AppColors.primaryDark],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withAlpha(100),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _navigateToCreateTicket,
+            borderRadius: BorderRadius.circular(28),
+            child: const Center(
+              child: Icon(Icons.add, color: AppColors.white, size: 28),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -200,7 +200,6 @@ class ChatBubble extends StatelessWidget {
                       color: isFromCustomer
                           ? AppColors.white.withAlpha(179)
                           : AppColors.textSecondary,
-                      fontSize: 11,
                     ),
                   ),
                 ],
@@ -360,7 +359,6 @@ class ChatBubble extends StatelessWidget {
                           color: isFromCustomer
                               ? AppColors.white.withAlpha(179)
                               : AppColors.textSecondary,
-                          fontSize: 11,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -378,7 +376,6 @@ class ChatBubble extends StatelessWidget {
                           color: isFromCustomer
                               ? AppColors.white.withAlpha(179)
                               : AppColors.textSecondary,
-                          fontSize: 11,
                         ),
                       ),
                     ],
