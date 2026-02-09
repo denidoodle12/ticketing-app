@@ -14,9 +14,11 @@ import 'features/auth/repositories/auth_repository.dart';
 import 'features/tickets/datasources/ticket_remote_datasource.dart';
 import 'features/tickets/datasources/ticket_mock_datasource.dart';
 import 'features/tickets/repositories/ticket_repository.dart';
+import 'features/notifications/repositories/notification_repository.dart';
 import 'providers/auth_provider.dart';
 import 'providers/ticket_provider.dart';
 import 'providers/profile_provider.dart';
+import 'providers/notification_provider.dart';
 import 'features/profile/datasources/profile_remote_datasource.dart';
 import 'features/profile/repositories/profile_repository.dart';
 import 'routes/app_routes.dart';
@@ -86,6 +88,17 @@ class MyApp extends StatelessWidget {
             context.read<ProfileRepository>(),
             localStorage: context.read<LocalStorage>(),
           ),
+        ),
+
+        // Provide NotificationRepository
+        Provider<NotificationRepository>(
+          create: (_) => NotificationRepositoryImpl(),
+        ),
+
+        // Provide NotificationProvider
+        ChangeNotifierProvider<NotificationProvider>(
+          create: (context) =>
+              NotificationProvider(context.read<NotificationRepository>()),
         ),
       ],
       child: ToastificationWrapper(

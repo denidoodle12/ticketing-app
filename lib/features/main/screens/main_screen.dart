@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../data/datasources/local/local_storage.dart';
+import '../../../providers/notification_provider.dart';
 import '../../home/screens/home_screen.dart';
 import '../../tickets/screens/tickets_screen.dart';
+import '../../notifications/screens/notification_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
   final bool showWelcomeToast;
 
-  const MainScreen({
-    super.key,
-    this.showWelcomeToast = false,
-  });
+  const MainScreen({super.key, this.showWelcomeToast = false});
 
   @override
   State<MainScreen> createState() => MainScreenState();
@@ -29,6 +30,10 @@ class MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Auto-connect SSE for real-time notifications
+    _initSSEConnection();
+
     // Show welcome toast after first frame if flag is set
     if (widget.showWelcomeToast) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -43,10 +48,42 @@ class MainScreenState extends State<MainScreen> {
     }
   }
 
+  Future<void> _initSSEConnection() async {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      try {
+        final localStorage = context.read<LocalStorage>();
+        final accessToken = await localStorage.getAccessToken();
+
+        if (accessToken != null && accessToken.isNotEmpty && mounted) {
+          final notificationProvider = context.read<NotificationProvider>();
+          await notificationProvider.connect(accessToken);
+
+          // Fetch initial notifications and unread count
+          await notificationProvider.refresh();
+        }
+      } catch (e) {
+        debugPrint('[MainScreen] Failed to init SSE connection: $e');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    // Disconnect SSE when leaving main screen
+    context.read<NotificationProvider>().disconnect();
+    super.dispose();
+  }
+
   void _onTabTapped(int index) {
     // Notify tickets screen when switching to it
     if (index == 1) {
       _ticketsKey.currentState?.onTabSelected();
+    }
+    // Refresh notifications when switching to notifications tab
+    if (index == 2) {
+      context.read<NotificationProvider>().refresh();
     }
     setState(() {
       _currentIndex = index;
@@ -56,6 +93,7 @@ class MainScreenState extends State<MainScreen> {
   List<Widget> get _screens => [
     const HomeScreen(),
     _TicketsScreenWrapper(key: _ticketsKey),
+    const NotificationScreen(),
     const ProfileScreen(),
   ];
 
@@ -114,8 +152,9 @@ class MainScreenState extends State<MainScreen> {
                       iconPath: 'assets/icons/ic_ticket.svg',
                       activeIconPath: 'assets/icons/ic_ticket_filled.svg',
                     ),
+                    _buildNotificationNavItem(),
                     _buildNavItem(
-                      index: 2,
+                      index: 3,
                       label: 'Profile',
                       iconPath: 'assets/icons/ic_profile.svg',
                       activeIconPath: 'assets/icons/ic_profile_filled.svg',
@@ -124,6 +163,83 @@ class MainScreenState extends State<MainScreen> {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build notification nav item with badge
+  Widget _buildNotificationNavItem() {
+    final isSelected = _currentIndex == 2;
+    final color = isSelected ? AppColors.primaryDark : AppColors.textSecondary;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => _onTabTapped(2),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Consumer<NotificationProvider>(
+                builder: (context, provider, _) {
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      SvgPicture.asset(
+                        isSelected
+                            ? 'assets/icons/ic_notification_filled.svg'
+                            : 'assets/icons/ic_notification.svg',
+                        width: 24,
+                        height: 24,
+                        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                      ),
+                      if (provider.unreadCount > 0)
+                        Positioned(
+                          right: -8,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.error500,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              provider.unreadCount > 99
+                                  ? '99+'
+                                  : provider.unreadCount.toString(),
+                              style: AppTextStyles.labelSmall.copyWith(
+                                color: AppColors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Notifikasi',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: color,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -152,10 +268,7 @@ class MainScreenState extends State<MainScreen> {
                 isSelected ? activeIconPath : iconPath,
                 width: 24,
                 height: 24,
-                colorFilter: ColorFilter.mode(
-                  color,
-                  BlendMode.srcIn,
-                ),
+                colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
               ),
               const SizedBox(height: 4),
               Text(

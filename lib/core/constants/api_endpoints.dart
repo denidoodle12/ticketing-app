@@ -44,4 +44,20 @@ class ApiEndpoints {
 
   // Dashboard Statistics
   static const String dashboardStats = '/dashboard/stats';
+
+  // Notification Service Endpoints (ms-notification)
+  // SSE Stream for real-time notifications
+  static const String notificationsStream = '/notifications/stream';
+
+  // Notification History (paginated)
+  static const String notifications = '/notifications';
+
+  // Unread count
+  static const String notificationsUnreadCount = '/notifications/unread-count';
+
+  // Mark single notification as read
+  static String notificationRead(int id) => '/notifications/$id/read';
+
+  // Mark all notifications as read
+  static const String notificationsReadAll = '/notifications/read-all';
 }
