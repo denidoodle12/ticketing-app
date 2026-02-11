@@ -5,6 +5,7 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/background_notification_service.dart';
 import '../../../data/datasources/local/local_storage.dart';
 import '../../../providers/notification_provider.dart';
 import '../../home/screens/home_screen.dart';
@@ -31,8 +32,8 @@ class MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
 
-    // Auto-connect SSE for real-time notifications
-    _initSSEConnection();
+    // Start background SSE service for real-time notifications
+    _initBackgroundService();
 
     // Show welcome toast after first frame if flag is set
     if (widget.showWelcomeToast) {
@@ -48,7 +49,7 @@ class MainScreenState extends State<MainScreen> {
     }
   }
 
-  Future<void> _initSSEConnection() async {
+  Future<void> _initBackgroundService() async {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
@@ -57,22 +58,28 @@ class MainScreenState extends State<MainScreen> {
         final accessToken = await localStorage.getAccessToken();
 
         if (accessToken != null && accessToken.isNotEmpty && mounted) {
+          // Start background foreground service with SSE
+          await BackgroundNotificationService.instance.startService(
+            accessToken,
+          );
+
+          if (!mounted) return;
+
+          // Setup listener for notifications from background service
           final notificationProvider = context.read<NotificationProvider>();
-          await notificationProvider.connect(accessToken);
+          notificationProvider.listenToBackgroundService();
 
           // Fetch initial notifications and unread count
           await notificationProvider.refresh();
         }
-      } catch (e) {
-        debugPrint('[MainScreen] Failed to init SSE connection: $e');
-      }
+      } catch (_) {}
     });
   }
 
   @override
   void dispose() {
-    // Disconnect SSE when leaving main screen
-    context.read<NotificationProvider>().disconnect();
+    // Don't stop background service on dispose - it should keep running!
+    // Only stop on logout via NotificationProvider.clear()
     super.dispose();
   }
 

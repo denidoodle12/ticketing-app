@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../core/network/notification_sse_service.dart';
+import '../core/services/background_notification_service.dart';
 import '../features/notifications/models/notification_model.dart';
 import '../features/notifications/repositories/notification_repository.dart';
 
 /// Provider for notification state management
 class NotificationProvider extends ChangeNotifier {
   final NotificationRepository _repository;
-  final NotificationSSEService _sseService = NotificationSSEService.instance;
+  final BackgroundNotificationService _backgroundService =
+      BackgroundNotificationService.instance;
 
   // State
   List<NotificationItem> _notifications = [];
@@ -20,12 +21,9 @@ class NotificationProvider extends ChangeNotifier {
   bool _isConnected = false;
 
   // Stream subscriptions
-  StreamSubscription? _notificationSubscription;
-  StreamSubscription? _connectionSubscription;
+  StreamSubscription? _backgroundNotificationSubscription;
 
-  NotificationProvider(this._repository) {
-    _setupSSEListeners();
-  }
+  NotificationProvider(this._repository);
 
   // Getters
   List<NotificationItem> get notifications => _notifications;
@@ -48,36 +46,31 @@ class NotificationProvider extends ChangeNotifier {
   List<NotificationItem> get systemNotifications =>
       _notifications.where((n) => n.ticketId == null).toList();
 
-  void _setupSSEListeners() {
-    // Listen to new notifications from SSE
-    _notificationSubscription = _sseService.notificationStream.listen((
-      notification,
-    ) {
-      // Add new notification to the top of the list
-      _notifications.insert(0, notification);
-      if (!notification.isRead) {
-        _unreadCount++;
-      }
-      notifyListeners();
-    });
+  /// Listen to notifications from background service
+  void listenToBackgroundService() {
+    _backgroundNotificationSubscription?.cancel();
 
-    // Listen to connection state changes
-    _connectionSubscription = _sseService.connectionStateStream.listen((
-      isConnected,
-    ) {
-      _isConnected = isConnected;
-      notifyListeners();
-    });
-  }
+    _backgroundNotificationSubscription = _backgroundService
+        .on('newNotification')
+        .listen((event) {
+          if (event != null) {
+            try {
+              final notification = NotificationItem.fromJson(
+                Map<String, dynamic>.from(event),
+              );
 
-  /// Connect to SSE stream
-  Future<void> connect(String accessToken) async {
-    await _sseService.connect(accessToken);
-  }
+              _notifications.insert(0, notification);
+              if (!notification.isRead) {
+                _unreadCount++;
+              }
 
-  /// Disconnect from SSE stream
-  void disconnect() {
-    _sseService.disconnect();
+              notifyListeners();
+            } catch (_) {}
+          }
+        });
+
+    _isConnected = true;
+    notifyListeners();
   }
 
   /// Fetch initial notifications
@@ -96,7 +89,6 @@ class NotificationProvider extends ChangeNotifier {
       _currentPage = 1;
     } catch (e) {
       _error = e.toString();
-      debugPrint('[NotificationProvider] Error fetching notifications: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -116,8 +108,7 @@ class NotificationProvider extends ChangeNotifier {
       _notifications.addAll(response.items);
       _hasMore = response.hasMore;
       _currentPage = nextPage;
-    } catch (e) {
-      debugPrint('[NotificationProvider] Error loading more: $e');
+    } catch (_) {
     } finally {
       _isLoadingMore = false;
       notifyListeners();
@@ -129,9 +120,7 @@ class NotificationProvider extends ChangeNotifier {
     try {
       _unreadCount = await _repository.getUnreadCount();
       notifyListeners();
-    } catch (e) {
-      debugPrint('[NotificationProvider] Error fetching unread count: $e');
-      // Fallback: calculate from loaded notifications
+    } catch (_) {
       _unreadCount = _notifications.where((n) => !n.isRead).length;
       notifyListeners();
     }
@@ -142,7 +131,6 @@ class NotificationProvider extends ChangeNotifier {
     try {
       await _repository.markAsRead(notificationId);
 
-      // Update local state
       final index = _notifications.indexWhere((n) => n.id == notificationId);
       if (index != -1 && !_notifications[index].isRead) {
         _notifications[index] = _notifications[index].copyWith(isRead: true);
@@ -150,7 +138,6 @@ class NotificationProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('[NotificationProvider] Error marking as read: $e');
       rethrow;
     }
   }
@@ -160,14 +147,12 @@ class NotificationProvider extends ChangeNotifier {
     try {
       await _repository.markAllAsRead();
 
-      // Update local state
       _notifications = _notifications
           .map((n) => n.copyWith(isRead: true))
           .toList();
       _unreadCount = 0;
       notifyListeners();
     } catch (e) {
-      debugPrint('[NotificationProvider] Error marking all as read: $e');
       rethrow;
     }
   }
@@ -179,20 +164,20 @@ class NotificationProvider extends ChangeNotifier {
 
   /// Clear all state (for logout)
   void clear() {
-    disconnect();
+    _backgroundNotificationSubscription?.cancel();
+    _backgroundService.stopService();
     _notifications = [];
     _unreadCount = 0;
     _currentPage = 1;
     _hasMore = true;
     _error = null;
+    _isConnected = false;
     notifyListeners();
   }
 
   @override
   void dispose() {
-    _notificationSubscription?.cancel();
-    _connectionSubscription?.cancel();
-    _sseService.dispose();
+    _backgroundNotificationSubscription?.cancel();
     super.dispose();
   }
 }

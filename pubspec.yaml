@@ -57,6 +57,13 @@ dependencies:
   # Shimmer loading effect
   shimmer: ^3.0.0
 
+  # Local Notifications
+  flutter_local_notifications: ^18.0.1
+
+  # Background Service (Foreground Service for SSE)
+  flutter_background_service: ^5.0.12
+  flutter_background_service_android: ^6.2.6
+
   # Password Strength Indicator
   flutter_password_strength: ^0.1.6
 
