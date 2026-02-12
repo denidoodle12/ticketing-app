@@ -4,6 +4,7 @@ import '../../../core/themes/text_styles.dart';
 import '../models/notification_model.dart';
 
 /// Widget for displaying a single notification item
+/// Shows left accent border only on unread notifications
 class NotificationItemWidget extends StatelessWidget {
   final NotificationItem notification;
   final VoidCallback? onTap;
@@ -22,17 +23,23 @@ class NotificationItemWidget extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: notification.isRead ? AppColors.white : AppColors.primary50,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: notification.isRead
-                ? AppColors.border
-                : AppColors.primary100,
-            width: 1,
-          ),
+          border: !notification.isRead
+              ? const Border(
+                  left: BorderSide(color: AppColors.primaryDark, width: 4),
+                )
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow.withAlpha(15),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -40,22 +47,39 @@ class NotificationItemWidget extends StatelessWidget {
             _buildIcon(),
             const SizedBox(width: 12),
 
-            // Content
+            // Text content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title
-                  Text(
-                    notification.title,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      fontWeight: notification.isRead
-                          ? FontWeight.w500
-                          : FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  // Title + Timestamp row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          notification.title,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            fontWeight: notification.isRead
+                                ? FontWeight.w500
+                                : FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatTime(notification.createdAt),
+                        style: AppTextStyles.caption.copyWith(
+                          color: notification.isRead
+                              ? AppColors.textSecondary
+                              : AppColors.primaryDark,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
 
@@ -64,53 +88,14 @@ class NotificationItemWidget extends StatelessWidget {
                     notification.message,
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.textSecondary,
+                      height: 1.4,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
-
-                  // Bottom row: Ticket link + Timestamp
-                  Row(
-                    children: [
-                      // Ticket link if available
-                      if (notification.ticketId != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary100,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Ticket #${notification.ticketId}',
-                            style: AppTextStyles.labelSmall.copyWith(
-                              color: AppColors.primary600,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-
-                      // Timestamp
-                      Text(
-                        _formatTime(notification.createdAt),
-                        style: AppTextStyles.labelSmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
-
-            // Arrow
-            const SizedBox(width: 8),
-            Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
           ],
         ),
       ),
@@ -131,7 +116,7 @@ class NotificationItemWidget extends StatelessWidget {
       case NotificationType.assignment:
         backgroundColor = AppColors.accent300.withAlpha(50);
         iconColor = AppColors.accent600;
-        iconData = Icons.person_add;
+        iconData = Icons.person_add_outlined;
         break;
       case NotificationType.overdue:
         backgroundColor = AppColors.error100;
@@ -163,10 +148,7 @@ class NotificationItemWidget extends StatelessWidget {
     return Container(
       width: 44,
       height: 44,
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
       child: Icon(iconData, color: iconColor, size: 22),
     );
   }
@@ -178,15 +160,29 @@ class NotificationItemWidget extends StatelessWidget {
     if (difference.inMinutes < 1) {
       return 'Just now';
     } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} min ago';
+      return '${difference.inMinutes}m ago';
     } else if (difference.inHours < 24) {
-      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+      return '${difference.inHours}h ago';
     } else if (difference.inDays == 1) {
       return 'Yesterday';
     } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
+      return '${difference.inDays}d ago';
     } else {
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return '${months[dateTime.month - 1]} ${dateTime.day}';
     }
   }
 }

@@ -3,9 +3,10 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 
 /// Filter type for notification list
-enum NotificationFilterType { all, unread, tickets, system }
+enum NotificationFilterType { all, unread }
 
 /// Filter tabs for notification screen
+/// Styled to match the tickets screen filter chips
 class NotificationFilterTabs extends StatelessWidget {
   final NotificationFilterType selectedFilter;
   final int totalCount;
@@ -22,33 +23,33 @@ class NotificationFilterTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          _buildFilterChip(
-            label: 'All',
-            count: totalCount,
-            type: NotificationFilterType.all,
-          ),
-          const SizedBox(width: 8),
-          _buildFilterChip(
-            label: 'Unread',
-            count: unreadCount,
-            type: NotificationFilterType.unread,
-          ),
-          const SizedBox(width: 8),
-          _buildFilterChip(
-            label: 'Tickets',
-            type: NotificationFilterType.tickets,
-          ),
-          const SizedBox(width: 8),
-          _buildFilterChip(
-            label: 'System',
-            type: NotificationFilterType.system,
-          ),
-        ],
+    return SizedBox(
+      height: 50,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        itemCount: 2,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final filters = [
+            {
+              'label': 'All',
+              'count': totalCount,
+              'type': NotificationFilterType.all,
+            },
+            {
+              'label': 'Unread',
+              'count': unreadCount,
+              'type': NotificationFilterType.unread,
+            },
+          ];
+          final filter = filters[index];
+          return _buildFilterChip(
+            label: filter['label'] as String,
+            count: filter['count'] as int?,
+            type: filter['type'] as NotificationFilterType,
+          );
+        },
       ),
     );
   }
@@ -59,62 +60,26 @@ class NotificationFilterTabs extends StatelessWidget {
     required NotificationFilterType type,
   }) {
     final isSelected = selectedFilter == type;
+    final displayText = count != null ? '$label ($count)' : label;
 
     return GestureDetector(
       onTap: () => onFilterChanged(type),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary600 : AppColors.white,
+          color: isSelected ? AppColors.primaryDark : AppColors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.primary600 : AppColors.border,
+            color: isSelected ? AppColors.primaryDark : AppColors.grey300,
             width: 1,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary600.withAlpha(40),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: AppTextStyles.labelMedium.copyWith(
-                color: isSelected ? AppColors.white : AppColors.textSecondary,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-            if (count != null) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.white.withAlpha(30)
-                      : AppColors.grey100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  count.toString(),
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: isSelected
-                        ? AppColors.white
-                        : AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ],
+        child: Text(
+          displayText,
+          style: AppTextStyles.bodySmall.copyWith(
+            color: isSelected ? AppColors.white : AppColors.textPrimary,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          ),
         ),
       ),
     );

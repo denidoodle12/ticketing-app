@@ -9,7 +9,6 @@ import '../../../providers/ticket_provider.dart';
 import '../../../routes/app_routes.dart';
 import '../models/notification_model.dart';
 import '../widgets/notification_item_widget.dart';
-import '../widgets/notification_filter_tabs.dart';
 import 'package:shimmer/shimmer.dart';
 
 /// Screen displaying list of notifications with filters
@@ -20,21 +19,30 @@ class NotificationScreen extends StatefulWidget {
   State<NotificationScreen> createState() => _NotificationScreenState();
 }
 
-class _NotificationScreenState extends State<NotificationScreen> {
-  NotificationFilterType _selectedFilter = NotificationFilterType.all;
+class _NotificationScreenState extends State<NotificationScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _scrollController.addListener(_onScroll);
     _loadNotifications();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    setState(() {});
   }
 
   void _loadNotifications() {
@@ -53,16 +61,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
   List<NotificationItem> _getFilteredNotifications(
     NotificationProvider provider,
   ) {
-    switch (_selectedFilter) {
-      case NotificationFilterType.all:
-        return provider.notifications;
-      case NotificationFilterType.unread:
-        return provider.unreadNotifications;
-      case NotificationFilterType.tickets:
-        return provider.ticketNotifications;
-      case NotificationFilterType.system:
-        return provider.systemNotifications;
+    if (_tabController.index == 1) {
+      return provider.unreadNotifications;
     }
+    return provider.notifications;
   }
 
   Map<String, List<NotificationItem>> _groupByDate(
@@ -100,27 +102,33 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> _handleNotificationTap(NotificationItem notification) async {
     final provider = context.read<NotificationProvider>();
 
-    // Mark as read if unread
-    if (!notification.isRead) {
-      await provider.markAsRead(notification.id);
-    }
-
-    // Navigate to ticket detail if ticket_id exists
+    // Navigate to ticket detail first if ticket_id exists
     if (notification.ticketId != null && mounted) {
       final ticketProvider = context.read<TicketProvider>();
 
-      // Load ticket detail and navigate
       try {
         await ticketProvider.loadTicketDetail(notification.ticketId!);
         final ticket = ticketProvider.selectedTicket;
 
         if (ticket != null && mounted) {
+          // Navigate immediately
           context.push(AppRoutes.ticketDetail, extra: ticket);
+
+          // Mark as read in background while user is on detail screen
+          // When user returns, the card will already be in read state
+          if (!notification.isRead) {
+            provider.markAsRead(notification.id);
+          }
         }
       } catch (e) {
         if (mounted) {
           ToastHelper.showError(context, 'Could not load ticket details');
         }
+      }
+    } else {
+      // No ticket_id — just mark as read
+      if (!notification.isRead) {
+        provider.markAsRead(notification.id);
       }
     }
   }
@@ -142,27 +150,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.white,
       appBar: _buildAppBar(),
       body: Consumer<NotificationProvider>(
         builder: (context, provider, _) {
           return Column(
             children: [
-              // Filter tabs
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: NotificationFilterTabs(
-                  selectedFilter: _selectedFilter,
-                  totalCount: provider.notifications.length,
-                  unreadCount: provider.unreadCount,
-                  onFilterChanged: (filter) {
-                    setState(() {
-                      _selectedFilter = filter;
-                    });
-                  },
-                ),
-              ),
-
               // Notification list
               Expanded(child: _buildNotificationList(provider)),
             ],
@@ -176,30 +169,26 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return AppBar(
       backgroundColor: AppColors.white,
       elevation: 0,
-      scrolledUnderElevation: 0.5,
+      scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
+      centerTitle: true,
       title: Text(
         'Notifications',
-        style: AppTextStyles.h4.copyWith(
+        style: AppTextStyles.h5.copyWith(
           color: AppColors.textPrimary,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.bold,
         ),
       ),
       actions: [
         Consumer<NotificationProvider>(
           builder: (context, provider, _) {
             if (provider.unreadCount > 0) {
-              return TextButton.icon(
+              return TextButton(
                 onPressed: _handleMarkAllAsRead,
-                icon: const Icon(
-                  Icons.done_all,
-                  size: 18,
-                  color: AppColors.primary600,
-                ),
-                label: Text(
-                  'Mark All',
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.primary600,
+                child: Text(
+                  'Read All',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.primaryDark,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -210,6 +199,47 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ),
         const SizedBox(width: 8),
       ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(56),
+        child: Consumer<NotificationProvider>(
+          builder: (context, provider, _) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TabBar(
+                  controller: _tabController,
+                  indicatorColor: AppColors.primaryDark,
+                  indicatorWeight: 3,
+                  labelColor: AppColors.primaryDark,
+                  unselectedLabelColor: AppColors.textSecondary,
+                  labelStyle: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  unselectedLabelStyle: AppTextStyles.bodyMedium,
+                  dividerColor: Colors.transparent,
+                  splashFactory: NoSplash.splashFactory,
+                  overlayColor: WidgetStateProperty.all(Colors.transparent),
+                  tabs: [
+                    Tab(text: 'All (${provider.notifications.length})'),
+                    Tab(text: 'Unread (${provider.unreadCount})'),
+                  ],
+                ),
+                // Bottom shadow divider (same as ticket detail)
+                Container(
+                  height: 8,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.black.withAlpha(15), Colors.transparent],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -235,7 +265,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       color: AppColors.primary600,
       child: ListView.builder(
         controller: _scrollController,
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
         itemCount:
             groupedNotifications.length + (provider.isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
@@ -256,11 +286,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
             children: [
               // Date header
               Padding(
-                padding: const EdgeInsets.only(top: 16, bottom: 12),
+                padding: const EdgeInsets.only(top: 20, bottom: 12),
                 child: Text(
                   groupKey,
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.textSecondary,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.grey600,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,
                   ),
@@ -270,7 +300,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               // Notification items
               ...notifications.map(
                 (notification) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: NotificationItemWidget(
                     notification: notification,
                     onTap: () => _handleNotificationTap(notification),
@@ -306,7 +336,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Widget _buildEmptyState() {
-    // Add bottom padding to account for bottom navigation bar height
     return Padding(
       padding: const EdgeInsets.only(bottom: 80),
       child: Center(
@@ -315,24 +344,24 @@ class _NotificationScreenState extends State<NotificationScreen> {
           children: [
             Icon(
               Icons.notifications_off_outlined,
-              size: 80,
-              color: AppColors.grey300,
+              size: 64,
+              color: AppColors.textSecondary.withAlpha(100),
             ),
             const SizedBox(height: 16),
             Text(
               'No notifications yet',
-              style: AppTextStyles.h5.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodyLarge.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'When you get notifications, they\'ll appear here',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
+            Text(
+              'When you get notifications, they\'ll appear here',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -345,29 +374,39 @@ class _NotificationScreenState extends State<NotificationScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 64, color: AppColors.error500),
+          Icon(
+            Icons.error_outline,
+            size: 64,
+            color: AppColors.error500.withAlpha(150),
+          ),
           const SizedBox(height: 16),
           Text(
-            'Failed to load notifications',
-            style: AppTextStyles.h5.copyWith(color: AppColors.textPrimary),
+            'Oops! Something went wrong',
+            style: AppTextStyles.bodyLarge.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             error,
-            style: AppTextStyles.bodySmall.copyWith(
+            style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
+          ElevatedButton(
             onPressed: _loadNotifications,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary600,
+              backgroundColor: AppColors.primaryDark,
               foregroundColor: AppColors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
+            child: const Text('Try Again'),
           ),
         ],
       ),

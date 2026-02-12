@@ -741,7 +741,7 @@ INTERNAL_TOKEN=internal-secret-token-change-this
 | ------ | ---------------------- | ---------------- |
 | `GET`  | `/notifications/stream`| JWT (All Users)  |
 
-**Description:** Buka koneksi SSE untuk menerima notifikasi real-time.
+**Description:** Open an SSE connection to receive real-time notifications.
 
 **Headers:**
 
@@ -755,11 +755,20 @@ Authorization: Bearer <jwt_token>
 event: connected
 data: {"message":"connected","user_id":5}
 
+: ping                    ← heartbeat every 15s (SSE comment, ignored by EventSource)
+
 event: notification
-data: {"id":1,"type":"status_change","title":"Status Tiket #42 Diperbarui","message":"Status tiket berubah dari open ke in_progress","metadata":{"ticket_id":42,"old_status":"open","new_status":"in_progress"},"is_read":false,"created_at":"2026-02-05T10:00:00Z"}
+data: {"id":1,"type":"status_change","title":"Ticket #42 Status Updated","message":"Ticket status changed from open to in_progress","metadata":{"ticket_id":42,"old_status":"open","new_status":"in_progress"},"is_read":false,"created_at":"2026-02-05T10:00:00Z"}
 ```
 
-**Frontend Example:**
+> [!NOTE]
+>
+> - **Heartbeat:** Server sends `: ping` comment every **15 seconds** to keep the connection alive
+> - SSE clients (EventSource) automatically ignore comment lines starting with `:`
+> - Mobile clients using raw HTTP should filter out lines starting with `:`
+> - Response headers include `X-Accel-Buffering: no` for Nginx compatibility
+
+**Frontend Example (Web):**
 
 ```javascript
 const eventSource = new EventSource('/notifications/stream', {
@@ -774,7 +783,7 @@ eventSource.addEventListener('notification', (e) => {
 
 ---
 
-## Get Notification History
+## Get Notification History ⚠️ UPDATED
 
 | Method | Endpoint             | Access           |
 | ------ | -------------------- | ---------------- |
@@ -782,10 +791,20 @@ eventSource.addEventListener('notification', (e) => {
 
 **Query Parameters:**
 
-| Parameter | Type | Default | Description     |
-| --------- | ---- | ------- | --------------- |
-| `page`    | int  | 1       | Page number     |
-| `limit`   | int  | 20      | Items per page  |
+| Parameter | Type    | Default | Description                                      |
+| --------- | ------- | ------- | ------------------------------------------------ |
+| `page`    | int     | 1       | Page number                                      |
+| `limit`   | int     | 20      | Items per page (max: 100)                        |
+| `is_read` | string  | -       | Filter: `true` (read only), `false` (unread only) |
+
+**Example Requests:**
+
+```
+GET /notifications                     → all notifications
+GET /notifications?is_read=false       → unread only
+GET /notifications?is_read=true        → read only
+GET /notifications?is_read=false&limit=50
+```
 
 **Success Response (200):**
 
@@ -795,8 +814,8 @@ eventSource.addEventListener('notification', (e) => {
     {
       "id": 1,
       "type": "status_change",
-      "title": "Status Tiket #42 Diperbarui",
-      "message": "Status tiket berubah dari open ke in_progress",
+      "title": "Ticket #42 Status Updated",
+      "message": "Ticket status changed from open to in_progress",
       "metadata": {"ticket_id": 42, "old_status": "open", "new_status": "in_progress"},
       "is_read": false,
       "created_at": "2026-02-05T10:00:00Z"
@@ -868,7 +887,7 @@ eventSource.addEventListener('notification', (e) => {
 | ------ | ---------------------- | -------- |
 | `POST` | `/internal/notify/push`| Internal |
 
-**Description:** Kirim push notification ke user (dipanggil oleh ms-ticket saat status berubah).
+**Description:** Send push notification to user (called by ms-ticket on status change).
 
 **Headers:**
 
@@ -882,8 +901,8 @@ X-Internal-Token: <internal_token>
 {
   "user_id": 5,
   "type": "status_change",
-  "title": "Status Tiket #42 Diperbarui",
-  "message": "Status tiket berubah dari open ke in_progress",
+  "title": "Ticket #42 Status Updated",
+  "message": "Ticket status changed from open to in_progress",
   "metadata": {
     "ticket_id": 42,
     "old_status": "open",
@@ -909,13 +928,13 @@ X-Internal-Token: <internal_token>
 
 ## Notification Types
 
-| Type           | Description                          |
-| -------------- | ------------------------------------ |
-| `status_change`| Status ticket berubah                |
-| `assignment`   | Ticket di-assign ke agent            |
-| `overdue`      | Ticket melebihi batas waktu SLA      |
-| `warning`      | Warning sebelum overdue              |
-| `auto_close`   | Ticket ditutup otomatis              |
+| Type           | Description                              |
+| -------------- | ---------------------------------------- |
+| `status_change`| Ticket status changed                    |
+| `assignment`   | Ticket assigned to agent                 |
+| `overdue`      | Ticket exceeded SLA deadline             |
+| `warning`      | Warning before SLA deadline              |
+| `auto_close`   | Ticket automatically closed (inactive)   |
 
 ---
 
