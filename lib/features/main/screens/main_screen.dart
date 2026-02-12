@@ -239,10 +239,10 @@ class MainScreenState extends State<MainScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Notifikasi',
+                'Notification',
                 style: AppTextStyles.labelSmall.copyWith(
                   color: color,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   fontSize: 11,
                 ),
               ),
@@ -282,7 +282,7 @@ class MainScreenState extends State<MainScreen> {
                 label,
                 style: AppTextStyles.labelSmall.copyWith(
                   color: color,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   fontSize: 11,
                 ),
               ),

@@ -337,7 +337,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
                     ),
                   ),
                   child: Text(
-                    '${filter['label']} ($count)',
+                    filterId == 'all'
+                        ? '${filter['label']}'
+                        : '${filter['label']} ($count)',
                     style: AppTextStyles.bodySmall.copyWith(
                       color: isSelected
                           ? AppColors.white

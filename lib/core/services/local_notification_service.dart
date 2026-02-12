@@ -148,21 +148,21 @@ class LocalNotificationService {
     );
   }
 
-  /// Get appropriate title based on notification type (clean, no emoji)
+  /// Get appropriate title based on notification type (clean, English)
   String _getNotificationTitle(NotificationItem notification) {
     switch (notification.type) {
       case NotificationType.statusChange:
-        return 'Status Ticket Diperbarui';
+        return 'Ticket Status Updated';
       case NotificationType.assignment:
-        return 'Ticket Ditugaskan';
+        return 'Ticket Assigned';
       case NotificationType.overdue:
         return 'Ticket Overdue!';
       case NotificationType.warning:
-        return 'Peringatan SLA';
+        return 'SLA Warning';
       case NotificationType.autoClose:
-        return 'Ticket Ditutup Otomatis';
+        return 'Ticket Auto-Closed';
       case NotificationType.newComment:
-        return 'Komentar Baru';
+        return 'New Comment';
       case NotificationType.unknown:
         return notification.title;
     }

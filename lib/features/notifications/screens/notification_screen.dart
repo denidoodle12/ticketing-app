@@ -220,7 +220,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                   splashFactory: NoSplash.splashFactory,
                   overlayColor: WidgetStateProperty.all(Colors.transparent),
                   tabs: [
-                    Tab(text: 'All (${provider.notifications.length})'),
+                    const Tab(text: 'All'),
                     Tab(text: 'Unread (${provider.unreadCount})'),
                   ],
                 ),

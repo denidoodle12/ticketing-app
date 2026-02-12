@@ -23,10 +23,13 @@ class BackgroundNotificationService {
   /// Initialize the background service
   Future<void> initialize() async {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'sse_foreground_service',
-      'SSE Notification Service',
-      description: 'Menjaga koneksi notifikasi tetap aktif',
-      importance: Importance.low,
+      'sse_bg_silent',
+      'Background Service',
+      description: 'Keeps notification connection active',
+      importance: Importance.none,
+      enableVibration: false,
+      playSound: false,
+      showBadge: false,
     );
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -45,10 +48,10 @@ class BackgroundNotificationService {
         autoStartOnBoot: true,
         isForegroundMode: true,
         foregroundServiceNotificationId: 888,
-        initialNotificationTitle: 'Ticketing App',
-        initialNotificationContent: 'Menunggu koneksi...',
+        initialNotificationTitle: '',
+        initialNotificationContent: '',
         foregroundServiceTypes: [AndroidForegroundType.dataSync],
-        notificationChannelId: 'sse_foreground_service',
+        notificationChannelId: 'sse_bg_silent',
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,
@@ -158,7 +161,7 @@ void _onStart(ServiceInstance service) async {
         if (service is AndroidServiceInstance) {
           service.setForegroundNotificationInfo(
             title: 'Ticketing App',
-            content: '🟢 Notifikasi aktif',
+            content: 'Notification active',
           );
         }
 
@@ -284,7 +287,7 @@ void _processSSEEvent(
     case 'notification':
       try {
         final json = jsonDecode(data) as Map<String, dynamic>;
-        final title = json['title'] as String? ?? 'Notifikasi Baru';
+        final title = json['title'] as String? ?? 'New Notification';
         final message = json['message'] as String? ?? '';
         final type = json['type'] as String? ?? 'unknown';
         final ticketId = json['ticket_id'];
@@ -292,25 +295,25 @@ void _processSSEEvent(
         String notifTitle;
         switch (type) {
           case 'status_change':
-            notifTitle = '📋 Status Ticket Diperbarui';
+            notifTitle = 'Ticket Status Updated';
             break;
           case 'assignment':
-            notifTitle = '👤 Ticket Ditugaskan';
+            notifTitle = 'Ticket Assigned';
             break;
           case 'overdue':
-            notifTitle = '⏰ Ticket Overdue!';
+            notifTitle = 'Ticket Overdue!';
             break;
           case 'warning':
-            notifTitle = '⚠️ Peringatan SLA';
+            notifTitle = 'SLA Warning';
             break;
           case 'auto_close':
-            notifTitle = '✅ Ticket Ditutup Otomatis';
+            notifTitle = 'Ticket Auto-Closed';
             break;
           case 'new_comment':
-            notifTitle = '💬 Komentar Baru';
+            notifTitle = 'New Comment';
             break;
           default:
-            notifTitle = '🔔 $title';
+            notifTitle = title;
         }
 
         notificationsPlugin.show(
@@ -362,7 +365,7 @@ void _scheduleReconnect(
       if (service is AndroidServiceInstance) {
         service.setForegroundNotificationInfo(
           title: 'Ticketing App',
-          content: '🔴 Koneksi terputus',
+          content: 'Connection lost',
         );
       }
     }
@@ -375,7 +378,7 @@ void _scheduleReconnect(
   if (service is AndroidServiceInstance) {
     service.setForegroundNotificationInfo(
       title: 'Ticketing App',
-      content: '🟡 Menyambungkan ulang...',
+      content: 'Reconnecting...',
     );
   }
 

@@ -144,13 +144,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
-                  // Notification
-                  _buildActionButton(
-                    icon: Icons.notifications_outlined,
-                    onTap: () {
-                      // TODO: Navigate to notifications
-                    },
-                  ),
                 ],
               ),
             ),
@@ -195,28 +188,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.white.withAlpha(51),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: AppColors.white, size: 22),
         ),
       ),
     );
