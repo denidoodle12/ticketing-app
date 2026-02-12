@@ -61,7 +61,7 @@ class NotificationItemWidget extends StatelessWidget {
                           notification.title,
                           style: AppTextStyles.bodyMedium.copyWith(
                             fontWeight: notification.isRead
-                                ? FontWeight.w500
+                                ? FontWeight.w600
                                 : FontWeight.w600,
                             color: AppColors.textPrimary,
                           ),

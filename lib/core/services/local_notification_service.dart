@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../features/notifications/models/notification_model.dart';
 
@@ -14,6 +15,7 @@ class LocalNotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
+  ByteArrayAndroidBitmap? _appLogoBitmap;
 
   /// Callback when notification is tapped
   static Function(String?)? onNotificationTap;
@@ -21,6 +23,9 @@ class LocalNotificationService {
   /// Initialize the notification service
   Future<void> initialize() async {
     if (_isInitialized) return;
+
+    // Pre-load app logo for large icon
+    await _loadAppLogo();
 
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
@@ -45,6 +50,19 @@ class LocalNotificationService {
     );
 
     _isInitialized = true;
+  }
+
+  /// Load app logo from assets for use as large icon
+  Future<void> _loadAppLogo() async {
+    try {
+      final byteData = await rootBundle.load(
+        'assets/images/logos/app_logo.png',
+      );
+      _appLogoBitmap = ByteArrayAndroidBitmap(byteData.buffer.asUint8List());
+    } catch (_) {
+      // Fallback: logo not available, will use default
+      _appLogoBitmap = null;
+    }
   }
 
   /// Handle notification tap
@@ -83,7 +101,7 @@ class LocalNotificationService {
       await initialize();
     }
 
-    const androidDetails = AndroidNotificationDetails(
+    final androidDetails = AndroidNotificationDetails(
       'ticketing_notifications',
       'Ticketing Notifications',
       channelDescription: 'Notifications for ticket updates and system alerts',
@@ -92,8 +110,16 @@ class LocalNotificationService {
       showWhen: true,
       enableVibration: true,
       playSound: true,
+      color: const Color(0xFF1E3A8A), // primaryDark accent color
       icon: '@mipmap/ic_launcher',
-      largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      largeIcon:
+          _appLogoBitmap ??
+          const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      styleInformation: BigTextStyleInformation(
+        notification.message,
+        contentTitle: _getNotificationTitle(notification),
+        summaryText: 'Ticketing App',
+      ),
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -102,7 +128,7 @@ class LocalNotificationService {
       presentSound: true,
     );
 
-    const notificationDetails = NotificationDetails(
+    final notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -122,23 +148,23 @@ class LocalNotificationService {
     );
   }
 
-  /// Get appropriate title based on notification type
+  /// Get appropriate title based on notification type (clean, no emoji)
   String _getNotificationTitle(NotificationItem notification) {
     switch (notification.type) {
       case NotificationType.statusChange:
-        return '📋 Status Ticket Diperbarui';
+        return 'Status Ticket Diperbarui';
       case NotificationType.assignment:
-        return '👤 Ticket Ditugaskan';
+        return 'Ticket Ditugaskan';
       case NotificationType.overdue:
-        return '⏰ Ticket Overdue!';
+        return 'Ticket Overdue!';
       case NotificationType.warning:
-        return '⚠️ Peringatan SLA';
+        return 'Peringatan SLA';
       case NotificationType.autoClose:
-        return '✅ Ticket Ditutup Otomatis';
+        return 'Ticket Ditutup Otomatis';
       case NotificationType.newComment:
-        return '💬 Komentar Baru';
+        return 'Komentar Baru';
       case NotificationType.unknown:
-        return '🔔 ${notification.title}';
+        return notification.title;
     }
   }
 
