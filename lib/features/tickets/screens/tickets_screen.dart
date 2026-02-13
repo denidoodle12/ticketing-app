@@ -208,16 +208,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
     });
   }
 
-  void _navigateToCreateTicket() async {
-    final result = await context.push('/tickets/create');
-    // Refresh list if ticket was created (result is the created Ticket object)
-    if (result != null && mounted) {
-      _pagingController.refresh();
-      // Also refresh stats
-      context.read<TicketProvider>().loadTicketStats();
-    }
-  }
-
   void _navigateToTicketDetail(Ticket ticket) {
     context.push('/tickets/detail', extra: ticket);
   }
@@ -259,8 +249,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
-
     return Scaffold(
       backgroundColor: AppColors.white,
       resizeToAvoidBottomInset: false,
@@ -277,10 +265,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
           Expanded(child: _buildTicketList()),
         ],
       ),
-      floatingActionButton: isKeyboardVisible
-          ? null
-          : _buildCreateTicketButton(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -589,41 +573,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
             child: const Text('Try Again'),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCreateTicketButton() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 70, right: 4),
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.primary, AppColors.primaryDark],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withAlpha(100),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _navigateToCreateTicket,
-            borderRadius: BorderRadius.circular(28),
-            child: const Center(
-              child: Icon(Icons.add, color: AppColors.white, size: 28),
-            ),
-          ),
-        ),
       ),
     );
   }
