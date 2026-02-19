@@ -2,36 +2,43 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
-import '../../main/screens/main_screen.dart';
 
 /// Data model for ticket statistics from API
 class TicketStatsData {
   final int totalTickets;
   final int openCount;
   final int inProgressCount;
+  final int pendingCount;
   final int resolvedCount;
+  final int closedCount;
 
   const TicketStatsData({
     required this.totalTickets,
     required this.openCount,
     required this.inProgressCount,
+    required this.pendingCount,
     required this.resolvedCount,
+    required this.closedCount,
   });
 
   factory TicketStatsData.fromMap(Map<String, int> statusCounts) {
     final open = statusCounts['open'] ?? 0;
     final inProgress = statusCounts['in_progress'] ?? 0;
+    final pending = statusCounts['pending'] ?? 0;
     final resolved = statusCounts['resolved'] ?? 0;
+    final closed = statusCounts['closed'] ?? 0;
     return TicketStatsData(
-      totalTickets: open + inProgress + resolved,
+      totalTickets: open + inProgress + pending + resolved + closed,
       openCount: open,
       inProgressCount: inProgress,
+      pendingCount: pending,
       resolvedCount: resolved,
+      closedCount: closed,
     );
   }
 }
 
-/// Modern Ticket Statistics Card with donut chart
+/// Modern Ticket Statistics Card with donut chart and status grid
 class TicketStatisticsCard extends StatefulWidget {
   final Map<String, int> statusCounts;
   final bool isLoading;
@@ -55,17 +62,32 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
     _ChartItem(
       label: 'Open',
       count: _stats.openCount,
-      color: const Color(0xFF64B5F6), // Light blue
+      color: const Color(0xFF3B82F6),
+      icon: Icons.radio_button_checked_rounded,
     ),
     _ChartItem(
       label: 'In Progress',
       count: _stats.inProgressCount,
-      color: const Color(0xFF1565C0), // Dark blue
+      color: const Color(0xFF8B5CF6),
+      icon: Icons.autorenew_rounded,
+    ),
+    _ChartItem(
+      label: 'Pending',
+      count: _stats.pendingCount,
+      color: const Color(0xFFF59E0B),
+      icon: Icons.hourglass_bottom_rounded,
     ),
     _ChartItem(
       label: 'Resolved',
       count: _stats.resolvedCount,
-      color: const Color(0xFF0D47A1), // Navy blue
+      color: const Color(0xFF10B981),
+      icon: Icons.check_circle_rounded,
+    ),
+    _ChartItem(
+      label: 'Closed',
+      count: _stats.closedCount,
+      color: const Color(0xFF64748B),
+      icon: Icons.archive_rounded,
     ),
   ];
 
@@ -76,11 +98,8 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
         _buildHeader(),
         const SizedBox(height: 16),
-
-        // Content
         if (widget.isLoading)
           const SizedBox(
             height: 180,
@@ -88,45 +107,30 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
           )
         else if (_totalCount == 0)
           _buildEmptyState()
-        else
-          _buildChartWithLegend(),
+        else ...[
+          _buildDonutChart(),
+          const SizedBox(height: 20),
+          _buildStatusGrid(),
+        ],
       ],
     );
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ticket Overview',
-              style: AppTextStyles.h6.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              'All Time',
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
+        Text(
+          'Ticket Overview',
+          style: AppTextStyles.h6.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        GestureDetector(
-          onTap: () {
-            // Navigate to tickets screen
-            context.findAncestorStateOfType<MainScreenState>()?.switchToTab(1);
-          },
-          child: Text(
-            'See Details',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.primary500,
-              fontWeight: FontWeight.w600,
-            ),
+        Text(
+          'All Time',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
           ),
         ),
       ],
@@ -158,84 +162,57 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
     );
   }
 
-  Widget _buildChartWithLegend() {
+  /// Centered donut chart with total count
+  Widget _buildDonutChart() {
     final dataWithValues = _chartItems.where((d) => d.count > 0).toList();
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Donut Chart
-        Expanded(
-          flex: 5,
-          child: SizedBox(
-            height: 180,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                PieChart(
-                  PieChartData(
-                    pieTouchData: PieTouchData(
-                      touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                        setState(() {
-                          if (!event.isInterestedForInteractions ||
-                              pieTouchResponse == null ||
-                              pieTouchResponse.touchedSection == null) {
-                            _touchedIndex = null;
-                            return;
-                          }
-                          _touchedIndex = pieTouchResponse
-                              .touchedSection!
-                              .touchedSectionIndex;
-                        });
-                      },
-                    ),
-                    borderData: FlBorderData(show: false),
-                    sectionsSpace: 3,
-                    centerSpaceRadius: 50,
-                    sections: _buildChartSections(dataWithValues),
-                  ),
-                ),
-                // Center text
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _totalCount.toString(),
-                      style: AppTextStyles.h2.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      'Total Ticket',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+    return SizedBox(
+      height: 160,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PieChart(
+            PieChartData(
+              pieTouchData: PieTouchData(
+                touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                  setState(() {
+                    if (!event.isInterestedForInteractions ||
+                        pieTouchResponse == null ||
+                        pieTouchResponse.touchedSection == null) {
+                      _touchedIndex = null;
+                      return;
+                    }
+                    _touchedIndex =
+                        pieTouchResponse.touchedSection!.touchedSectionIndex;
+                  });
+                },
+              ),
+              borderData: FlBorderData(show: false),
+              sectionsSpace: 3,
+              centerSpaceRadius: 48,
+              sections: _buildChartSections(dataWithValues),
             ),
           ),
-        ),
-
-        const SizedBox(width: 40),
-
-        // Legend with percentages
-        Expanded(
-          flex: 4,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: _chartItems.map((item) {
-              final percentage = _totalCount > 0
-                  ? (item.count / _totalCount * 100).toStringAsFixed(0)
-                  : '0';
-              return _buildLegendItem(item, percentage);
-            }).toList(),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _totalCount.toString(),
+                style: AppTextStyles.h2.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                'Total',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -260,41 +237,97 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
     }).toList();
   }
 
-  Widget _buildLegendItem(_ChartItem item, String percentage) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          // Color dot
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: item.color,
-              shape: BoxShape.circle,
-            ),
+  /// Status grid: 2 on top, 3 on bottom
+  Widget _buildStatusGrid() {
+    return Column(
+      children: [
+        // Row 1: Open, In Progress (wider cards)
+        Row(
+          children: [
+            Expanded(child: _buildStatusCard(_chartItems[0])),
+            const SizedBox(width: 8),
+            Expanded(child: _buildStatusCard(_chartItems[1])),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Row 2: Pending, Resolved, Closed
+        Row(
+          children: [
+            Expanded(child: _buildStatusCard(_chartItems[2])),
+            const SizedBox(width: 8),
+            Expanded(child: _buildStatusCard(_chartItems[3])),
+            const SizedBox(width: 8),
+            Expanded(child: _buildStatusCard(_chartItems[4])),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Single status card with icon, count, and percentage
+  Widget _buildStatusCard(_ChartItem item) {
+    final percentage = _totalCount > 0
+        ? (item.count / _totalCount * 100).toStringAsFixed(0)
+        : '0';
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          const SizedBox(width: 10),
-          // Percentage and label
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$percentage%',
-                  style: AppTextStyles.h6.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Icon + label row
+          Row(
+            children: [
+              Icon(item.icon, size: 14, color: item.color),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
                   item.label,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 10,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Count + percentage
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                item.count.toString(),
+                style: AppTextStyles.h6.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                '$percentage%',
+                style: AppTextStyles.caption.copyWith(
+                  color: item.color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -306,10 +339,12 @@ class _ChartItem {
   final String label;
   final int count;
   final Color color;
+  final IconData icon;
 
   const _ChartItem({
     required this.label,
     required this.count,
     required this.color,
+    required this.icon,
   });
 }

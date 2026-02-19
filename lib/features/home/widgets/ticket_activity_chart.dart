@@ -21,9 +21,28 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
   TrendData? _trendData;
   String? _error;
 
+  // Month picker state — defaults to current month
+  late DateTime _selectedMonth;
+
+  static const _monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
   @override
   void initState() {
     super.initState();
+    _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
     _loadTrendData();
   }
 
@@ -35,9 +54,20 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
 
     try {
       final dio = DioClient.userInstance;
+      final queryParams = <String, dynamic>{
+        'include': 'trend',
+        'trend_period': _selectedPeriod,
+      };
+
+      // Add trend_month when monthly is selected
+      if (_selectedPeriod == 'monthly') {
+        final month = _selectedMonth.month.toString().padLeft(2, '0');
+        queryParams['trend_month'] = '${_selectedMonth.year}-$month';
+      }
+
       final response = await dio.get(
         ApiEndpoints.dashboardStats,
-        queryParameters: {'include': 'trend', 'trend_period': _selectedPeriod},
+        queryParameters: queryParams,
       );
 
       final stats = DashboardStats.fromJson(response.data);
@@ -73,6 +103,22 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
     }
   }
 
+  void _onMonthChanged(int delta) {
+    final now = DateTime.now();
+    final newMonth = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + delta,
+    );
+
+    // Don't allow future months
+    if (newMonth.isAfter(DateTime(now.year, now.month))) return;
+
+    setState(() {
+      _selectedMonth = newMonth;
+    });
+    _loadTrendData();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -81,6 +127,10 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
         _buildHeader(),
         const SizedBox(height: 16),
         _buildPeriodFilter(),
+        if (_selectedPeriod == 'monthly') ...[
+          const SizedBox(height: 12),
+          _buildMonthSelector(),
+        ],
         const SizedBox(height: 20),
         _buildContent(),
       ],
@@ -138,6 +188,71 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
             color: isSelected ? AppColors.white : AppColors.textSecondary,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Build month selector row with ← Month Year → navigation
+  Widget _buildMonthSelector() {
+    final now = DateTime.now();
+    final isCurrentMonth =
+        _selectedMonth.year == now.year && _selectedMonth.month == now.month;
+
+    final monthLabel =
+        '${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.grey50,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Previous month button
+          _buildMonthNavButton(
+            icon: Icons.chevron_left_rounded,
+            onTap: () => _onMonthChanged(-1),
+            enabled: true,
+          ),
+          // Current month label
+          Text(
+            monthLabel,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          // Next month button (disabled if current month)
+          _buildMonthNavButton(
+            icon: Icons.chevron_right_rounded,
+            onTap: isCurrentMonth ? null : () => _onMonthChanged(1),
+            enabled: !isCurrentMonth,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthNavButton({
+    required IconData icon,
+    required VoidCallback? onTap,
+    required bool enabled,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: enabled ? AppColors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: enabled ? AppColors.textPrimary : AppColors.grey300,
         ),
       ),
     );
@@ -288,7 +403,7 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: maxY / 4,
+            horizontalInterval: maxY > 0 ? maxY / 4 : 2.5,
             getDrawingHorizontalLine: (value) => FlLine(
               color: AppColors.grey200,
               strokeWidth: 1,

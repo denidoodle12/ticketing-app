@@ -7,6 +7,8 @@ class DashboardStats {
   final int closedCount;
   final int overdueCount;
   final TrendData? trend;
+  final ComparisonData? comparison;
+  final DistributionData? distribution;
 
   const DashboardStats({
     required this.totalTickets,
@@ -16,6 +18,8 @@ class DashboardStats {
     required this.closedCount,
     required this.overdueCount,
     this.trend,
+    this.comparison,
+    this.distribution,
   });
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) {
@@ -28,8 +32,112 @@ class DashboardStats {
       closedCount: data['closed_count'] ?? 0,
       overdueCount: data['overdue_count'] ?? 0,
       trend: data['trend'] != null ? TrendData.fromJson(data['trend']) : null,
+      comparison: data['comparison'] != null
+          ? ComparisonData.fromJson(data['comparison'])
+          : null,
+      distribution: data['distribution'] != null
+          ? DistributionData.fromJson(data['distribution'])
+          : null,
     );
   }
+}
+
+/// Distribution data for pie/bar charts (by status & by priority)
+class DistributionData {
+  final List<PriorityDistributionItem> byPriority;
+
+  const DistributionData({required this.byPriority});
+
+  factory DistributionData.fromJson(Map<String, dynamic> json) {
+    return DistributionData(
+      byPriority:
+          (json['by_priority'] as List<dynamic>?)
+              ?.map((item) => PriorityDistributionItem.fromJson(item))
+              .toList() ??
+          [],
+    );
+  }
+
+  int get totalPriorityCount =>
+      byPriority.fold(0, (sum, item) => sum + item.count);
+}
+
+/// Single priority distribution item
+class PriorityDistributionItem {
+  final String priority;
+  final int count;
+  final String color;
+
+  const PriorityDistributionItem({
+    required this.priority,
+    required this.count,
+    required this.color,
+  });
+
+  factory PriorityDistributionItem.fromJson(Map<String, dynamic> json) {
+    return PriorityDistributionItem(
+      priority: json['priority'] ?? '',
+      count: json['count'] ?? 0,
+      color: json['color'] ?? '#94A3B8',
+    );
+  }
+
+  /// Get display name (capitalize first letter)
+  String get displayName =>
+      priority.isEmpty ? '' : priority[0].toUpperCase() + priority.substring(1);
+}
+
+/// Comparison data for trend indicators (today vs yesterday)
+class ComparisonData {
+  final String period;
+  final Map<String, ComparisonChange> changes;
+
+  const ComparisonData({required this.period, required this.changes});
+
+  factory ComparisonData.fromJson(Map<String, dynamic> json) {
+    final changesJson = json['changes'] as Map<String, dynamic>? ?? {};
+    final changes = <String, ComparisonChange>{};
+    changesJson.forEach((key, value) {
+      if (value is Map<String, dynamic>) {
+        changes[key] = ComparisonChange.fromJson(value);
+      }
+    });
+    return ComparisonData(
+      period: json['period'] ?? 'yesterday',
+      changes: changes,
+    );
+  }
+
+  /// Get change for a specific stat key
+  ComparisonChange? getChange(String key) => changes[key];
+}
+
+/// Single comparison change item
+class ComparisonChange {
+  final int current;
+  final int previous;
+  final int change;
+  final double changePercent;
+
+  const ComparisonChange({
+    required this.current,
+    required this.previous,
+    required this.change,
+    required this.changePercent,
+  });
+
+  factory ComparisonChange.fromJson(Map<String, dynamic> json) {
+    return ComparisonChange(
+      current: json['current'] ?? 0,
+      previous: json['previous'] ?? 0,
+      change: json['change'] ?? 0,
+      changePercent: (json['change_percent'] ?? 0).toDouble(),
+    );
+  }
+
+  bool get isPositive => change > 0;
+  bool get isNegative => change < 0;
+  bool get isNeutral => change == 0;
 }
 
 /// Trend data for activity chart

@@ -10,7 +10,6 @@ import '../../../providers/ticket_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../shared/widgets/section_label.dart';
 import '../../../shared/widgets/form_card.dart';
-import '../../main/screens/main_screen.dart';
 import '../../tickets/widgets/ticket_card.dart';
 import '../widgets/ticket_statistics_card.dart';
 import '../widgets/ticket_activity_chart.dart';
@@ -352,31 +351,7 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const SectionLabel(label: 'Recent Tickets'),
-            TextButton(
-              onPressed: () {
-                context.findAncestorStateOfType<MainScreenState>()?.switchToTab(
-                  1,
-                );
-              },
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 0),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(
-                'View All',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.primary500,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
+        const SectionLabel(label: 'Recent Tickets'),
         const SizedBox(height: 12),
 
         // Content
