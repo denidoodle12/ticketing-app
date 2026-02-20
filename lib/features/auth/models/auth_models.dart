@@ -6,16 +6,10 @@ class LoginRequest {
   final String email;
   final String password;
 
-  LoginRequest({
-    required this.email,
-    required this.password,
-  });
+  LoginRequest({required this.email, required this.password});
 
   Map<String, dynamic> toJson() {
-    return {
-      'email': email,
-      'password': password,
-    };
+    return {'email': email, 'password': password};
   }
 }
 
@@ -45,44 +39,54 @@ class RegisterRequest {
 // ==================== RESPONSE MODELS ====================
 
 /// Login Response from API
-/// Real API returns: { "data": { "token": "...", "user": {...} } }
-/// Mock API returns: { "access_token": "...", "refresh_token": "...", "user": {...} }
+/// Real API (Redis): { "data": { "access_token": "...", "refresh_token": "...", "expires_in": 900, "user": {...} } }
+/// Mock API: { "access_token": "...", "refresh_token": "...", "user": {...} }
 class LoginResponse {
-  final String token;
-  final String? accessToken; // For mock compatibility
-  final String? refreshToken; // For mock compatibility
+  final String token; // Primary access token
+  final String? accessToken;
+  final String? refreshToken;
+  final int? expiresIn; // Token lifetime in seconds
   final User user;
 
   LoginResponse({
     required this.token,
     this.accessToken,
     this.refreshToken,
+    this.expiresIn,
     required this.user,
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
-    // Real API format
-    if (json.containsKey('token')) {
+    // Real API format (Redis) — returns access_token + refresh_token
+    if (json.containsKey('access_token')) {
+      final accessToken = json['access_token'] as String;
+      return LoginResponse(
+        token: accessToken,
+        accessToken: accessToken,
+        refreshToken: json['refresh_token'] as String?,
+        expiresIn: json['expires_in'] as int?,
+        user: User.fromJson(json['user'] as Map<String, dynamic>),
+      );
+    }
+    // Legacy format — single token
+    else if (json.containsKey('token')) {
       return LoginResponse(
         token: json['token'] as String,
         user: User.fromJson(json['user'] as Map<String, dynamic>),
       );
     }
-    // Mock API format (backward compatibility)
+    // Fallback
     else {
-      final token = json['access_token'] as String;
-      return LoginResponse(
-        token: token,
-        accessToken: token,
-        refreshToken: json['refresh_token'] as String,
-        user: User.fromJson(json['user'] as Map<String, dynamic>),
-      );
+      throw Exception('Invalid login response format: missing token fields');
     }
   }
 
   Map<String, dynamic> toJson() {
     return {
       'token': token,
+      if (accessToken != null) 'access_token': accessToken,
+      if (refreshToken != null) 'refresh_token': refreshToken,
+      if (expiresIn != null) 'expires_in': expiresIn,
       'user': user.toJson(),
     };
   }

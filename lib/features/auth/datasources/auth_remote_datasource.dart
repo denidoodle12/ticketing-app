@@ -10,24 +10,16 @@ class AuthRemoteDatasource {
   final Dio _dioAuth;
   final Dio _dioUser;
 
-  AuthRemoteDatasource({
-    Dio? dioAuth,
-    Dio? dioUser,
-  })  : _dioAuth = dioAuth ?? DioClient.authInstance,
-        _dioUser = dioUser ?? DioClient.userInstance;
+  AuthRemoteDatasource({Dio? dioAuth, Dio? dioUser})
+    : _dioAuth = dioAuth ?? DioClient.authInstance,
+      _dioUser = dioUser ?? DioClient.userInstance;
 
   /// Login with identifier (email or username) and password
-  Future<LoginResponse> login(
-    String identifier,
-    String password,
-  ) async {
+  Future<LoginResponse> login(String identifier, String password) async {
     try {
       final response = await _dioAuth.post(
         ApiEndpoints.authLogin,
-        data: {
-          'identifier': identifier,
-          'password': password,
-        },
+        data: {'identifier': identifier, 'password': password},
       );
 
       // API Response format: { "data": { "token": "...", "user": {...} } }
@@ -59,7 +51,9 @@ class AuthRemoteDatasource {
         case DioExceptionType.receiveTimeout:
           throw NetworkException('Connection timeout. Please try again.');
         case DioExceptionType.connectionError:
-          throw NetworkException('No internet connection. Please check your network.');
+          throw NetworkException(
+            'No internet connection. Please check your network.',
+          );
         case DioExceptionType.badResponse:
           final statusCode = e.response?.statusCode;
           final message = e.response?.data?['message'] ?? 'An error occurred';
@@ -87,9 +81,7 @@ class AuthRemoteDatasource {
 
   /// Get current user profile
   Future<User> getUserMe() async {
-    final response = await _dioUser.get(
-      ApiEndpoints.userMe,
-    );
+    final response = await _dioUser.get(ApiEndpoints.userMe);
 
     // API Response format: { "data": { "id": 1, "email": "...", ... } }
     final data = response.data['data'] as Map<String, dynamic>;
@@ -105,14 +97,13 @@ class AuthRemoteDatasource {
     try {
       final response = await _dioUser.put(
         ApiEndpoints.userMeChangePassword,
-        data: {
-          'old_password': oldPassword,
-          'new_password': newPassword,
-        },
+        data: {'old_password': oldPassword, 'new_password': newPassword},
       );
 
       // API Response format: { "message": "password changed successfully" }
-      final message = response.data['message'] as String? ?? 'Password changed successfully';
+      final message =
+          response.data['message'] as String? ??
+          'Password changed successfully';
       return message;
     } on DioException catch (e) {
       if (e.error is AppException) {
@@ -125,7 +116,9 @@ class AuthRemoteDatasource {
         case DioExceptionType.receiveTimeout:
           throw NetworkException('Connection timeout. Please try again.');
         case DioExceptionType.connectionError:
-          throw NetworkException('No internet connection. Please check your network.');
+          throw NetworkException(
+            'No internet connection. Please check your network.',
+          );
         case DioExceptionType.badResponse:
           final statusCode = e.response?.statusCode;
           final message = e.response?.data?['message'] as String?;
@@ -140,9 +133,13 @@ class AuthRemoteDatasource {
               message ?? 'Current password is incorrect.',
             );
           } else if (statusCode != null && statusCode >= 500) {
-            throw ServerException(message ?? 'Server error. Please try again later.');
+            throw ServerException(
+              message ?? 'Server error. Please try again later.',
+            );
           } else {
-            throw ServerException(message ?? 'An error occurred. Please try again.');
+            throw ServerException(
+              message ?? 'An error occurred. Please try again.',
+            );
           }
         default:
           throw ServerException('An unexpected error occurred');
@@ -152,6 +149,18 @@ class AuthRemoteDatasource {
         rethrow;
       }
       throw ServerException('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  /// Logout — blacklist access token and delete refresh token on server
+  Future<void> logout(String? refreshToken) async {
+    try {
+      await _dioAuth.post(
+        ApiEndpoints.authLogout,
+        data: {'refresh_token': refreshToken},
+      );
+    } catch (_) {
+      // Ignore logout errors — local cleanup will still happen
     }
   }
 }

@@ -8,6 +8,8 @@ class ApiEndpoints {
 
   // Auth Service Endpoints (ms-auth: port 8080)
   static const String authLogin = '/auth/login';
+  static const String authRefresh = '/auth/refresh';
+  static const String authLogout = '/auth/logout';
   // Note: Register endpoint requires admin authentication (not for end-users)
   // static const String authRegister = '/auth/register';
 

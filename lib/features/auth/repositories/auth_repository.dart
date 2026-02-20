@@ -114,10 +114,10 @@ class AuthRepositoryImpl implements AuthRepository {
           );
         }
 
-        // Save token (single token from API)
+        // Save tokens (separate access + refresh)
         await _localStorage.saveTokens(
-          accessToken: loginResponse.token,
-          refreshToken: loginResponse.token,
+          accessToken: loginResponse.accessToken ?? loginResponse.token,
+          refreshToken: loginResponse.refreshToken ?? loginResponse.token,
         );
 
         // Save user data (including profile picture if available)
@@ -195,6 +195,15 @@ class AuthRepositoryImpl implements AuthRepository {
   /// Logout user
   @override
   Future<void> logout() async {
+    // Try to call logout API to blacklist tokens on server
+    if (!ApiConfig.useMockData && _remoteDatasource != null) {
+      try {
+        final refreshToken = await _localStorage.getRefreshToken();
+        await _remoteDatasource.logout(refreshToken);
+      } catch (_) {
+        // Ignore errors — clear local data regardless
+      }
+    }
     await _localStorage.clearAll();
   }
 
