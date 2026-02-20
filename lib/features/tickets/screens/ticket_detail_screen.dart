@@ -22,10 +22,7 @@ import '../widgets/ticket_files_tab.dart';
 class TicketDetailScreen extends StatefulWidget {
   final Ticket ticket;
 
-  const TicketDetailScreen({
-    super.key,
-    required this.ticket,
-  });
+  const TicketDetailScreen({super.key, required this.ticket});
 
   @override
   State<TicketDetailScreen> createState() => _TicketDetailScreenState();
@@ -100,10 +97,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       _cachedToken = token;
     }
 
-    if (token != null && mounted) {
+    if (mounted) {
       await _webSocketService.connect(
         ticketId: _currentTicket.id,
-        token: token,
+        token: token ?? '',
       );
     }
   }
@@ -126,14 +123,16 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
           _comments.add(comment);
           // Update attachments if comment has attachment
           if (comment.attachment != null && comment.attachment!.isNotEmpty) {
-            _attachments.add(TicketAttachment(
-              fileName: _getFileNameFromPath(comment.attachment!),
-              fileUrl: comment.attachment!,
-              fileSize: 0,
-              uploadedAt: comment.createdAt,
-              uploadedBy: comment.isFromAgent ? comment.displayName : 'You',
-              isFromAgent: comment.isFromAgent,
-            ));
+            _attachments.add(
+              TicketAttachment(
+                fileName: _getFileNameFromPath(comment.attachment!),
+                fileUrl: comment.attachment!,
+                fileSize: 0,
+                uploadedAt: comment.createdAt,
+                uploadedBy: comment.isFromAgent ? comment.displayName : 'You',
+                isFromAgent: comment.isFromAgent,
+              ),
+            );
           }
         });
       }
@@ -168,32 +167,39 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         .toList();
   }
 
-  List<TicketAttachment> _extractAttachments(List<Comment> comments, Ticket ticket) {
+  List<TicketAttachment> _extractAttachments(
+    List<Comment> comments,
+    Ticket ticket,
+  ) {
     final attachments = <TicketAttachment>[];
 
     // Add ticket attachment if exists
     if (ticket.attachment != null && ticket.attachment!.isNotEmpty) {
-      attachments.add(TicketAttachment(
-        fileName: _getFileNameFromPath(ticket.attachment!),
-        fileUrl: ticket.attachment!,
-        fileSize: 0,
-        uploadedAt: ticket.createdAt ?? DateTime.now(),
-        uploadedBy: 'You',
-        isFromAgent: false,
-      ));
+      attachments.add(
+        TicketAttachment(
+          fileName: _getFileNameFromPath(ticket.attachment!),
+          fileUrl: ticket.attachment!,
+          fileSize: 0,
+          uploadedAt: ticket.createdAt ?? DateTime.now(),
+          uploadedBy: 'You',
+          isFromAgent: false,
+        ),
+      );
     }
 
     // Add attachments from comments
     for (final comment in comments) {
       if (comment.attachment != null && comment.attachment!.isNotEmpty) {
-        attachments.add(TicketAttachment(
-          fileName: _getFileNameFromPath(comment.attachment!),
-          fileUrl: comment.attachment!,
-          fileSize: 0,
-          uploadedAt: comment.createdAt,
-          uploadedBy: comment.isFromAgent ? comment.displayName : 'You',
-          isFromAgent: comment.isFromAgent,
-        ));
+        attachments.add(
+          TicketAttachment(
+            fileName: _getFileNameFromPath(comment.attachment!),
+            fileUrl: comment.attachment!,
+            fileSize: 0,
+            uploadedAt: comment.createdAt,
+            uploadedBy: comment.isFromAgent ? comment.displayName : 'You',
+            isFromAgent: comment.isFromAgent,
+          ),
+        );
       }
     }
 
@@ -227,7 +233,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     final fullUrl = _getAttachmentUrl(attachmentPath);
     final fileName = _getFileNameFromPath(attachmentPath);
     final extension = fileName.split('.').last.toLowerCase();
-    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension);
+    final isImage = [
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'webp',
+      'bmp',
+    ].contains(extension);
 
     if (isImage) {
       // Show image viewer dialog
@@ -394,9 +407,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text(
                 fileName,
-                style: AppTextStyles.h6.copyWith(
-                  color: AppColors.textPrimary,
-                ),
+                style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -410,7 +421,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  isImage ? Icons.photo_library_rounded : Icons.download_rounded,
+                  isImage
+                      ? Icons.photo_library_rounded
+                      : Icons.download_rounded,
                   color: AppColors.primaryDark,
                 ),
               ),
@@ -442,10 +455,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                   color: AppColors.primaryDark.withAlpha(26),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  Icons.share_rounded,
-                  color: AppColors.primaryDark,
-                ),
+                child: Icon(Icons.share_rounded, color: AppColors.primaryDark),
               ),
               title: Text(
                 'Share',
@@ -557,13 +567,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
     // Download file with auth headers
     final dio = Dio();
-    await dio.download(
-      url,
-      tempPath,
-      options: Options(
-        headers: _authHeaders,
-      ),
-    );
+    await dio.download(url, tempPath, options: Options(headers: _authHeaders));
 
     // Save to gallery with album name
     await Gal.putImage(tempPath, album: 'Ticketing App');
@@ -662,13 +666,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
     // Download file with auth headers using Dio
     final dio = Dio();
-    await dio.download(
-      url,
-      finalPath,
-      options: Options(
-        headers: _authHeaders,
-      ),
-    );
+    await dio.download(url, finalPath, options: Options(headers: _authHeaders));
 
     // Hide download snackbar and show success
     if (mounted) {
@@ -739,9 +737,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       await dio.download(
         url,
         filePath,
-        options: Options(
-          headers: _authHeaders,
-        ),
+        options: Options(headers: _authHeaders),
       );
 
       // Hide download snackbar
@@ -841,9 +837,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text(
                 'More Options',
-                style: AppTextStyles.h6.copyWith(
-                  color: AppColors.textPrimary,
-                ),
+                style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
               ),
             ),
             // Refresh option
@@ -854,10 +848,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                   color: AppColors.primaryDark.withAlpha(26),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  Icons.refresh,
-                  color: AppColors.primaryDark,
-                ),
+                child: Icon(Icons.refresh, color: AppColors.primaryDark),
               ),
               title: Text(
                 'Refresh',
@@ -885,10 +876,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                   color: AppColors.primaryDark.withAlpha(26),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  Icons.share_outlined,
-                  color: AppColors.primaryDark,
-                ),
+                child: Icon(Icons.share_outlined, color: AppColors.primaryDark),
               ),
               title: Text(
                 'Share Ticket',
@@ -939,30 +927,30 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                   child: provider.isTicketDetailLoading
                       ? const Center(child: CircularProgressIndicator())
                       : provider.ticketDetailState == TicketState.error
-                          ? _buildErrorState(provider.errorMessage)
-                          : TabBarView(
-                              controller: _tabController,
-                              children: [
-                                TicketDetailTab(ticket: _currentTicket),
-                                TicketChatTab(
-                                  comments: _comments,
-                                  ticket: _currentTicket,
-                                  onSendMessage: _handleSendMessage,
-                                  connectionState: _wsState,
-                                  isSending: _isSending,
-                                  getAttachmentUrl: _getAttachmentUrl,
-                                  onAttachmentTap: _handleAttachmentTap,
-                                  authHeaders: _authHeaders,
-                                ),
-                                TicketFilesTab(
-                                  attachments: _attachments,
-                                  getAttachmentUrl: _getAttachmentUrl,
-                                  onImagePreview: _showImageViewer,
-                                  onFileOpen: _openFileInBrowser,
-                                  authHeaders: _authHeaders,
-                                ),
-                              ],
+                      ? _buildErrorState(provider.errorMessage)
+                      : TabBarView(
+                          controller: _tabController,
+                          children: [
+                            TicketDetailTab(ticket: _currentTicket),
+                            TicketChatTab(
+                              comments: _comments,
+                              ticket: _currentTicket,
+                              onSendMessage: _handleSendMessage,
+                              connectionState: _wsState,
+                              isSending: _isSending,
+                              getAttachmentUrl: _getAttachmentUrl,
+                              onAttachmentTap: _handleAttachmentTap,
+                              authHeaders: _authHeaders,
                             ),
+                            TicketFilesTab(
+                              attachments: _attachments,
+                              getAttachmentUrl: _getAttachmentUrl,
+                              onImagePreview: _showImageViewer,
+                              onFileOpen: _openFileInBrowser,
+                              authHeaders: _authHeaders,
+                            ),
+                          ],
+                        ),
                 ),
               ],
             );
@@ -1036,10 +1024,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
             ),
           ),
           // More options button with rounded square background
-          _buildActionButton(
-            icon: Icons.more_vert,
-            onTap: _showMoreOptions,
-          ),
+          _buildActionButton(icon: Icons.more_vert, onTap: _showMoreOptions),
         ],
       ),
     );
@@ -1068,11 +1053,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
               ),
             ],
           ),
-          child: Icon(
-            icon,
-            color: AppColors.primaryDark,
-            size: 22,
-          ),
+          child: Icon(icon, color: AppColors.primaryDark, size: 22),
         ),
       ),
     );
@@ -1115,11 +1096,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
               ),
               const SizedBox(width: 20),
               // Updated time
-              Icon(
-                Icons.access_time,
-                size: 18,
-                color: AppColors.textSecondary,
-              ),
+              Icon(Icons.access_time, size: 18, color: AppColors.textSecondary),
               const SizedBox(width: 6),
               Text(
                 _getUpdatedTimeAgo(),
@@ -1165,10 +1142,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withAlpha(15),
-                Colors.transparent,
-              ],
+              colors: [Colors.black.withAlpha(15), Colors.transparent],
             ),
           ),
         ),
@@ -1176,7 +1150,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     );
   }
 
-  Future<void> _handleSendMessage(String message, String? attachmentPath) async {
+  Future<void> _handleSendMessage(
+    String message,
+    String? attachmentPath,
+  ) async {
     if (_isSending) return;
 
     // Get provider before async operations
@@ -1199,7 +1176,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         // Upload failed
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(provider.errorMessage ?? 'Failed to upload attachment'),
+            content: Text(
+              provider.errorMessage ?? 'Failed to upload attachment',
+            ),
             backgroundColor: AppColors.error500,
           ),
         );
@@ -1233,14 +1212,16 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
           _comments.add(comment);
           // Update attachments if comment has attachment
           if (comment.attachment != null && comment.attachment!.isNotEmpty) {
-            _attachments.add(TicketAttachment(
-              fileName: _getFileNameFromPath(comment.attachment!),
-              fileUrl: comment.attachment!,
-              fileSize: 0,
-              uploadedAt: comment.createdAt,
-              uploadedBy: 'You',
-              isFromAgent: false,
-            ));
+            _attachments.add(
+              TicketAttachment(
+                fileName: _getFileNameFromPath(comment.attachment!),
+                fileUrl: comment.attachment!,
+                fileSize: 0,
+                uploadedAt: comment.createdAt,
+                uploadedBy: 'You',
+                isFromAgent: false,
+              ),
+            );
           }
         });
       } else if (mounted && provider.errorMessage != null) {

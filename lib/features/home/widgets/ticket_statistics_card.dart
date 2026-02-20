@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 
@@ -63,31 +64,31 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
       label: 'Open',
       count: _stats.openCount,
       color: const Color(0xFF3B82F6),
-      icon: Icons.radio_button_checked_rounded,
+      svgPath: 'assets/icons/dashboard/ic_open_status.svg',
     ),
     _ChartItem(
       label: 'In Progress',
       count: _stats.inProgressCount,
       color: const Color(0xFF8B5CF6),
-      icon: Icons.autorenew_rounded,
+      svgPath: 'assets/icons/dashboard/ic_inprogress_status.svg',
     ),
     _ChartItem(
       label: 'Pending',
       count: _stats.pendingCount,
       color: const Color(0xFFF59E0B),
-      icon: Icons.hourglass_bottom_rounded,
+      svgPath: 'assets/icons/dashboard/ic_pending_status.svg',
     ),
     _ChartItem(
       label: 'Resolved',
       count: _stats.resolvedCount,
       color: const Color(0xFF10B981),
-      icon: Icons.check_circle_rounded,
+      svgPath: 'assets/icons/dashboard/ic_resolved_status.svg',
     ),
     _ChartItem(
       label: 'Closed',
       count: _stats.closedCount,
       color: const Color(0xFF64748B),
-      icon: Icons.archive_rounded,
+      svgPath: 'assets/icons/dashboard/ic_closed_status.svg',
     ),
   ];
 
@@ -289,7 +290,12 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
           // Icon + label row
           Row(
             children: [
-              Icon(item.icon, size: 14, color: item.color),
+              SvgPicture.asset(
+                item.svgPath,
+                width: 12,
+                height: 12,
+                colorFilter: ColorFilter.mode(item.color, BlendMode.srcIn),
+              ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -297,7 +303,7 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
-                    fontSize: 10,
+                    fontSize: 12,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -339,12 +345,12 @@ class _ChartItem {
   final String label;
   final int count;
   final Color color;
-  final IconData icon;
+  final String svgPath;
 
   const _ChartItem({
     required this.label,
     required this.count,
     required this.color,
-    required this.icon,
+    required this.svgPath,
   });
 }

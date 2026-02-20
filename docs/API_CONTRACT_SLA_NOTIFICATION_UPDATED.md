@@ -618,6 +618,7 @@ ORDER BY
 | Low      | 24 hours      | 72 hours (3d)   | 60 min         |
 | Medium   | 4 hours       | 24 hours        | 30 min         |
 | High     | 1 hour        | 8 hours         | 30 min         |
+
 | Critical | 15 min        | 4 hours         | 10 min         |
 
 ---
