@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
-import '../../tickets/models/ticket_category_model.dart';
 import '../../tickets/models/ticket_status_model.dart';
 
+/// Filter bottom sheet with only server-side supported filters:
+/// - Status (status_id)
+/// - Priority (priority)
+/// Category filter removed since API doesn't support category_id param.
 class FilterBottomSheet extends StatefulWidget {
-  final List<TicketCategory> categories;
   final List<TicketStatus> statuses;
-  final Set<int> selectedCategoryIds;
   final Set<int> selectedStatusIds;
   final Set<String> selectedPriorities;
-  final Function(Set<int> categoryIds, Set<int> statusIds, Set<String> priorities) onApply;
+  final Function(Set<int> statusIds, Set<String> priorities) onApply;
 
   const FilterBottomSheet({
     super.key,
-    required this.categories,
     required this.statuses,
-    required this.selectedCategoryIds,
     required this.selectedStatusIds,
     required this.selectedPriorities,
     required this.onApply,
@@ -27,7 +26,6 @@ class FilterBottomSheet extends StatefulWidget {
 }
 
 class _FilterBottomSheetState extends State<FilterBottomSheet> {
-  late Set<int> _selectedCategoryIds;
   late Set<int> _selectedStatusIds;
   late Set<String> _selectedPriorities;
 
@@ -42,19 +40,8 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedCategoryIds = Set.from(widget.selectedCategoryIds);
     _selectedStatusIds = Set.from(widget.selectedStatusIds);
     _selectedPriorities = Set.from(widget.selectedPriorities);
-  }
-
-  void _toggleCategory(int categoryId) {
-    setState(() {
-      if (_selectedCategoryIds.contains(categoryId)) {
-        _selectedCategoryIds.remove(categoryId);
-      } else {
-        _selectedCategoryIds.add(categoryId);
-      }
-    });
   }
 
   void _toggleStatus(int statusId) {
@@ -79,14 +66,13 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
 
   void _reset() {
     setState(() {
-      _selectedCategoryIds.clear();
       _selectedStatusIds.clear();
       _selectedPriorities.clear();
     });
   }
 
   void _apply() {
-    widget.onApply(_selectedCategoryIds, _selectedStatusIds, _selectedPriorities);
+    widget.onApply(_selectedStatusIds, _selectedPriorities);
     Navigator.pop(context);
   }
 
@@ -110,9 +96,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -159,37 +143,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
             ),
           ),
           const SizedBox(height: 24),
-
-          // Category section
-          if (widget.categories.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Category',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: widget.categories.map((category) {
-                  final isSelected = _selectedCategoryIds.contains(category.id);
-                  return _buildChip(
-                    label: category.name,
-                    isSelected: isSelected,
-                    onTap: () => _toggleCategory(category.id),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
 
           // Status section
           if (widget.statuses.isNotEmpty) ...[
@@ -240,7 +193,9 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
               spacing: 8,
               runSpacing: 8,
               children: _priorityOptions.map((option) {
-                final isSelected = _selectedPriorities.contains(option['value']);
+                final isSelected = _selectedPriorities.contains(
+                  option['value'],
+                );
                 return _buildPriorityChip(
                   label: option['label']!,
                   value: option['value']!,

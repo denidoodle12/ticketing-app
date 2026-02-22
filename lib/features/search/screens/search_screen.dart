@@ -9,26 +9,18 @@ import '../../tickets/models/ticket_model.dart';
 import '../../tickets/widgets/ticket_card.dart';
 import '../services/recent_search_service.dart';
 import '../widgets/filter_bottom_sheet.dart';
-import '../widgets/popular_categories_section.dart';
+import '../widgets/priority_filter_section.dart';
 import '../widgets/recent_searches_section.dart';
 import '../widgets/search_results_header.dart';
 import '../widgets/search_tips_card.dart';
 import '../widgets/ticket_card_shimmer.dart';
 
-enum SearchScreenState {
-  initial,
-  searching,
-  results,
-  empty,
-}
+enum SearchScreenState { initial, searching, results, empty }
 
 class SearchScreen extends StatefulWidget {
   final String? initialQuery;
 
-  const SearchScreen({
-    super.key,
-    this.initialQuery,
-  });
+  const SearchScreen({super.key, this.initialQuery});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -46,8 +38,7 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Ticket> _searchResults = [];
   int _totalResults = 0;
 
-  // Filters
-  Set<int> _selectedCategoryIds = {};
+  // Server-side filters only
   Set<int> _selectedStatusIds = {};
   Set<String> _selectedPriorities = {};
 
@@ -82,10 +73,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (!mounted) return;
 
     final ticketProvider = context.read<TicketProvider>();
-    await Future.wait([
-      ticketProvider.loadCategories(),
-      ticketProvider.loadStatuses(),
-    ]);
+    await ticketProvider.loadStatuses();
   }
 
   Future<void> _loadRecentSearches() async {
@@ -101,9 +89,8 @@ class _SearchScreenState extends State<SearchScreen> {
     _debounceTimer?.cancel();
 
     // Clear all filters when user types a new search
-    if (_selectedCategoryIds.isNotEmpty || _selectedStatusIds.isNotEmpty || _selectedPriorities.isNotEmpty) {
+    if (_selectedStatusIds.isNotEmpty || _selectedPriorities.isNotEmpty) {
       setState(() {
-        _selectedCategoryIds = {};
         _selectedStatusIds = {};
         _selectedPriorities = {};
       });
@@ -144,41 +131,33 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final ticketProvider = context.read<TicketProvider>();
 
-      // Fetch tickets from API
+      // Reset provider filter state to avoid leaking from TicketsScreen
+      ticketProvider.setFilterStatusForPaging(null);
+      ticketProvider.setSearchQueryForPaging(trimmedQuery);
+      ticketProvider.setFilterPriorityForPaging(
+        _selectedPriorities.length == 1 ? _selectedPriorities.first : null,
+      );
+
+      // Fetch tickets from API with server-side filters
       final response = await ticketProvider.fetchTicketsPage(
         page: 1,
         limit: 50,
       );
 
-      // Apply client-side filtering
       var filteredTickets = response.tickets.toList();
 
-      // Filter by search query
+      // Client-side search fallback (in case backend ignores search param)
       final searchLower = trimmedQuery.toLowerCase();
       filteredTickets = filteredTickets.where((ticket) {
-        final subjectMatch =
-            ticket.subject.toLowerCase().contains(searchLower);
-        final descriptionMatch =
-            ticket.description.toLowerCase().contains(searchLower);
+        final subjectMatch = ticket.subject.toLowerCase().contains(searchLower);
+        final descriptionMatch = ticket.description.toLowerCase().contains(
+          searchLower,
+        );
         return subjectMatch || descriptionMatch;
       }).toList();
 
-      // Filter by selected categories
-      if (_selectedCategoryIds.isNotEmpty) {
-        filteredTickets = filteredTickets.where((ticket) {
-          return _selectedCategoryIds.contains(ticket.categoryId);
-        }).toList();
-      }
-
-      // Filter by selected statuses
-      if (_selectedStatusIds.isNotEmpty) {
-        filteredTickets = filteredTickets.where((ticket) {
-          return _selectedStatusIds.contains(ticket.statusId);
-        }).toList();
-      }
-
-      // Filter by selected priorities
-      if (_selectedPriorities.isNotEmpty) {
+      // Filter by multiple priorities client-side (API only supports single priority)
+      if (_selectedPriorities.length > 1) {
         filteredTickets = filteredTickets.where((ticket) {
           return _selectedPriorities.contains(ticket.priority.value);
         }).toList();
@@ -219,14 +198,16 @@ class _SearchScreenState extends State<SearchScreen> {
     await _loadRecentSearches();
   }
 
-  void _onCategoryTap(category) {
-    // Set category filter and show tickets for that category
+  void _onPriorityTap(String priority) {
     setState(() {
-      _selectedCategoryIds = {category.id};
-      _selectedStatusIds = {};
-      _selectedPriorities = {};
+      if (_selectedPriorities.contains(priority)) {
+        _selectedPriorities.remove(priority);
+      } else {
+        // Single select for server-side — replace existing
+        _selectedPriorities = {priority};
+      }
     });
-    _searchController.text = category.name;
+    // Perform filter search (works with or without text query)
     _performFilterSearch();
   }
 
@@ -241,7 +222,19 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final ticketProvider = context.read<TicketProvider>();
 
-      // Fetch tickets from API
+      // Reset provider filter state to avoid leaking from TicketsScreen
+      ticketProvider.setFilterStatusForPaging(null);
+
+      // Set server-side filters on provider
+      final searchQuery = _searchController.text.trim();
+      ticketProvider.setSearchQueryForPaging(
+        searchQuery.isNotEmpty ? searchQuery : null,
+      );
+      ticketProvider.setFilterPriorityForPaging(
+        _selectedPriorities.length == 1 ? _selectedPriorities.first : null,
+      );
+
+      // Fetch tickets from API with server-side filters
       final response = await ticketProvider.fetchTicketsPage(
         page: 1,
         limit: 50,
@@ -249,39 +242,22 @@ class _SearchScreenState extends State<SearchScreen> {
 
       var filteredTickets = response.tickets.toList();
 
-      // Filter by search query if present and no other filters active
-      final searchQuery = _searchController.text.trim();
-      if (searchQuery.isNotEmpty &&
-          _selectedCategoryIds.isEmpty &&
-          _selectedStatusIds.isEmpty &&
-          _selectedPriorities.isEmpty) {
-        // Only apply text search if no filters
+      // Client-side search fallback (in case backend ignores search param)
+      if (searchQuery.isNotEmpty) {
         final searchLower = searchQuery.toLowerCase();
         filteredTickets = filteredTickets.where((ticket) {
-          final subjectMatch =
-              ticket.subject.toLowerCase().contains(searchLower);
-          final descriptionMatch =
-              ticket.description.toLowerCase().contains(searchLower);
+          final subjectMatch = ticket.subject.toLowerCase().contains(
+            searchLower,
+          );
+          final descriptionMatch = ticket.description.toLowerCase().contains(
+            searchLower,
+          );
           return subjectMatch || descriptionMatch;
         }).toList();
       }
 
-      // Filter by selected categories
-      if (_selectedCategoryIds.isNotEmpty) {
-        filteredTickets = filteredTickets.where((ticket) {
-          return _selectedCategoryIds.contains(ticket.categoryId);
-        }).toList();
-      }
-
-      // Filter by selected statuses
-      if (_selectedStatusIds.isNotEmpty) {
-        filteredTickets = filteredTickets.where((ticket) {
-          return _selectedStatusIds.contains(ticket.statusId);
-        }).toList();
-      }
-
-      // Filter by selected priorities
-      if (_selectedPriorities.isNotEmpty) {
+      // Filter by multiple priorities client-side (API only supports single priority)
+      if (_selectedPriorities.length > 1) {
         filteredTickets = filteredTickets.where((ticket) {
           return _selectedPriorities.contains(ticket.priority.value);
         }).toList();
@@ -315,14 +291,11 @@ class _SearchScreenState extends State<SearchScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => FilterBottomSheet(
-        categories: ticketProvider.categories,
         statuses: ticketProvider.statuses,
-        selectedCategoryIds: _selectedCategoryIds,
         selectedStatusIds: _selectedStatusIds,
         selectedPriorities: _selectedPriorities,
-        onApply: (categoryIds, statusIds, priorities) {
+        onApply: (statusIds, priorities) {
           setState(() {
-            _selectedCategoryIds = categoryIds;
             _selectedStatusIds = statusIds;
             _selectedPriorities = priorities;
           });
@@ -347,7 +320,6 @@ class _SearchScreenState extends State<SearchScreen> {
     _searchController.clear();
     setState(() {
       _screenState = SearchScreenState.initial;
-      _selectedCategoryIds = {};
       _selectedStatusIds = {};
       _selectedPriorities = {};
     });
@@ -365,9 +337,7 @@ class _SearchScreenState extends State<SearchScreen> {
             _buildSearchHeader(),
 
             // Content based on state
-            Expanded(
-              child: _buildContent(),
-            ),
+            Expanded(child: _buildContent()),
           ],
         ),
       ),
@@ -394,11 +364,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ],
           ),
-          child: Icon(
-            Icons.arrow_back,
-            color: AppColors.primaryDark,
-            size: 22,
-          ),
+          child: Icon(Icons.arrow_back, color: AppColors.primaryDark, size: 22),
         ),
       ),
     );
@@ -502,38 +468,34 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildInitialContent() {
-    return Consumer<TicketProvider>(
-      builder: (context, ticketProvider, child) {
-        return SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Recent searches
-              RecentSearchesSection(
-                recentSearches: _recentSearches,
-                onSearchTap: _onRecentSearchTap,
-                onDeleteTap: _onDeleteRecentSearch,
-                onClearAll: _onClearAllRecentSearches,
-              ),
-
-              if (_recentSearches.isNotEmpty) const SizedBox(height: 24),
-
-              // Popular categories
-              PopularCategoriesSection(
-                categories: ticketProvider.categories,
-                onCategoryTap: _onCategoryTap,
-              ),
-
-              const SizedBox(height: 24),
-
-              // Search tips
-              const SearchTipsCard(),
-            ],
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Recent searches
+          RecentSearchesSection(
+            recentSearches: _recentSearches,
+            onSearchTap: _onRecentSearchTap,
+            onDeleteTap: _onDeleteRecentSearch,
+            onClearAll: _onClearAllRecentSearches,
           ),
-        );
-      },
+
+          if (_recentSearches.isNotEmpty) const SizedBox(height: 24),
+
+          // Priority quick-select (server-side filter)
+          PriorityFilterSection(
+            selectedPriorities: _selectedPriorities,
+            onPriorityTap: _onPriorityTap,
+          ),
+
+          const SizedBox(height: 24),
+
+          // Search tips
+          const SearchTipsCard(),
+        ],
+      ),
     );
   }
 
@@ -562,9 +524,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildResultsContent() {
     final hasActiveFilters =
-        _selectedCategoryIds.isNotEmpty ||
-        _selectedStatusIds.isNotEmpty ||
-        _selectedPriorities.isNotEmpty;
+        _selectedStatusIds.isNotEmpty || _selectedPriorities.isNotEmpty;
 
     return Column(
       children: [
@@ -618,11 +578,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   color: AppColors.grey100,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.search,
-                  size: 40,
-                  color: AppColors.grey400,
-                ),
+                child: Icon(Icons.search, size: 40, color: AppColors.grey400),
               ),
               Container(
                 width: 24,
@@ -653,7 +609,9 @@ class _SearchScreenState extends State<SearchScreen> {
 
           // Description
           Text(
-            'We couldn\'t find any tickets matching\n"$searchQuery".',
+            searchQuery.isNotEmpty
+                ? 'We couldn\'t find any tickets matching\n"$searchQuery".'
+                : 'No tickets match the selected filters.',
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
             ),
@@ -695,10 +653,7 @@ class _SearchScreenState extends State<SearchScreen> {
             onPressed: _tryAnotherSearch,
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.primaryDark,
-              side: BorderSide(
-                color: AppColors.primaryDark,
-                width: 1.5,
-              ),
+              side: BorderSide(color: AppColors.primaryDark, width: 1.5),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),

@@ -24,7 +24,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
   String _selectedFilter = 'all';
 
   // Additional filters from bottom sheet
-  Set<int> _selectedCategoryIds = {};
   Set<String> _selectedPriorities = {};
 
   static const _pageSize = 10;
@@ -81,7 +80,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
         _isFilterInitialized = true;
       }
 
-      // Fetch tickets from provider/repository
+      // Fetch tickets from provider/repository (server-side filtering)
       final response = await ticketProvider.fetchTicketsPage(
         page: pageKey,
         limit: _pageSize,
@@ -90,41 +89,13 @@ class _TicketsScreenState extends State<TicketsScreen> {
       // Check if widget is still mounted before updating controller
       if (!mounted) return;
 
-      // Filter out closed tickets if "All" is selected
       var newItems = response.tickets.toList();
+
+      // Filter out closed tickets if "All" is selected (client-side)
       if (_selectedFilter == 'all') {
         newItems = newItems.where((ticket) {
           final statusName = ticket.status?.name.toLowerCase() ?? '';
           return statusName != 'closed';
-        }).toList();
-      }
-
-      // Apply search filter if present
-      final searchQuery = _searchController.text.trim();
-      if (searchQuery.isNotEmpty) {
-        final searchLower = searchQuery.toLowerCase();
-        newItems = newItems.where((ticket) {
-          final subjectMatch = ticket.subject.toLowerCase().contains(
-            searchLower,
-          );
-          final descriptionMatch = ticket.description.toLowerCase().contains(
-            searchLower,
-          );
-          return subjectMatch || descriptionMatch;
-        }).toList();
-      }
-
-      // Apply category filter if present
-      if (_selectedCategoryIds.isNotEmpty) {
-        newItems = newItems.where((ticket) {
-          return _selectedCategoryIds.contains(ticket.categoryId);
-        }).toList();
-      }
-
-      // Apply priority filter if present
-      if (_selectedPriorities.isNotEmpty) {
-        newItems = newItems.where((ticket) {
-          return _selectedPriorities.contains(ticket.priority.value);
         }).toList();
       }
 
@@ -202,6 +173,11 @@ class _TicketsScreenState extends State<TicketsScreen> {
     // Start new debounce timer (500ms delay)
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
+        // Set search query on provider for server-side filtering
+        final ticketProvider = context.read<TicketProvider>();
+        ticketProvider.setSearchQueryForPaging(
+          query.trim().isEmpty ? null : query.trim(),
+        );
         // Refresh the list with new search query
         _pagingController.refresh();
       }
@@ -227,16 +203,18 @@ class _TicketsScreenState extends State<TicketsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => FilterBottomSheet(
-        categories: ticketProvider.categories,
         statuses: ticketProvider.statuses,
-        selectedCategoryIds: _selectedCategoryIds,
         selectedStatusIds: {}, // Status already handled by chips above
         selectedPriorities: _selectedPriorities,
-        onApply: (categoryIds, statusIds, priorities) {
+        onApply: (statusIds, priorities) {
           setState(() {
-            _selectedCategoryIds = categoryIds;
             _selectedPriorities = priorities;
           });
+          // Set priority on provider for server-side filtering
+          // If multiple priorities selected, use first one (API supports single priority)
+          ticketProvider.setFilterPriorityForPaging(
+            priorities.length == 1 ? priorities.first : null,
+          );
           // Refresh the list with new filters
           _pagingController.refresh();
         },
@@ -244,8 +222,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
     );
   }
 
-  bool get _hasActiveFilters =>
-      _selectedCategoryIds.isNotEmpty || _selectedPriorities.isNotEmpty;
+  bool get _hasActiveFilters => _selectedPriorities.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {

@@ -7,12 +7,7 @@ import '../features/tickets/models/comment_model.dart';
 import '../features/tickets/repositories/ticket_repository.dart';
 
 /// Ticket loading state enum
-enum TicketState {
-  initial,
-  loading,
-  loaded,
-  error,
-}
+enum TicketState { initial, loading, loaded, error }
 
 /// Ticket provider for state management
 class TicketProvider extends ChangeNotifier {
@@ -105,7 +100,9 @@ class TicketProvider extends ChangeNotifier {
       final searchLower = _searchQuery!.toLowerCase().trim();
       filteredTickets = filteredTickets.where((ticket) {
         final subjectMatch = ticket.subject.toLowerCase().contains(searchLower);
-        final descriptionMatch = ticket.description.toLowerCase().contains(searchLower);
+        final descriptionMatch = ticket.description.toLowerCase().contains(
+          searchLower,
+        );
         return subjectMatch || descriptionMatch;
       }).toList();
     }
@@ -298,10 +295,7 @@ class TicketProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _ticketRepository.getTickets(
-        page: 1,
-        limit: 3,
-      );
+      final response = await _ticketRepository.getTickets(page: 1, limit: 3);
 
       _recentTickets = response.tickets;
       _recentTicketsState = TicketState.loaded;
@@ -365,7 +359,8 @@ class TicketProvider extends ChangeNotifier {
         // Count by priority
         final priorityValue = ticket.priority.value;
         if (priorityCounts.containsKey(priorityValue)) {
-          priorityCounts[priorityValue] = (priorityCounts[priorityValue] ?? 0) + 1;
+          priorityCounts[priorityValue] =
+              (priorityCounts[priorityValue] ?? 0) + 1;
         }
 
         // Count by category
@@ -374,7 +369,8 @@ class TicketProvider extends ChangeNotifier {
       }
 
       // 'All' count excludes closed tickets
-      statusCounts['all'] = (statusCounts['open'] ?? 0) +
+      statusCounts['all'] =
+          (statusCounts['open'] ?? 0) +
           (statusCounts['in_progress'] ?? 0) +
           (statusCounts['pending'] ?? 0) +
           (statusCounts['resolved'] ?? 0);
@@ -398,10 +394,7 @@ class TicketProvider extends ChangeNotifier {
 
   /// Load home screen data (stats + recent tickets)
   Future<void> loadHomeData() async {
-    await Future.wait([
-      loadTicketStats(),
-      loadRecentTickets(),
-    ]);
+    await Future.wait([loadTicketStats(), loadRecentTickets()]);
   }
 
   /// Create new ticket
@@ -571,7 +564,9 @@ class TicketProvider extends ChangeNotifier {
 
   /// Set search query (client-side filtering)
   void setSearchQuery(String? query) {
-    final normalizedQuery = query?.trim().isEmpty == true ? null : query?.trim();
+    final normalizedQuery = query?.trim().isEmpty == true
+        ? null
+        : query?.trim();
     if (_searchQuery != normalizedQuery) {
       _searchQuery = normalizedQuery;
       // No need to reload from API - client-side filtering is applied in getter
@@ -639,6 +634,7 @@ class TicketProvider extends ChangeNotifier {
       limit: limit,
       statusId: _filterStatusId,
       priority: _filterPriority,
+      search: _searchQuery,
     );
   }
 
@@ -651,5 +647,10 @@ class TicketProvider extends ChangeNotifier {
   /// Set search query for paging (without notifying listeners)
   void setSearchQueryForPaging(String? query) {
     _searchQuery = query?.trim().isEmpty == true ? null : query?.trim();
+  }
+
+  /// Set filter priority for paging (without notifying listeners)
+  void setFilterPriorityForPaging(String? priority) {
+    _filterPriority = priority;
   }
 }
