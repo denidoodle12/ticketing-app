@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/dio_client.dart';
@@ -7,7 +6,7 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../models/dashboard_stats_model.dart';
 
-/// Ticket Activity Chart Widget with bar chart
+/// Ticket Activity Chart with custom pill-shaped bars
 class TicketActivityChart extends StatefulWidget {
   const TicketActivityChart({super.key});
 
@@ -261,14 +260,14 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
   Widget _buildContent() {
     if (_isLoading) {
       return const SizedBox(
-        height: 180,
+        height: 200,
         child: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_error != null) {
       return SizedBox(
-        height: 180,
+        height: 200,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -298,7 +297,7 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
 
   Widget _buildEmptyState() {
     return Container(
-      height: 180,
+      height: 200,
       decoration: BoxDecoration(
         color: AppColors.grey50,
         borderRadius: BorderRadius.circular(16),
@@ -321,138 +320,183 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
     );
   }
 
+  // ─── Custom Pill Bar Chart ──────────────────────────────────────
+
   Widget _buildBarChart() {
     final items = _trendData!.items;
-    final maxY =
-        items
-            .map((e) => e.created.toDouble())
-            .fold<double>(0, (a, b) => a > b ? a : b) *
-        1.2;
+
+    // Find max created value for scaling
+    int maxCreated = 0;
+    for (final item in items) {
+      if (item.created > maxCreated) maxCreated = item.created;
+    }
+    // Ensure at least 1 to avoid division by zero
+    if (maxCreated == 0) maxCreated = 1;
+
+    final isMonthly = _selectedPeriod == 'monthly';
+
+    final barData = items.asMap().entries.map((entry) {
+      final index = entry.key;
+      final item = entry.value;
+      String dateNum = '';
+      String dayLabel = '';
+
+      if (isMonthly) {
+        // Monthly: label as W1, W2, W3, etc.
+        dateNum = 'W${index + 1}';
+      } else {
+        // Weekly: show date number + day name
+        try {
+          final dt = DateTime.parse(item.date);
+          dateNum = dt.day.toString();
+          dayLabel = _dayName(dt.weekday);
+        } catch (_) {
+          dateNum = item.label;
+        }
+      }
+
+      return _BarData(
+        dateNum: dateNum,
+        dayLabel: dayLabel,
+        created: item.created,
+      );
+    }).toList();
 
     return SizedBox(
-      height: 180,
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY: maxY < 1 ? 10 : maxY,
-          barTouchData: BarTouchData(
-            enabled: true,
-            touchTooltipData: BarTouchTooltipData(
-              getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                final item = items[group.x.toInt()];
-                return BarTooltipItem(
-                  '${item.created} tickets',
-                  TextStyle(
-                    color: AppColors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                );
-              },
+      height: 220,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: barData.map((bar) {
+          return Expanded(
+            child: _buildSingleBar(
+              bar: bar,
+              maxValue: maxCreated,
+              isMonthly: isMonthly,
             ),
-          ),
-          titlesData: FlTitlesData(
-            show: true,
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  final index = value.toInt();
-                  if (index >= 0 && index < items.length) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        items[index].label,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                          fontSize: 10,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-                reservedSize: 28,
-              ),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 30,
-                getTitlesWidget: (value, meta) {
-                  if (value == 0 || value == meta.max) {
-                    return Text(
-                      value.toInt().toString(),
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 10,
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-            ),
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-          ),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: maxY > 0 ? maxY / 4 : 2.5,
-            getDrawingHorizontalLine: (value) => FlLine(
-              color: AppColors.grey200,
-              strokeWidth: 1,
-              dashArray: [4, 4],
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          barGroups: items.asMap().entries.map((entry) {
-            final index = entry.key;
-            final item = entry.value;
-            return BarChartGroupData(
-              x: index,
-              barRods: [
-                BarChartRodData(
-                  toY: item.created.toDouble(),
-                  width: _selectedPeriod == 'weekly' ? 24 : 12,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    topRight: Radius.circular(4),
-                  ),
-                  color: _getBarColor(index, items.length),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
+          );
+        }).toList(),
       ),
     );
   }
 
-  Color _getBarColor(int index, int total) {
-    // Gradient-like colors from light to dark blue
-    final colors = [
-      const Color(0xFF90CAF9), // Light blue
-      const Color(0xFF64B5F6),
-      const Color(0xFF42A5F5),
-      const Color(0xFF2196F3),
-      const Color(0xFF1E88E5),
-      const Color(0xFF1976D2),
-      const Color(0xFF1565C0), // Dark blue
-    ];
+  /// Single bar column: count label → pill bar → date → day
+  Widget _buildSingleBar({
+    required _BarData bar,
+    required int maxValue,
+    required bool isMonthly,
+  }) {
+    final hasData = bar.created > 0;
+    final fillRatio = hasData ? bar.created / maxValue : 0.0;
 
-    if (total <= colors.length) {
-      return colors[index % colors.length];
-    }
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: isMonthly ? 1.5 : 4),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // Count label (only show if there's data)
+          SizedBox(
+            height: 20,
+            child: hasData
+                ? Text(
+                    bar.created.toString(),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 4),
 
-    // For longer periods, interpolate colors
-    final ratio = index / (total - 1);
-    final colorIndex = (ratio * (colors.length - 1)).floor();
-    return colors[colorIndex.clamp(0, colors.length - 1)];
+          // Pill bar with background track
+          SizedBox(
+            height: 120,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final barHeight = constraints.maxHeight;
+                final fillHeight = barHeight * fillRatio;
+                final barWidth = isMonthly ? 10.0 : 16.0;
+
+                return Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    // Background track (full height, light color)
+                    Container(
+                      width: barWidth,
+                      height: barHeight,
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary200,
+                        borderRadius: BorderRadius.circular(barWidth / 2),
+                      ),
+                    ),
+                    // Filled bar (from bottom)
+                    if (hasData)
+                      Container(
+                        width: barWidth,
+                        height: fillHeight < barWidth
+                            ? barWidth
+                            : fillHeight, // min height = bar width for pill shape
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              AppColors.primary600,
+                              AppColors.primary500,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(barWidth / 2),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Date number
+          Text(
+            bar.dateNum,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: hasData ? AppColors.textPrimary : AppColors.textSecondary,
+              fontWeight: hasData ? FontWeight.w700 : FontWeight.normal,
+              fontSize: 12,
+            ),
+          ),
+
+          // Day label (only for weekly)
+          if (!isMonthly)
+            Text(
+              bar.dayLabel.toUpperCase(),
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.3,
+              ),
+            ),
+        ],
+      ),
+    );
   }
+
+  String _dayName(int weekday) {
+    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    return days[(weekday - 1) % 7];
+  }
+}
+
+/// Internal data model for a single bar
+class _BarData {
+  final String dateNum;
+  final String dayLabel;
+  final int created;
+
+  const _BarData({
+    required this.dateNum,
+    required this.dayLabel,
+    required this.created,
+  });
 }
