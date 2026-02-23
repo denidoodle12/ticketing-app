@@ -3,14 +3,14 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 
 /// Quick-select priority section shown on search screen initial state.
-/// Replaces PopularCategoriesSection — uses server-side priority filter.
+/// Single-select — matches server-side API capability (single priority param).
 class PriorityFilterSection extends StatelessWidget {
-  final Set<String> selectedPriorities;
+  final String? selectedPriority;
   final Function(String priority) onPriorityTap;
 
   const PriorityFilterSection({
     super.key,
-    required this.selectedPriorities,
+    required this.selectedPriority,
     required this.onPriorityTap,
   });
 
@@ -62,7 +62,7 @@ class PriorityFilterSection extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: _priorityOptions.map((option) {
-              final isSelected = selectedPriorities.contains(option['value']);
+              final isSelected = selectedPriority == option['value'];
               return _buildPriorityChip(
                 label: option['label']!,
                 value: option['value']!,

@@ -437,8 +437,10 @@ class MainScreenState extends State<MainScreen> {
   void _navigateToCreateTicket() async {
     final result = await context.push(AppRoutes.createTicket);
     if (result != null && mounted) {
-      // Switch to Tickets tab and refresh
+      // Switch to Tickets tab and force refresh
       setState(() => _currentIndex = 1);
+      // Force TicketsScreen to rebuild with fresh data
+      _ticketsKey.currentState?.onTabSelected();
     }
   }
 }

@@ -23,8 +23,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
   Timer? _debounceTimer;
   String _selectedFilter = 'all';
 
-  // Additional filters from bottom sheet
-  Set<String> _selectedPriorities = {};
+  // Additional filters from bottom sheet (single-select)
+  String? _selectedPriority;
+  int? _bottomSheetStatusId;
 
   static const _pageSize = 10;
   final PagingController<int, Ticket> _pagingController = PagingController(
@@ -73,17 +74,24 @@ class _TicketsScreenState extends State<TicketsScreen> {
     try {
       final ticketProvider = context.read<TicketProvider>();
 
-      // Reset filter on first page fetch if not initialized
-      // This ensures filter matches _selectedFilter = 'all' default state
+      // Reset ALL provider filters on first page fetch if not initialized
+      // This ensures filters reset when navigating back to this screen
       if (!_isFilterInitialized && pageKey == 1) {
         ticketProvider.setFilterStatusForPaging(null);
+        ticketProvider.setFilterPriorityForPaging(null);
+        ticketProvider.setSearchQueryForPaging(null);
         _isFilterInitialized = true;
       }
+
+      // When search is active, fetch larger batch for client-side filtering
+      // (backend doesn't support search query param yet)
+      final searchQuery = _searchController.text.trim();
+      final fetchLimit = searchQuery.isNotEmpty ? 50 : _pageSize;
 
       // Fetch tickets from provider/repository (server-side filtering)
       final response = await ticketProvider.fetchTicketsPage(
         page: pageKey,
-        limit: _pageSize,
+        limit: fetchLimit,
       );
 
       // Check if widget is still mounted before updating controller
@@ -91,8 +99,24 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
       var newItems = response.tickets.toList();
 
-      // Filter out closed tickets if "All" is selected (client-side)
-      if (_selectedFilter == 'all') {
+      // Client-side search by subject/description
+      // (backend doesn't handle search param — same approach as SearchScreen)
+      if (searchQuery.isNotEmpty) {
+        final searchLower = searchQuery.toLowerCase();
+        newItems = newItems.where((ticket) {
+          final subjectMatch = ticket.subject.toLowerCase().contains(
+            searchLower,
+          );
+          final descriptionMatch = ticket.description.toLowerCase().contains(
+            searchLower,
+          );
+          return subjectMatch || descriptionMatch;
+        }).toList();
+      }
+
+      // Only client-side filter: hide closed tickets when "All" tab is active
+      // and no explicit status filter is set from bottom sheet
+      if (_selectedFilter == 'all' && _bottomSheetStatusId == null) {
         newItems = newItems.where((ticket) {
           final statusName = ticket.status?.name.toLowerCase() ?? '';
           return statusName != 'closed';
@@ -101,7 +125,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
       // Determine if this is the last page based on API response
       final isLastPage =
-          !response.hasNext || response.tickets.length < _pageSize;
+          !response.hasNext || response.tickets.length < fetchLimit;
 
       if (isLastPage) {
         _pagingController.appendLastPage(newItems);
@@ -156,6 +180,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
     setState(() {
       _selectedFilter = filterId;
+      // Reset bottom sheet status when top chips change
+      _bottomSheetStatusId = null;
     });
 
     final ticketProvider = context.read<TicketProvider>();
@@ -204,17 +230,22 @@ class _TicketsScreenState extends State<TicketsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => FilterBottomSheet(
         statuses: ticketProvider.statuses,
-        selectedStatusIds: {}, // Status already handled by chips above
-        selectedPriorities: _selectedPriorities,
-        onApply: (statusIds, priorities) {
+        selectedStatusId: _bottomSheetStatusId,
+        selectedPriority: _selectedPriority,
+        onApply: (statusId, priority) {
           setState(() {
-            _selectedPriorities = priorities;
+            _selectedPriority = priority;
+            _bottomSheetStatusId = statusId;
           });
-          // Set priority on provider for server-side filtering
-          // If multiple priorities selected, use first one (API supports single priority)
-          ticketProvider.setFilterPriorityForPaging(
-            priorities.length == 1 ? priorities.first : null,
-          );
+          // Set server-side filters on provider
+          ticketProvider.setFilterPriorityForPaging(priority);
+          ticketProvider.setFilterStatusForPaging(statusId);
+          // Reset top chips to 'all' when bottom sheet overrides status
+          if (statusId != null) {
+            setState(() {
+              _selectedFilter = 'all';
+            });
+          }
           // Refresh the list with new filters
           _pagingController.refresh();
         },
@@ -222,7 +253,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
     );
   }
 
-  bool get _hasActiveFilters => _selectedPriorities.isNotEmpty;
+  bool get _hasActiveFilters =>
+      _selectedPriority != null || _bottomSheetStatusId != null;
 
   @override
   Widget build(BuildContext context) {
@@ -262,60 +294,42 @@ class _TicketsScreenState extends State<TicketsScreen> {
   }
 
   Widget _buildFilterChips() {
-    return Consumer<TicketProvider>(
-      builder: (context, ticketProvider, child) {
-        final counts = ticketProvider.getTicketCountsByStatus();
+    return Container(
+      height: 50,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: _filterOptions.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final filter = _filterOptions[index];
+          final filterId = filter['id'] as String;
+          final isSelected = _selectedFilter == filterId;
 
-        return Container(
-          height: 50,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: _filterOptions.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final filter = _filterOptions[index];
-              final filterId = filter['id'] as String;
-              final isSelected = _selectedFilter == filterId;
-              final count = counts[filterId] ?? 0;
-
-              return GestureDetector(
-                onTap: () => _onFilterSelected(filterId),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primaryDark : AppColors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.primaryDark
-                          : AppColors.grey300,
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    filterId == 'all'
-                        ? '${filter['label']}'
-                        : '${filter['label']} ($count)',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: isSelected
-                          ? AppColors.white
-                          : AppColors.textPrimary,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                    ),
-                  ),
+          return GestureDetector(
+            onTap: () => _onFilterSelected(filterId),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primaryDark : AppColors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected ? AppColors.primaryDark : AppColors.grey300,
+                  width: 1,
                 ),
-              );
-            },
-          ),
-        );
-      },
+              ),
+              child: Text(
+                '${filter['label']}',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: isSelected ? AppColors.white : AppColors.textPrimary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 

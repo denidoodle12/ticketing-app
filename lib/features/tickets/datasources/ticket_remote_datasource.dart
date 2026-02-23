@@ -38,6 +38,8 @@ class TicketRemoteDatasource {
     final queryParams = <String, dynamic>{
       'page': page,
       'limit': limit,
+      'sort_by': 'created_at',
+      'order': 'desc',
     };
 
     if (statusId != null) queryParams['status_id'] = statusId;
@@ -51,7 +53,8 @@ class TicketRemoteDatasource {
 
     final data = response.data['data'] as List<dynamic>;
     // Try both 'pagination' (API contract) and 'meta' (alternative) for compatibility
-    final pagination = response.data['pagination'] as Map<String, dynamic>? ??
+    final pagination =
+        response.data['pagination'] as Map<String, dynamic>? ??
         response.data['meta'] as Map<String, dynamic>?;
 
     final tickets = data
@@ -59,15 +62,17 @@ class TicketRemoteDatasource {
         .toList();
 
     // Calculate hasNext based on current data
-    final total = pagination?['total'] as int? ??
+    final total =
+        pagination?['total'] as int? ??
         pagination?['total_items'] as int? ??
         tickets.length;
-    final currentPage = pagination?['page'] as int? ??
+    final currentPage =
+        pagination?['page'] as int? ??
         pagination?['current_page'] as int? ??
         page;
     final pageLimit = pagination?['limit'] as int? ?? limit;
-    final hasNext = pagination?['has_next'] as bool? ??
-        (currentPage * pageLimit < total);
+    final hasNext =
+        pagination?['has_next'] as bool? ?? (currentPage * pageLimit < total);
 
     return TicketListResponse(
       tickets: tickets,
@@ -86,7 +91,11 @@ class TicketRemoteDatasource {
   }
 
   /// Get ticket comments from ms-chat service (includes firstname field)
-  Future<CommentsResponse> getTicketComments(int ticketId, {int page = 1, int limit = 50}) async {
+  Future<CommentsResponse> getTicketComments(
+    int ticketId, {
+    int page = 1,
+    int limit = 50,
+  }) async {
     final response = await _dio.get(
       ApiEndpoints.ticketComments(ticketId),
       queryParameters: {'page': page, 'limit': limit},
@@ -122,10 +131,7 @@ class TicketRemoteDatasource {
       'file': await MultipartFile.fromFile(filePath),
     });
 
-    final response = await _dio.post(
-      ApiEndpoints.upload,
-      data: formData,
-    );
+    final response = await _dio.post(ApiEndpoints.upload, data: formData);
 
     // Return the url field which includes /uploads/ prefix
     return response.data['data']['url'] as String;

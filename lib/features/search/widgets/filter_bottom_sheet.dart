@@ -3,21 +3,20 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../tickets/models/ticket_status_model.dart';
 
-/// Filter bottom sheet with only server-side supported filters:
-/// - Status (status_id)
-/// - Priority (priority)
-/// Category filter removed since API doesn't support category_id param.
+/// Filter bottom sheet with server-side supported filters (single-select):
+/// - Status (status_id) — single select
+/// - Priority (priority) — single select
 class FilterBottomSheet extends StatefulWidget {
   final List<TicketStatus> statuses;
-  final Set<int> selectedStatusIds;
-  final Set<String> selectedPriorities;
-  final Function(Set<int> statusIds, Set<String> priorities) onApply;
+  final int? selectedStatusId;
+  final String? selectedPriority;
+  final Function(int? statusId, String? priority) onApply;
 
   const FilterBottomSheet({
     super.key,
     required this.statuses,
-    required this.selectedStatusIds,
-    required this.selectedPriorities,
+    required this.selectedStatusId,
+    required this.selectedPriority,
     required this.onApply,
   });
 
@@ -26,8 +25,8 @@ class FilterBottomSheet extends StatefulWidget {
 }
 
 class _FilterBottomSheetState extends State<FilterBottomSheet> {
-  late Set<int> _selectedStatusIds;
-  late Set<String> _selectedPriorities;
+  int? _selectedStatusId;
+  String? _selectedPriority;
 
   // Priority options
   final List<Map<String, String>> _priorityOptions = [
@@ -40,39 +39,33 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedStatusIds = Set.from(widget.selectedStatusIds);
-    _selectedPriorities = Set.from(widget.selectedPriorities);
+    _selectedStatusId = widget.selectedStatusId;
+    _selectedPriority = widget.selectedPriority;
   }
 
   void _toggleStatus(int statusId) {
     setState(() {
-      if (_selectedStatusIds.contains(statusId)) {
-        _selectedStatusIds.remove(statusId);
-      } else {
-        _selectedStatusIds.add(statusId);
-      }
+      // Single-select: tap again to deselect
+      _selectedStatusId = _selectedStatusId == statusId ? null : statusId;
     });
   }
 
   void _togglePriority(String priority) {
     setState(() {
-      if (_selectedPriorities.contains(priority)) {
-        _selectedPriorities.remove(priority);
-      } else {
-        _selectedPriorities.add(priority);
-      }
+      // Single-select: tap again to deselect
+      _selectedPriority = _selectedPriority == priority ? null : priority;
     });
   }
 
   void _reset() {
     setState(() {
-      _selectedStatusIds.clear();
-      _selectedPriorities.clear();
+      _selectedStatusId = null;
+      _selectedPriority = null;
     });
   }
 
   void _apply() {
-    widget.onApply(_selectedStatusIds, _selectedPriorities);
+    widget.onApply(_selectedStatusId, _selectedPriority);
     Navigator.pop(context);
   }
 
@@ -163,7 +156,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                 spacing: 8,
                 runSpacing: 8,
                 children: widget.statuses.map((status) {
-                  final isSelected = _selectedStatusIds.contains(status.id);
+                  final isSelected = _selectedStatusId == status.id;
                   return _buildChip(
                     label: status.displayName,
                     isSelected: isSelected,
@@ -193,9 +186,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
               spacing: 8,
               runSpacing: 8,
               children: _priorityOptions.map((option) {
-                final isSelected = _selectedPriorities.contains(
-                  option['value'],
-                );
+                final isSelected = _selectedPriority == option['value'];
                 return _buildPriorityChip(
                   label: option['label']!,
                   value: option['value']!,

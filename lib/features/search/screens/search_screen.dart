@@ -38,9 +38,9 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Ticket> _searchResults = [];
   int _totalResults = 0;
 
-  // Server-side filters only
-  Set<int> _selectedStatusIds = {};
-  Set<String> _selectedPriorities = {};
+  // Single-select server-side filters
+  int? _selectedStatusId;
+  String? _selectedPriority;
 
   @override
   void initState() {
@@ -89,10 +89,10 @@ class _SearchScreenState extends State<SearchScreen> {
     _debounceTimer?.cancel();
 
     // Clear all filters when user types a new search
-    if (_selectedStatusIds.isNotEmpty || _selectedPriorities.isNotEmpty) {
+    if (_selectedStatusId != null || _selectedPriority != null) {
       setState(() {
-        _selectedStatusIds = {};
-        _selectedPriorities = {};
+        _selectedStatusId = null;
+        _selectedPriority = null;
       });
     }
 
@@ -131,12 +131,10 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final ticketProvider = context.read<TicketProvider>();
 
-      // Reset provider filter state to avoid leaking from TicketsScreen
-      ticketProvider.setFilterStatusForPaging(null);
+      // Set server-side filters on provider (all single-select)
+      ticketProvider.setFilterStatusForPaging(_selectedStatusId);
       ticketProvider.setSearchQueryForPaging(trimmedQuery);
-      ticketProvider.setFilterPriorityForPaging(
-        _selectedPriorities.length == 1 ? _selectedPriorities.first : null,
-      );
+      ticketProvider.setFilterPriorityForPaging(_selectedPriority);
 
       // Fetch tickets from API with server-side filters
       final response = await ticketProvider.fetchTicketsPage(
@@ -155,13 +153,6 @@ class _SearchScreenState extends State<SearchScreen> {
         );
         return subjectMatch || descriptionMatch;
       }).toList();
-
-      // Filter by multiple priorities client-side (API only supports single priority)
-      if (_selectedPriorities.length > 1) {
-        filteredTickets = filteredTickets.where((ticket) {
-          return _selectedPriorities.contains(ticket.priority.value);
-        }).toList();
-      }
 
       if (mounted) {
         setState(() {
@@ -200,12 +191,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _onPriorityTap(String priority) {
     setState(() {
-      if (_selectedPriorities.contains(priority)) {
-        _selectedPriorities.remove(priority);
-      } else {
-        // Single select for server-side — replace existing
-        _selectedPriorities = {priority};
-      }
+      // Single-select toggle: tap again to deselect
+      _selectedPriority = _selectedPriority == priority ? null : priority;
     });
     // Perform filter search (works with or without text query)
     _performFilterSearch();
@@ -222,17 +209,13 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final ticketProvider = context.read<TicketProvider>();
 
-      // Reset provider filter state to avoid leaking from TicketsScreen
-      ticketProvider.setFilterStatusForPaging(null);
-
-      // Set server-side filters on provider
+      // Set server-side filters on provider (all single-select)
+      ticketProvider.setFilterStatusForPaging(_selectedStatusId);
       final searchQuery = _searchController.text.trim();
       ticketProvider.setSearchQueryForPaging(
         searchQuery.isNotEmpty ? searchQuery : null,
       );
-      ticketProvider.setFilterPriorityForPaging(
-        _selectedPriorities.length == 1 ? _selectedPriorities.first : null,
-      );
+      ticketProvider.setFilterPriorityForPaging(_selectedPriority);
 
       // Fetch tickets from API with server-side filters
       final response = await ticketProvider.fetchTicketsPage(
@@ -253,13 +236,6 @@ class _SearchScreenState extends State<SearchScreen> {
             searchLower,
           );
           return subjectMatch || descriptionMatch;
-        }).toList();
-      }
-
-      // Filter by multiple priorities client-side (API only supports single priority)
-      if (_selectedPriorities.length > 1) {
-        filteredTickets = filteredTickets.where((ticket) {
-          return _selectedPriorities.contains(ticket.priority.value);
         }).toList();
       }
 
@@ -292,12 +268,12 @@ class _SearchScreenState extends State<SearchScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => FilterBottomSheet(
         statuses: ticketProvider.statuses,
-        selectedStatusIds: _selectedStatusIds,
-        selectedPriorities: _selectedPriorities,
-        onApply: (statusIds, priorities) {
+        selectedStatusId: _selectedStatusId,
+        selectedPriority: _selectedPriority,
+        onApply: (statusId, priority) {
           setState(() {
-            _selectedStatusIds = statusIds;
-            _selectedPriorities = priorities;
+            _selectedStatusId = statusId;
+            _selectedPriority = priority;
           });
           // Re-perform search with new filters
           _performFilterSearch();
@@ -320,8 +296,8 @@ class _SearchScreenState extends State<SearchScreen> {
     _searchController.clear();
     setState(() {
       _screenState = SearchScreenState.initial;
-      _selectedStatusIds = {};
-      _selectedPriorities = {};
+      _selectedStatusId = null;
+      _selectedPriority = null;
     });
     _focusNode.requestFocus();
   }
@@ -486,7 +462,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
           // Priority quick-select (server-side filter)
           PriorityFilterSection(
-            selectedPriorities: _selectedPriorities,
+            selectedPriority: _selectedPriority,
             onPriorityTap: _onPriorityTap,
           ),
 
@@ -524,7 +500,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildResultsContent() {
     final hasActiveFilters =
-        _selectedStatusIds.isNotEmpty || _selectedPriorities.isNotEmpty;
+        _selectedStatusId != null || _selectedPriority != null;
 
     return Column(
       children: [
