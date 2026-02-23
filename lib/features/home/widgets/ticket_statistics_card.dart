@@ -1,6 +1,5 @@
-import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 
@@ -39,8 +38,8 @@ class TicketStatsData {
   }
 }
 
-/// Modern Ticket Statistics Card with donut chart and status grid
-class TicketStatisticsCard extends StatefulWidget {
+/// Ticket Overview with custom rounded donut chart and status legend
+class TicketStatisticsCard extends StatelessWidget {
   final Map<String, int> statusCounts;
   final bool isLoading;
 
@@ -50,45 +49,33 @@ class TicketStatisticsCard extends StatefulWidget {
     this.isLoading = false,
   });
 
-  @override
-  State<TicketStatisticsCard> createState() => _TicketStatisticsCardState();
-}
-
-class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
-  int? _touchedIndex;
-
-  TicketStatsData get _stats => TicketStatsData.fromMap(widget.statusCounts);
+  TicketStatsData get _stats => TicketStatsData.fromMap(statusCounts);
 
   List<_ChartItem> get _chartItems => [
     _ChartItem(
       label: 'Open',
       count: _stats.openCount,
-      color: const Color(0xFF3B82F6),
-      svgPath: 'assets/icons/dashboard/ic_open_status.svg',
+      color: AppColors.statusOpen,
     ),
     _ChartItem(
       label: 'In Progress',
       count: _stats.inProgressCount,
       color: const Color(0xFF8B5CF6),
-      svgPath: 'assets/icons/dashboard/ic_inprogress_status.svg',
     ),
     _ChartItem(
       label: 'Pending',
       count: _stats.pendingCount,
-      color: const Color(0xFFF59E0B),
-      svgPath: 'assets/icons/dashboard/ic_pending_status.svg',
+      color: AppColors.statusInProgress,
     ),
     _ChartItem(
       label: 'Resolved',
       count: _stats.resolvedCount,
-      color: const Color(0xFF10B981),
-      svgPath: 'assets/icons/dashboard/ic_resolved_status.svg',
+      color: AppColors.statusResolved,
     ),
     _ChartItem(
       label: 'Closed',
       count: _stats.closedCount,
-      color: const Color(0xFF64748B),
-      svgPath: 'assets/icons/dashboard/ic_closed_status.svg',
+      color: AppColors.statusClosed,
     ),
   ];
 
@@ -101,18 +88,15 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
       children: [
         _buildHeader(),
         const SizedBox(height: 16),
-        if (widget.isLoading)
+        if (isLoading)
           const SizedBox(
-            height: 180,
+            height: 140,
             child: Center(child: CircularProgressIndicator()),
           )
         else if (_totalCount == 0)
           _buildEmptyState()
-        else ...[
-          _buildDonutChart(),
-          const SizedBox(height: 20),
-          _buildStatusGrid(),
-        ],
+        else
+          _buildChartWithLegend(),
       ],
     );
   }
@@ -140,7 +124,7 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
 
   Widget _buildEmptyState() {
     return Container(
-      height: 180,
+      height: 140,
       decoration: BoxDecoration(
         color: AppColors.grey50,
         borderRadius: BorderRadius.circular(16),
@@ -163,177 +147,105 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
     );
   }
 
-  /// Centered donut chart with total count
-  Widget _buildDonutChart() {
-    final dataWithValues = _chartItems.where((d) => d.count > 0).toList();
+  /// Donut chart (left) + legend list (right)
+  Widget _buildChartWithLegend() {
+    final segments = _chartItems
+        .where((item) => item.count > 0)
+        .map(
+          (item) =>
+              _DonutSegment(color: item.color, value: item.count.toDouble()),
+        )
+        .toList();
 
-    return SizedBox(
-      height: 160,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          PieChart(
-            PieChartData(
-              pieTouchData: PieTouchData(
-                touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                  setState(() {
-                    if (!event.isInterestedForInteractions ||
-                        pieTouchResponse == null ||
-                        pieTouchResponse.touchedSection == null) {
-                      _touchedIndex = null;
-                      return;
-                    }
-                    _touchedIndex =
-                        pieTouchResponse.touchedSection!.touchedSectionIndex;
-                  });
-                },
-              ),
-              borderData: FlBorderData(show: false),
-              sectionsSpace: 3,
-              centerSpaceRadius: 48,
-              sections: _buildChartSections(dataWithValues),
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
+    return Row(
+      children: [
+        // Custom rounded donut chart
+        SizedBox(
+          width: 130,
+          height: 130,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Text(
-                _totalCount.toString(),
-                style: AppTextStyles.h2.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
+              CustomPaint(
+                size: const Size(130, 130),
+                painter: _RoundedDonutPainter(
+                  segments: segments,
+                  strokeWidth: 14,
                 ),
               ),
-              Text(
-                'Total',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+              // Total count in center
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _totalCount.toString(),
+                    style: AppTextStyles.h2.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Total',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  List<PieChartSectionData> _buildChartSections(
-    List<_ChartItem> dataWithValues,
-  ) {
-    return dataWithValues.asMap().entries.map((entry) {
-      final index = entry.key;
-      final data = entry.value;
-      final isTouched = index == _touchedIndex;
-      final radius = isTouched ? 24.0 : 20.0;
-
-      return PieChartSectionData(
-        color: data.color,
-        value: data.count.toDouble(),
-        title: '',
-        radius: radius,
-        borderSide: isTouched
-            ? BorderSide(color: AppColors.white, width: 2)
-            : BorderSide.none,
-      );
-    }).toList();
-  }
-
-  /// Status grid: 2 on top, 3 on bottom
-  Widget _buildStatusGrid() {
-    return Column(
-      children: [
-        // Row 1: Open, In Progress (wider cards)
-        Row(
-          children: [
-            Expanded(child: _buildStatusCard(_chartItems[0])),
-            const SizedBox(width: 8),
-            Expanded(child: _buildStatusCard(_chartItems[1])),
-          ],
         ),
-        const SizedBox(height: 8),
-        // Row 2: Pending, Resolved, Closed
-        Row(
-          children: [
-            Expanded(child: _buildStatusCard(_chartItems[2])),
-            const SizedBox(width: 8),
-            Expanded(child: _buildStatusCard(_chartItems[3])),
-            const SizedBox(width: 8),
-            Expanded(child: _buildStatusCard(_chartItems[4])),
-          ],
+
+        const SizedBox(width: 20),
+
+        // Legend list
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: _chartItems
+                .map((item) => _buildLegendItem(item))
+                .toList(),
+          ),
         ),
       ],
     );
   }
 
-  /// Single status card with icon, count, and percentage
-  Widget _buildStatusCard(_ChartItem item) {
+  Widget _buildLegendItem(_ChartItem item) {
     final percentage = _totalCount > 0
         ? (item.count / _totalCount * 100).toStringAsFixed(0)
         : '0';
 
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(15),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
         children: [
-          // Icon + label row
-          Row(
-            children: [
-              SvgPicture.asset(
-                item.svgPath,
-                width: 12,
-                height: 12,
-                colorFilter: ColorFilter.mode(item.color, BlendMode.srcIn),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  item.label,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: item.color,
+              shape: BoxShape.circle,
+            ),
           ),
-          const SizedBox(height: 8),
-          // Count + percentage
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                item.count.toString(),
-                style: AppTextStyles.h6.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              item.label,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
               ),
-              const SizedBox(width: 3),
-              Text(
-                '$percentage%',
-                style: AppTextStyles.caption.copyWith(
-                  color: item.color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 10,
-                ),
-              ),
-            ],
+            ),
+          ),
+          Text(
+            '$percentage%',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -341,16 +253,71 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
   }
 }
 
+// ─── Custom Rounded Donut Chart Painter ─────────────────────────────
+
+class _DonutSegment {
+  final Color color;
+  final double value;
+
+  const _DonutSegment({required this.color, required this.value});
+}
+
+class _RoundedDonutPainter extends CustomPainter {
+  final List<_DonutSegment> segments;
+  final double strokeWidth;
+
+  _RoundedDonutPainter({required this.segments, this.strokeWidth = 14});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (min(size.width, size.height) - strokeWidth) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final total = segments.fold<double>(0, (sum, s) => sum + s.value);
+    if (total == 0) return;
+
+    // Small gap in radians between segments
+    const gapAngle = 0.06;
+    final totalGap = gapAngle * segments.length;
+    final availableAngle = 2 * pi - totalGap;
+
+    // Start from top (-90 degrees)
+    double startAngle = -pi / 2;
+
+    // Draw each segment with rounded ends
+    for (final segment in segments) {
+      final sweepAngle = (segment.value / total) * availableAngle;
+
+      final paint = Paint()
+        ..color = segment.color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+
+      startAngle += sweepAngle + gapAngle;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoundedDonutPainter oldDelegate) {
+    return oldDelegate.segments != segments ||
+        oldDelegate.strokeWidth != strokeWidth;
+  }
+}
+
+// ─── Data Model ─────────────────────────────────────────────────────
+
 class _ChartItem {
   final String label;
   final int count;
   final Color color;
-  final String svgPath;
 
   const _ChartItem({
     required this.label,
     required this.count,
     required this.color,
-    required this.svgPath,
   });
 }
