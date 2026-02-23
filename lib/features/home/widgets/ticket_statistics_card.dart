@@ -56,26 +56,31 @@ class TicketStatisticsCard extends StatelessWidget {
       label: 'Open',
       count: _stats.openCount,
       color: AppColors.statusOpen,
+      gradientColors: [AppColors.primary600, AppColors.primary500],
     ),
     _ChartItem(
       label: 'In Progress',
       count: _stats.inProgressCount,
       color: const Color(0xFF8B5CF6),
+      gradientColors: [const Color(0xFF8B5CF6), const Color(0xFFA78BFA)],
     ),
     _ChartItem(
       label: 'Pending',
       count: _stats.pendingCount,
       color: AppColors.statusInProgress,
+      gradientColors: [AppColors.warning500, const Color(0xFFFBBF24)],
     ),
     _ChartItem(
       label: 'Resolved',
       count: _stats.resolvedCount,
       color: AppColors.statusResolved,
+      gradientColors: [AppColors.success500, const Color(0xFF34D399)],
     ),
     _ChartItem(
       label: 'Closed',
       count: _stats.closedCount,
       color: AppColors.statusClosed,
+      gradientColors: [AppColors.secondary500, AppColors.grey400],
     ),
   ];
 
@@ -152,8 +157,11 @@ class TicketStatisticsCard extends StatelessWidget {
     final segments = _chartItems
         .where((item) => item.count > 0)
         .map(
-          (item) =>
-              _DonutSegment(color: item.color, value: item.count.toDouble()),
+          (item) => _DonutSegment(
+            color: item.color,
+            value: item.count.toDouble(),
+            gradientColors: item.gradientColors,
+          ),
         )
         .toList();
 
@@ -258,8 +266,13 @@ class TicketStatisticsCard extends StatelessWidget {
 class _DonutSegment {
   final Color color;
   final double value;
+  final List<Color>? gradientColors;
 
-  const _DonutSegment({required this.color, required this.value});
+  const _DonutSegment({
+    required this.color,
+    required this.value,
+    this.gradientColors,
+  });
 }
 
 class _RoundedDonutPainter extends CustomPainter {
@@ -289,13 +302,50 @@ class _RoundedDonutPainter extends CustomPainter {
     for (final segment in segments) {
       final sweepAngle = (segment.value / total) * availableAngle;
 
-      final paint = Paint()
-        ..color = segment.color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round;
+      if (segment.gradientColors != null &&
+          segment.gradientColors!.length >= 2) {
+        // Draw gradient by splitting arc into small sub-segments
+        const steps = 30;
+        final c1 = segment.gradientColors!.first;
+        final c2 = segment.gradientColors!.last;
 
-      canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+        for (int i = 0; i < steps; i++) {
+          final t = i / steps;
+          final subStart = startAngle + sweepAngle * t;
+          final subSweep = sweepAngle / steps + 0.005; // tiny overlap
+          final color = Color.lerp(c1, c2, t)!;
+
+          final subPaint = Paint()
+            ..color = color
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = strokeWidth
+            ..strokeCap = StrokeCap.butt;
+
+          canvas.drawArc(rect, subStart, subSweep, false, subPaint);
+        }
+
+        // Rounded cap at start
+        final startCapCenter = Offset(
+          center.dx + radius * cos(startAngle),
+          center.dy + radius * sin(startAngle),
+        );
+        canvas.drawCircle(startCapCenter, strokeWidth / 2, Paint()..color = c1);
+
+        // Rounded cap at end
+        final endCapCenter = Offset(
+          center.dx + radius * cos(startAngle + sweepAngle),
+          center.dy + radius * sin(startAngle + sweepAngle),
+        );
+        canvas.drawCircle(endCapCenter, strokeWidth / 2, Paint()..color = c2);
+      } else {
+        final paint = Paint()
+          ..color = segment.color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.round;
+
+        canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+      }
 
       startAngle += sweepAngle + gapAngle;
     }
@@ -314,10 +364,12 @@ class _ChartItem {
   final String label;
   final int count;
   final Color color;
+  final List<Color>? gradientColors;
 
   const _ChartItem({
     required this.label,
     required this.count,
     required this.color,
+    this.gradientColors,
   });
 }
