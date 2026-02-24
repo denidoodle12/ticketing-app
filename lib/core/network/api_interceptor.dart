@@ -57,6 +57,8 @@ class ApiInterceptor extends Interceptor {
         );
 
       case DioExceptionType.connectionError:
+      case DioExceptionType.unknown:
+        // Both connectionError and unknown can occur when device is offline
         return handler.reject(
           DioException(
             requestOptions: err.requestOptions,

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/errors/exceptions.dart';
 import '../datasources/ticket_remote_datasource.dart';
@@ -23,6 +24,19 @@ class TicketRepository {
 
   bool get _useMock => _mockDatasource != null;
 
+  /// Check if an exception is a network-related error
+  /// DioException wraps our NetworkException inside its .error property
+  bool _isNetworkError(dynamic e) {
+    if (e is NetworkException) return true;
+    if (e is DioException) {
+      return e.error is NetworkException ||
+          e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.unknown;
+    }
+    return false;
+  }
+
   /// Get active categories for ticket creation dropdown
   /// Cache-first: fetch from API → cache locally → fallback to cache on network error
   Future<List<TicketCategory>> getActiveCategories() async {
@@ -47,6 +61,19 @@ class TicketRepository {
     } on ServerException {
       rethrow;
     } catch (e) {
+      // DioException wraps NetworkException — check and fallback
+      if (_isNetworkError(e)) {
+        final cached = await _localDatasource?.getCachedCategories();
+        if (cached != null && cached.isNotEmpty) {
+          debugPrint(
+            '[TicketRepository] Using cached categories (${cached.length} items)',
+          );
+          return cached;
+        }
+        throw NetworkException(
+          'No internet connection. Please check your network.',
+        );
+      }
       throw ServerException('Failed to load categories: $e');
     }
   }
@@ -73,12 +100,24 @@ class TicketRepository {
     } on ServerException {
       rethrow;
     } catch (e) {
+      if (_isNetworkError(e)) {
+        final cached = await _localDatasource?.getCachedStatuses();
+        if (cached != null && cached.isNotEmpty) {
+          debugPrint(
+            '[TicketRepository] Using cached statuses (${cached.length} items)',
+          );
+          return cached;
+        }
+        throw NetworkException(
+          'No internet connection. Please check your network.',
+        );
+      }
       throw ServerException('Failed to load statuses: $e');
     }
   }
 
   /// Get paginated list of tickets (customer sees only own tickets)
-  /// Cache-first: fetch from API → cache page 1 → fallback to cache on network error
+  /// Cache-first: fetch from API → cache → fallback to cache on network error
   Future<TicketListResponse> getTickets({
     int page = 1,
     int limit = 10,
@@ -127,6 +166,24 @@ class TicketRepository {
     } on ServerException {
       rethrow;
     } catch (e) {
+      if (_isNetworkError(e)) {
+        final cached = await _localDatasource?.getCachedTickets(
+          page: page,
+          limit: limit,
+          statusId: statusId,
+          priority: priority,
+          search: search,
+        );
+        if (cached != null && cached.tickets.isNotEmpty) {
+          debugPrint(
+            '[TicketRepository] Using cached tickets (${cached.tickets.length} items)',
+          );
+          return cached;
+        }
+        throw NetworkException(
+          'No internet connection. Please check your network.',
+        );
+      }
       throw ServerException('Failed to load tickets: $e');
     }
   }
@@ -164,6 +221,20 @@ class TicketRepository {
     } on UnauthorizedException {
       rethrow;
     } catch (e) {
+      if (_isNetworkError(e)) {
+        final cachedTicket = await _localDatasource?.getCachedTicketById(id);
+        if (cachedTicket != null) {
+          debugPrint('[TicketRepository] Using cached ticket #$id');
+          return TicketDetailResponse(
+            ticket: cachedTicket,
+            comments: [],
+            totalComments: 0,
+          );
+        }
+        throw NetworkException(
+          'No internet connection. Please check your network.',
+        );
+      }
       throw ServerException('Failed to load ticket: $e');
     }
   }
