@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../tickets/repositories/ticket_repository.dart';
 import '../models/dashboard_stats_model.dart';
 
 /// Ticket Activity Chart with custom pill-shaped bars
@@ -45,7 +48,19 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
     _loadTrendData();
   }
 
+  /// Build a unique cache key for this trend query
+  String _buildCacheKey() {
+    if (_selectedPeriod == 'monthly') {
+      final month = _selectedMonth.month.toString().padLeft(2, '0');
+      return 'trend_${_selectedPeriod}_${_selectedMonth.year}-$month';
+    }
+    return 'trend_$_selectedPeriod';
+  }
+
   Future<void> _loadTrendData() async {
+    // Capture repo before async gap to avoid BuildContext lint
+    final repo = context.read<TicketRepository>();
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -70,26 +85,65 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
       );
 
       final stats = DashboardStats.fromJson(response.data);
+
+      // Cache the trend data for offline use
+      try {
+        final cacheKey = _buildCacheKey();
+        final jsonData = jsonEncode(response.data);
+        await repo.localDatasource?.cacheDashboardStats(cacheKey, jsonData);
+      } catch (_) {
+        // Cache failure is non-critical
+      }
+
       if (mounted) {
         setState(() {
           _trendData = stats.trend;
           _isLoading = false;
         });
       }
-    } on DioException catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.message ?? 'Failed to load activity data';
-          _isLoading = false;
-        });
-      }
+    } on DioException catch (_) {
+      // Offline — try to load from cache
+      await _loadFromCache(repo);
     } catch (e) {
-      if (mounted) {
+      // Also try cache on any network-related error
+      if (e is DioException) {
+        await _loadFromCache(repo);
+      } else if (mounted) {
         setState(() {
           _error = 'Failed to load activity data';
           _isLoading = false;
         });
       }
+    }
+  }
+
+  /// Load trend data from local cache
+  Future<void> _loadFromCache(TicketRepository repo) async {
+    try {
+      final cacheKey = _buildCacheKey();
+      final cachedJson = await repo.localDatasource?.getCachedDashboardStats(
+        cacheKey,
+      );
+
+      if (cachedJson != null && mounted) {
+        final data = jsonDecode(cachedJson) as Map<String, dynamic>;
+        final stats = DashboardStats.fromJson(data);
+        setState(() {
+          _trendData = stats.trend;
+          _isLoading = false;
+        });
+        return;
+      }
+    } catch (_) {
+      // Cache read failed
+    }
+
+    // No cache available
+    if (mounted) {
+      setState(() {
+        _error = 'No internet connection';
+        _isLoading = false;
+      });
     }
   }
 
