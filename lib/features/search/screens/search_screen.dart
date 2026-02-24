@@ -136,29 +136,17 @@ class _SearchScreenState extends State<SearchScreen> {
       ticketProvider.setSearchQueryForPaging(trimmedQuery);
       ticketProvider.setFilterPriorityForPaging(_selectedPriority);
 
-      // Fetch tickets from API with server-side filters
+      // Fetch tickets from API with server-side filters & search
       final response = await ticketProvider.fetchTicketsPage(
         page: 1,
-        limit: 50,
+        limit: 20,
       );
-
-      var filteredTickets = response.tickets.toList();
-
-      // Client-side search fallback (in case backend ignores search param)
-      final searchLower = trimmedQuery.toLowerCase();
-      filteredTickets = filteredTickets.where((ticket) {
-        final subjectMatch = ticket.subject.toLowerCase().contains(searchLower);
-        final descriptionMatch = ticket.description.toLowerCase().contains(
-          searchLower,
-        );
-        return subjectMatch || descriptionMatch;
-      }).toList();
 
       if (mounted) {
         setState(() {
-          _searchResults = filteredTickets;
-          _totalResults = filteredTickets.length;
-          _screenState = filteredTickets.isEmpty
+          _searchResults = response.tickets;
+          _totalResults = response.total;
+          _screenState = response.tickets.isEmpty
               ? SearchScreenState.empty
               : SearchScreenState.results;
         });
@@ -217,33 +205,17 @@ class _SearchScreenState extends State<SearchScreen> {
       );
       ticketProvider.setFilterPriorityForPaging(_selectedPriority);
 
-      // Fetch tickets from API with server-side filters
+      // Fetch tickets from API with server-side filters & search
       final response = await ticketProvider.fetchTicketsPage(
         page: 1,
-        limit: 50,
+        limit: 20,
       );
-
-      var filteredTickets = response.tickets.toList();
-
-      // Client-side search fallback (in case backend ignores search param)
-      if (searchQuery.isNotEmpty) {
-        final searchLower = searchQuery.toLowerCase();
-        filteredTickets = filteredTickets.where((ticket) {
-          final subjectMatch = ticket.subject.toLowerCase().contains(
-            searchLower,
-          );
-          final descriptionMatch = ticket.description.toLowerCase().contains(
-            searchLower,
-          );
-          return subjectMatch || descriptionMatch;
-        }).toList();
-      }
 
       if (mounted) {
         setState(() {
-          _searchResults = filteredTickets;
-          _totalResults = filteredTickets.length;
-          _screenState = filteredTickets.isEmpty
+          _searchResults = response.tickets;
+          _totalResults = response.total;
+          _screenState = response.tickets.isEmpty
               ? SearchScreenState.empty
               : SearchScreenState.results;
         });

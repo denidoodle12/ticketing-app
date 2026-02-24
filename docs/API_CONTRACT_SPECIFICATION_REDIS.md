@@ -131,6 +131,27 @@
 }
 ```
 
+- **429 Too Many Requests** - Rate limited:
+
+```json
+{
+  "error": "too_many_requests",
+  "message": "too many login attempts, please try again in 5 minutes",
+  "retry_after": 300
+}
+```
+
+> [!WARNING]
+>
+> **Rate Limiting:** Login endpoint is rate limited to **5 attempts per IP** with a **5 minute cooldown**.
+>
+> - After 5 failed/successful attempts from the same IP → returns **429** for 5 minutes
+> - Response headers on every login request:
+>   - `X-RateLimit-Limit: 5` — maximum attempts allowed
+>   - `X-RateLimit-Remaining: 3` — remaining attempts in current window
+> - Counter resets automatically after 5 minutes (stored in Redis)
+> - If Redis is unavailable, rate limiting is bypassed (fail-open)
+
 **JWT Access Token Claims:**
 
 ```json
@@ -2741,9 +2762,11 @@ Open → In Progress → Pending → Resolved → Closed
 | `category_id`      | integer | Filter by category ID                                                                                 |
 | `priority`         | string  | Filter by priority (low, medium, high, critical)                                                      |
 | `assigned_to`      | integer | Filter by assigned agent ID                                                                           |
+| `is_assigned`      | boolean | Filter by assignment status (`true` = assigned, `false` = unassigned)                                 |
 | `created_by`       | integer | Filter by creator user ID                                                                             |
 | `is_overdue`       | boolean | Filter overdue tickets (`true` / `false`)                                                             |
 | `response_delayed` | boolean | Filter response-delayed tickets (`true` = past response deadline without first response)              |
+| `search`           | string  | Search in subject and description (case-insensitive, partial match)                                   |
 | `sort_by`          | string  | Sort field: `created_at`, `updated_at`, `due_date`, `priority`, `status_id`, `category_id`, `subject` |
 | `order`            | string  | Sort direction: `asc` or `desc` (default: `desc`)                                                     |
 | `page`             | integer | Page number (default: 1)                                                                              |
@@ -2759,6 +2782,10 @@ Open → In Progress → Pending → Resolved → Closed
 ```
 GET /tickets?status_id=1&priority=high&page=1&limit=20
 GET /tickets?assigned_to=5&category_id=2
+GET /tickets?is_assigned=false                          ← Get unassigned tickets
+GET /tickets?is_assigned=true&status_id=2               ← Get assigned tickets with status in_progress
+GET /tickets?search=login                               ← Search "login" in subject & description
+GET /tickets?search=password&priority=high              ← Search + filter combined
 GET /tickets?sort_by=created_at&order=desc
 GET /tickets?sort_by=due_date&order=asc
 GET /tickets?sort_by=updated_at&order=desc&priority=high
@@ -4506,14 +4533,16 @@ Authorization: Bearer <jwt_token>
 
 #### Query Parameters (Semua Optional)
 
-| Parameter     | Type   | Format       | Description                                                    |
-| ------------- | ------ | ------------ | -------------------------------------------------------------- |
-| `start_date`  | string | `YYYY-MM-DD` | Filter dari tanggal                                            |
-| `end_date`    | string | `YYYY-MM-DD` | Filter sampai tanggal                                          |
-| `status_id`   | int    | -            | Filter berdasarkan status ID                                   |
-| `agent_id`    | int    | -            | Filter berdasarkan agent (assigned_to)                         |
-| `category_id` | int    | -            | Filter berdasarkan category ID                                 |
-| `priority`    | string | -            | Filter berdasarkan priority (`low`/`medium`/`high`/`critical`) |
+| Parameter     | Type   | Format       | Description                                                          |
+| ------------- | ------ | ------------ | -------------------------------------------------------------------- |
+| `start_date`  | string | `YYYY-MM-DD` | Filter dari tanggal                                                  |
+| `end_date`    | string | `YYYY-MM-DD` | Filter sampai tanggal                                                |
+| `status_id`   | int    | -            | Filter berdasarkan status ID                                         |
+| `agent_id`    | int    | -            | Filter berdasarkan agent (assigned_to)                               |
+| `category_id` | int    | -            | Filter berdasarkan category ID                                       |
+| `priority`    | string | -            | Filter berdasarkan priority (`low`/`medium`/`high`/`critical`)       |
+| `page`        | int    | -            | Nomor halaman (default: 1, tidak boleh negatif)                      |
+| `limit`       | int    | -            | Jumlah item per halaman (default: 20, max: 100, tidak boleh negatif) |
 
 #### Parameter Validation
 
@@ -4524,6 +4553,9 @@ Authorization: Bearer <jwt_token>
 > - `start_date` tidak boleh setelah `end_date`
 > - `priority` hanya menerima: `low`, `medium`, `high`, `critical`
 > - `status_id`, `agent_id`, `category_id` harus berupa angka
+> - `page` dan `limit` tidak boleh bernilai negatif (akan mengembalikan error 400)
+> - Jika `page` tidak diisi atau `0`, default ke `1`
+> - Jika `limit` tidak diisi atau `0`, default ke `20`; maksimum `100`
 
 #### Contoh Request
 
@@ -4538,6 +4570,10 @@ Authorization: Bearer <token>
 
 # Filter kombinasi
 GET /reports?start_date=2026-01-01&end_date=2026-02-19&status_id=1&agent_id=5&priority=high
+Authorization: Bearer <token>
+
+# Dengan pagination
+GET /reports?page=2&limit=10
 Authorization: Bearer <token>
 ```
 
@@ -4610,6 +4646,12 @@ Authorization: Bearer <token>
         "closed_at": null
       }
     ],
+    "pagination": {
+      "total": 150,
+      "page": 1,
+      "limit": 20,
+      "total_pages": 8
+    },
     "filters_applied": {
       "start_date": "2026-01-01",
       "end_date": "2026-02-19"
@@ -4650,6 +4692,15 @@ Authorization: Bearer <token>
 | `priority`      | string        | `low`/`medium`/`high`/`critical`                 |
 | `created_at`    | datetime      | Waktu pembuatan tiket                            |
 | `closed_at`     | datetime/null | Waktu penutupan (null jika belum ditutup)        |
+
+#### Response Fields — Pagination
+
+| Field         | Type | Description                       |
+| ------------- | ---- | --------------------------------- |
+| `total`       | int  | Total seluruh tiket sesuai filter |
+| `page`        | int  | Halaman saat ini                  |
+| `limit`       | int  | Jumlah item per halaman           |
+| `total_pages` | int  | Total halaman yang tersedia       |
 
 #### SLA Status Logic
 
@@ -4694,6 +4745,24 @@ Authorization: Bearer <token>
 {
   "error": "invalid priority 'xyz', valid values: low, medium, high, critical",
   "hint": "use format: start_date=2026-01-01&end_date=2026-02-19&status_id=1&agent_id=2&category_id=3&priority=high"
+}
+```
+
+**Negative Page (400):**
+
+```json
+{
+  "error": "page cannot be negative, got -1",
+  "hint": "use format: start_date=2026-01-01&end_date=2026-02-19&status_id=1&agent_id=2&category_id=3&priority=high&page=1&limit=20"
+}
+```
+
+**Negative Limit (400):**
+
+```json
+{
+  "error": "limit cannot be negative, got -5",
+  "hint": "use format: start_date=2026-01-01&end_date=2026-02-19&status_id=1&agent_id=2&category_id=3&priority=high&page=1&limit=20"
 }
 ```
 

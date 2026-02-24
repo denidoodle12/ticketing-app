@@ -83,36 +83,16 @@ class _TicketsScreenState extends State<TicketsScreen> {
         _isFilterInitialized = true;
       }
 
-      // When search is active, fetch larger batch for client-side filtering
-      // (backend doesn't support search query param yet)
-      final searchQuery = _searchController.text.trim();
-      final fetchLimit = searchQuery.isNotEmpty ? 50 : _pageSize;
-
-      // Fetch tickets from provider/repository (server-side filtering)
+      // Fetch tickets from provider/repository (server-side filtering & search)
       final response = await ticketProvider.fetchTicketsPage(
         page: pageKey,
-        limit: fetchLimit,
+        limit: _pageSize,
       );
 
       // Check if widget is still mounted before updating controller
       if (!mounted) return;
 
       var newItems = response.tickets.toList();
-
-      // Client-side search by subject/description
-      // (backend doesn't handle search param — same approach as SearchScreen)
-      if (searchQuery.isNotEmpty) {
-        final searchLower = searchQuery.toLowerCase();
-        newItems = newItems.where((ticket) {
-          final subjectMatch = ticket.subject.toLowerCase().contains(
-            searchLower,
-          );
-          final descriptionMatch = ticket.description.toLowerCase().contains(
-            searchLower,
-          );
-          return subjectMatch || descriptionMatch;
-        }).toList();
-      }
 
       // Only client-side filter: hide closed tickets when "All" tab is active
       // and no explicit status filter is set from bottom sheet
@@ -125,7 +105,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
       // Determine if this is the last page based on API response
       final isLastPage =
-          !response.hasNext || response.tickets.length < fetchLimit;
+          !response.hasNext || response.tickets.length < _pageSize;
 
       if (isLastPage) {
         _pagingController.appendLastPage(newItems);
