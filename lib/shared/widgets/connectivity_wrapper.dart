@@ -1,26 +1,36 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/network/connectivity_service.dart';
 import '../../core/utils/toast_helper.dart';
-import '../../routes/app_routes.dart';
-import 'no_internet_dialog.dart';
+import '../../features/tickets/repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
+import 'offline_banner.dart';
+import 'offline_page.dart';
 
+/// Smart connectivity wrapper that handles offline mode gracefully:
+/// - Has cached data + offline → show content with an offline banner
+/// - No cached data + offline → show dedicated offline page
+/// - Connection restored → auto-sync in background + hide banner
 class ConnectivityWrapper extends StatefulWidget {
   final Widget child;
 
-  const ConnectivityWrapper({
-    super.key,
-    required this.child,
-  });
+  const ConnectivityWrapper({super.key, required this.child});
 
   @override
   State<ConnectivityWrapper> createState() => _ConnectivityWrapperState();
 }
 
-class _ConnectivityWrapperState extends State<ConnectivityWrapper> with WidgetsBindingObserver {
+class _ConnectivityWrapperState extends State<ConnectivityWrapper>
+    with WidgetsBindingObserver {
   final ConnectivityService _connectivityService = ConnectivityService();
   StreamSubscription<bool>? _subscription;
-  bool _isDialogShowing = false;
+
+  bool _isConnected = true;
+  bool _hasCache = false;
+  bool _isRetrying = false;
+  bool _isInitialized = false;
+  bool _showBanner = false;
 
   @override
   void initState() {
@@ -32,86 +42,135 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> with WidgetsB
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkAndShowDialog();
+      _checkConnectivity();
     }
   }
 
   Future<void> _initConnectivity() async {
-    // Listen for connectivity changes from service
-    _subscription = _connectivityService.connectionStream.listen((isConnected) {
-      if (!isConnected && !_isDialogShowing) {
-        _showNoInternetDialog();
-      } else if (isConnected && _isDialogShowing) {
-        _hideNoInternetDialog();
-      }
-    });
+    // Listen for connectivity changes
+    _subscription = _connectivityService.connectionStream.listen(
+      _onConnectivityChanged,
+    );
 
-    // Small delay to ensure navigator is ready, then do initial check
+    // Small delay to ensure providers are ready
     await Future.delayed(const Duration(milliseconds: 800));
-    await _checkAndShowDialog();
-  }
 
-  Future<void> _checkAndShowDialog() async {
-    final isConnected = await _connectivityService.checkConnectivity();
+    // Initial check
+    await _checkConnectivity();
 
-    if (!isConnected && !_isDialogShowing) {
-      _showNoInternetDialog();
-    } else if (isConnected && _isDialogShowing) {
-      _hideNoInternetDialog();
+    if (mounted) {
+      setState(() {
+        _isInitialized = true;
+      });
     }
   }
 
-  void _showNoInternetDialog() {
-    final navigatorContext = AppRoutes.navigatorKey.currentContext;
+  void _onConnectivityChanged(bool isConnected) {
+    if (!mounted) return;
 
-    if (navigatorContext == null || _isDialogShowing) return;
+    final wasConnected = _isConnected;
 
-    _isDialogShowing = true;
-
-    showDialog(
-      context: navigatorContext,
-      barrierDismissible: false,
-      useRootNavigator: true,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-      builder: (dialogContext) => PopScope(
-        canPop: false,
-        child: NoInternetDialog(
-          onRefresh: () async {
-            final isNowConnected = await _connectivityService.checkConnectivity();
-
-            if (isNowConnected) {
-              _connectivityService.notifyConnectionRestored();
-              _hideNoInternetDialog();
-            } else {
-              if (dialogContext.mounted) {
-                ToastHelper.showError(
-                  dialogContext,
-                  'No Connection',
-                  description: 'Still no internet connection. Please try again.',
-                );
-              }
-            }
-          },
-        ),
-      ),
-    ).then((_) {
-      _isDialogShowing = false;
-      // If still no connection, show dialog again
-      if (!_connectivityService.isConnected) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          _showNoInternetDialog();
-        });
-      }
+    setState(() {
+      _isConnected = isConnected;
     });
+
+    if (isConnected && !wasConnected) {
+      // Connection restored → auto-sync
+      _onConnectionRestored();
+    } else if (!isConnected && wasConnected) {
+      // Connection lost → check cache and show appropriate UI
+      _onConnectionLost();
+    }
   }
 
-  void _hideNoInternetDialog() {
-    if (!_isDialogShowing) return;
+  Future<void> _checkConnectivity() async {
+    final isConnected = await _connectivityService.checkConnectivity();
+    await _checkCache();
 
-    final navigatorState = AppRoutes.navigatorKey.currentState;
-    if (navigatorState != null && navigatorState.canPop()) {
-      navigatorState.pop();
-      _isDialogShowing = false;
+    if (mounted) {
+      setState(() {
+        _isConnected = isConnected;
+        _showBanner = !isConnected && _hasCache;
+      });
+    }
+  }
+
+  Future<void> _checkCache() async {
+    try {
+      final ticketRepo = context.read<TicketRepository>();
+      _hasCache = await ticketRepo.hasCache();
+    } catch (_) {
+      _hasCache = false;
+    }
+  }
+
+  void _onConnectionLost() async {
+    await _checkCache();
+
+    if (mounted) {
+      setState(() {
+        _showBanner = _hasCache;
+      });
+    }
+  }
+
+  void _onConnectionRestored() {
+    _connectivityService.notifyConnectionRestored();
+
+    setState(() {
+      _showBanner = false;
+    });
+
+    // Auto-sync data in background
+    _autoSync();
+
+    if (mounted) {
+      ToastHelper.showSuccess(
+        context,
+        'Back Online',
+        description: 'Connection restored. Syncing data...',
+      );
+    }
+  }
+
+  /// Auto-sync data when connection is restored
+  void _autoSync() {
+    try {
+      final ticketProvider = context.read<TicketProvider>();
+      // Refresh home data (stats + recent tickets)
+      ticketProvider.loadHomeData();
+      // Refresh categories and statuses
+      ticketProvider.loadCategories();
+      ticketProvider.loadStatuses();
+    } catch (_) {
+      // Silently fail — data will sync on next manual navigation
+    }
+  }
+
+  Future<void> _onRetry() async {
+    if (_isRetrying) return;
+
+    setState(() {
+      _isRetrying = true;
+    });
+
+    final isConnected = await _connectivityService.checkConnectivity();
+
+    if (mounted) {
+      setState(() {
+        _isConnected = isConnected;
+        _isRetrying = false;
+      });
+
+      if (isConnected) {
+        _onConnectionRestored();
+      } else {
+        ToastHelper.showError(
+          context,
+          'No Connection',
+          description: 'Still no internet connection. Please try again.',
+        );
+      }
     }
   }
 
@@ -124,6 +183,24 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> with WidgetsB
 
   @override
   Widget build(BuildContext context) {
-    return widget.child;
+    // Not initialized yet — show the app normally
+    if (!_isInitialized) {
+      return widget.child;
+    }
+
+    // Offline + No cache → show full offline page
+    if (!_isConnected && !_hasCache) {
+      return OfflinePage(onRetry: _onRetry, isRetrying: _isRetrying);
+    }
+
+    // Online or Offline with cache → show app content with optional banner
+    return Column(
+      children: [
+        // Offline banner slides in/out
+        OfflineBanner(isVisible: _showBanner, onRetry: _onRetry),
+        // App content
+        Expanded(child: widget.child),
+      ],
+    );
   }
 }
