@@ -39,7 +39,7 @@ class TicketStatsData {
 }
 
 /// Ticket Overview with custom rounded donut chart and status legend
-class TicketStatisticsCard extends StatelessWidget {
+class TicketStatisticsCard extends StatefulWidget {
   final Map<String, int> statusCounts;
   final bool isLoading;
 
@@ -49,7 +49,14 @@ class TicketStatisticsCard extends StatelessWidget {
     this.isLoading = false,
   });
 
-  TicketStatsData get _stats => TicketStatsData.fromMap(statusCounts);
+  @override
+  State<TicketStatisticsCard> createState() => _TicketStatisticsCardState();
+}
+
+class _TicketStatisticsCardState extends State<TicketStatisticsCard> {
+  int? _selectedIndex;
+
+  TicketStatsData get _stats => TicketStatsData.fromMap(widget.statusCounts);
 
   List<_ChartItem> get _chartItems => [
     _ChartItem(
@@ -92,10 +99,10 @@ class TicketStatisticsCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildHeader(),
-        const SizedBox(height: 16),
-        if (isLoading)
+        const SizedBox(height: 20),
+        if (widget.isLoading)
           const SizedBox(
-            height: 140,
+            height: 130,
             child: Center(child: CircularProgressIndicator()),
           )
         else if (_totalCount == 0)
@@ -107,29 +114,18 @@ class TicketStatisticsCard extends StatelessWidget {
   }
 
   Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Ticket Overview',
-          style: AppTextStyles.h6.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          'All Time',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
+    return Text(
+      'Ticket Overview',
+      style: AppTextStyles.h6.copyWith(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.bold,
+      ),
     );
   }
 
   Widget _buildEmptyState() {
     return Container(
-      height: 140,
+      height: 130,
       decoration: BoxDecoration(
         color: AppColors.grey50,
         borderRadius: BorderRadius.circular(16),
@@ -138,10 +134,10 @@ class TicketStatisticsCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.pie_chart_outline, size: 48, color: AppColors.grey300),
-            const SizedBox(height: 12),
+            Icon(Icons.pie_chart_outline, size: 40, color: AppColors.grey300),
+            const SizedBox(height: 8),
             Text(
-              'No ticket data available',
+              'No ticket data yet',
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -154,8 +150,9 @@ class TicketStatisticsCard extends StatelessWidget {
 
   /// Donut chart (left) + legend list (right)
   Widget _buildChartWithLegend() {
-    final segments = _chartItems
-        .where((item) => item.count > 0)
+    // Only segments with data
+    final activeItems = _chartItems.where((item) => item.count > 0).toList();
+    final segments = activeItems
         .map(
           (item) => _DonutSegment(
             color: item.color,
@@ -165,43 +162,63 @@ class TicketStatisticsCard extends StatelessWidget {
         )
         .toList();
 
+    // Calculate segment angles for hit detection
+    const gapAngle = 0.06;
+    final totalGap = gapAngle * segments.length;
+    final availableAngle = 2 * pi - totalGap;
+    final total = segments.fold<double>(0, (sum, s) => sum + s.value);
+
     return Row(
       children: [
-        // Custom rounded donut chart
-        SizedBox(
-          width: 130,
-          height: 130,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              CustomPaint(
-                size: const Size(130, 130),
-                painter: _RoundedDonutPainter(
-                  segments: segments,
-                  strokeWidth: 14,
+        // Custom rounded donut chart with tap detection
+        GestureDetector(
+          onTapUp: (details) {
+            if (total == 0) return;
+            _handleDonutTap(
+              details.localPosition,
+              activeItems,
+              total,
+              availableAngle,
+              gapAngle,
+            );
+          },
+          child: SizedBox(
+            width: 130,
+            height: 130,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CustomPaint(
+                  size: const Size(130, 130),
+                  painter: _RoundedDonutPainter(
+                    segments: segments,
+                    strokeWidth: 14,
+                    selectedIndex: _selectedIndex != null
+                        ? activeItems.indexWhere(
+                            (item) =>
+                                item.label ==
+                                _chartItems[_selectedIndex!].label,
+                          )
+                        : null,
+                  ),
                 ),
-              ),
-              // Total count in center
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _totalCount.toString(),
-                    style: AppTextStyles.h2.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
+                // Center text: total or selected segment info
+                GestureDetector(
+                  onTap: () {
+                    // Tap center to dismiss selection
+                    if (_selectedIndex != null) {
+                      setState(() => _selectedIndex = null);
+                    }
+                  },
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _selectedIndex != null
+                        ? _buildSelectedCenter()
+                        : _buildTotalCenter(),
                   ),
-                  Text(
-                    'Total',
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
 
@@ -212,50 +229,171 @@ class TicketStatisticsCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: _chartItems
-                .map((item) => _buildLegendItem(item))
-                .toList(),
+            children: _chartItems.asMap().entries.map((entry) {
+              return _buildLegendItem(entry.value, entry.key);
+            }).toList(),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildLegendItem(_ChartItem item) {
+  void _handleDonutTap(
+    Offset localPosition,
+    List<_ChartItem> activeItems,
+    double total,
+    double availableAngle,
+    double gapAngle,
+  ) {
+    final center = const Offset(65, 65); // 130/2
+    final dx = localPosition.dx - center.dx;
+    final dy = localPosition.dy - center.dy;
+    final distance = sqrt(dx * dx + dy * dy);
+
+    // Only respond to taps on the donut ring area (not center, not outside)
+    const strokeWidth = 14.0;
+    final radius = (130 - strokeWidth) / 2;
+    if (distance < radius - strokeWidth || distance > radius + strokeWidth) {
+      // Tapped outside the ring — dismiss
+      if (_selectedIndex != null) {
+        setState(() => _selectedIndex = null);
+      }
+      return;
+    }
+
+    // Calculate angle from top (same as painter's start angle)
+    var angle = atan2(dy, dx) + pi / 2; // rotate so 0 = top
+    if (angle < 0) angle += 2 * pi;
+
+    // Find which segment was tapped
+    double cumAngle = 0;
+    for (int i = 0; i < activeItems.length; i++) {
+      final sweepAngle =
+          (activeItems[i].count.toDouble() / total) * availableAngle;
+      if (angle >= cumAngle && angle < cumAngle + sweepAngle) {
+        // Find the original index in _chartItems
+        final originalIndex = _chartItems.indexWhere(
+          (item) => item.label == activeItems[i].label,
+        );
+        setState(() {
+          _selectedIndex = _selectedIndex == originalIndex
+              ? null
+              : originalIndex;
+        });
+        return;
+      }
+      cumAngle += sweepAngle + gapAngle;
+    }
+  }
+
+  Widget _buildTotalCenter() {
+    return Column(
+      key: const ValueKey('total'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _totalCount.toString(),
+          style: AppTextStyles.h2.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          'Total',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.textSecondary,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedCenter() {
+    final item = _chartItems[_selectedIndex!];
+    return Column(
+      key: ValueKey('selected_${item.label}'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          item.count.toString(),
+          style: AppTextStyles.h2.copyWith(
+            color: item.color,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          item.label,
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.textSecondary,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLegendItem(_ChartItem item, int index) {
     final percentage = _totalCount > 0
         ? (item.count / _totalCount * 100).toStringAsFixed(0)
         : '0';
+    final isSelected = _selectedIndex == index;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: item.color,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              item.label,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w500,
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedIndex = _selectedIndex == index ? null : index;
+        });
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? item.color.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: isSelected ? 12 : 10,
+              height: isSelected ? 12 : 10,
+              decoration: BoxDecoration(
+                color: item.color,
+                shape: BoxShape.circle,
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: item.color.withValues(alpha: 0.4),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
               ),
             ),
-          ),
-          Text(
-            '$percentage%',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                item.label,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
             ),
-          ),
-        ],
+            Text(
+              '$percentage%',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: isSelected ? item.color : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -278,8 +416,13 @@ class _DonutSegment {
 class _RoundedDonutPainter extends CustomPainter {
   final List<_DonutSegment> segments;
   final double strokeWidth;
+  final int? selectedIndex;
 
-  _RoundedDonutPainter({required this.segments, this.strokeWidth = 14});
+  _RoundedDonutPainter({
+    required this.segments,
+    this.strokeWidth = 14,
+    this.selectedIndex,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -299,8 +442,11 @@ class _RoundedDonutPainter extends CustomPainter {
     double startAngle = -pi / 2;
 
     // Draw each segment with rounded ends
-    for (final segment in segments) {
+    for (int idx = 0; idx < segments.length; idx++) {
+      final segment = segments[idx];
       final sweepAngle = (segment.value / total) * availableAngle;
+      final isSelected = selectedIndex == idx;
+      final currentStrokeWidth = isSelected ? strokeWidth + 3 : strokeWidth;
 
       if (segment.gradientColors != null &&
           segment.gradientColors!.length >= 2) {
@@ -318,7 +464,7 @@ class _RoundedDonutPainter extends CustomPainter {
           final subPaint = Paint()
             ..color = color
             ..style = PaintingStyle.stroke
-            ..strokeWidth = strokeWidth
+            ..strokeWidth = currentStrokeWidth
             ..strokeCap = StrokeCap.butt;
 
           canvas.drawArc(rect, subStart, subSweep, false, subPaint);
@@ -329,19 +475,27 @@ class _RoundedDonutPainter extends CustomPainter {
           center.dx + radius * cos(startAngle),
           center.dy + radius * sin(startAngle),
         );
-        canvas.drawCircle(startCapCenter, strokeWidth / 2, Paint()..color = c1);
+        canvas.drawCircle(
+          startCapCenter,
+          currentStrokeWidth / 2,
+          Paint()..color = c1,
+        );
 
         // Rounded cap at end
         final endCapCenter = Offset(
           center.dx + radius * cos(startAngle + sweepAngle),
           center.dy + radius * sin(startAngle + sweepAngle),
         );
-        canvas.drawCircle(endCapCenter, strokeWidth / 2, Paint()..color = c2);
+        canvas.drawCircle(
+          endCapCenter,
+          currentStrokeWidth / 2,
+          Paint()..color = c2,
+        );
       } else {
         final paint = Paint()
           ..color = segment.color
           ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeWidth
+          ..strokeWidth = currentStrokeWidth
           ..strokeCap = StrokeCap.round;
 
         canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
@@ -354,7 +508,8 @@ class _RoundedDonutPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RoundedDonutPainter oldDelegate) {
     return oldDelegate.segments != segments ||
-        oldDelegate.strokeWidth != strokeWidth;
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.selectedIndex != selectedIndex;
   }
 }
 
