@@ -13,7 +13,9 @@ import 'features/auth/datasources/forgot_password_remote_datasource.dart';
 import 'features/auth/repositories/auth_repository.dart';
 import 'features/tickets/datasources/ticket_remote_datasource.dart';
 import 'features/tickets/datasources/ticket_mock_datasource.dart';
+import 'features/tickets/datasources/ticket_local_datasource.dart';
 import 'features/tickets/repositories/ticket_repository.dart';
+import 'data/datasources/local/database_helper.dart';
 import 'features/notifications/repositories/notification_repository.dart';
 import 'providers/auth_provider.dart';
 import 'providers/ticket_provider.dart';
@@ -58,7 +60,7 @@ class MyApp extends StatelessWidget {
           create: (context) => AuthProvider(context.read<AuthRepository>()),
         ),
 
-        // Provide TicketRepository
+        // Provide TicketRepository with local datasource for offline caching
         Provider<TicketRepository>(
           create: (context) => TicketRepository(
             remoteDatasource: ApiConfig.useMockData
@@ -67,6 +69,7 @@ class MyApp extends StatelessWidget {
             mockDatasource: ApiConfig.useMockData
                 ? TicketMockDatasource()
                 : null,
+            localDatasource: TicketLocalDatasource(DatabaseHelper()),
           ),
         ),
 

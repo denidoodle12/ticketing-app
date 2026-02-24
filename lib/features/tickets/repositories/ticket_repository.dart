@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import '../../../core/errors/exceptions.dart';
 import '../datasources/ticket_remote_datasource.dart';
 import '../datasources/ticket_mock_datasource.dart';
+import '../datasources/ticket_local_datasource.dart';
 import '../models/ticket_model.dart';
 import '../models/ticket_category_model.dart';
 import '../models/ticket_status_model.dart';
@@ -9,23 +11,38 @@ import '../models/comment_model.dart';
 class TicketRepository {
   final TicketRemoteDatasource? _remoteDatasource;
   final TicketMockDatasource? _mockDatasource;
+  final TicketLocalDatasource? _localDatasource;
 
   TicketRepository({
     TicketRemoteDatasource? remoteDatasource,
     TicketMockDatasource? mockDatasource,
-  })  : _remoteDatasource = remoteDatasource,
-        _mockDatasource = mockDatasource;
+    TicketLocalDatasource? localDatasource,
+  }) : _remoteDatasource = remoteDatasource,
+       _mockDatasource = mockDatasource,
+       _localDatasource = localDatasource;
 
   bool get _useMock => _mockDatasource != null;
 
   /// Get active categories for ticket creation dropdown
+  /// Cache-first: fetch from API → cache locally → fallback to cache on network error
   Future<List<TicketCategory>> getActiveCategories() async {
     try {
       if (_useMock) {
         return await _mockDatasource!.getActiveCategories();
       }
-      return await _remoteDatasource!.getActiveCategories();
+      final categories = await _remoteDatasource!.getActiveCategories();
+      // Cache on success
+      await _localDatasource?.cacheCategories(categories);
+      return categories;
     } on NetworkException {
+      // Fallback to cache
+      final cached = await _localDatasource?.getCachedCategories();
+      if (cached != null && cached.isNotEmpty) {
+        debugPrint(
+          '[TicketRepository] Using cached categories (${cached.length} items)',
+        );
+        return cached;
+      }
       rethrow;
     } on ServerException {
       rethrow;
@@ -35,13 +52,23 @@ class TicketRepository {
   }
 
   /// Get active statuses for filtering tickets
+  /// Cache-first: fetch from API → cache locally → fallback to cache on network error
   Future<List<TicketStatus>> getActiveStatuses() async {
     try {
       if (_useMock) {
         return await _mockDatasource!.getActiveStatuses();
       }
-      return await _remoteDatasource!.getActiveStatuses();
+      final statuses = await _remoteDatasource!.getActiveStatuses();
+      await _localDatasource?.cacheStatuses(statuses);
+      return statuses;
     } on NetworkException {
+      final cached = await _localDatasource?.getCachedStatuses();
+      if (cached != null && cached.isNotEmpty) {
+        debugPrint(
+          '[TicketRepository] Using cached statuses (${cached.length} items)',
+        );
+        return cached;
+      }
       rethrow;
     } on ServerException {
       rethrow;
@@ -51,6 +78,7 @@ class TicketRepository {
   }
 
   /// Get paginated list of tickets (customer sees only own tickets)
+  /// Cache-first: fetch from API → cache page 1 → fallback to cache on network error
   Future<TicketListResponse> getTickets({
     int page = 1,
     int limit = 10,
@@ -68,14 +96,33 @@ class TicketRepository {
           search: search,
         );
       }
-      return await _remoteDatasource!.getTickets(
+      final response = await _remoteDatasource!.getTickets(
         page: page,
         limit: limit,
         statusId: statusId,
         priority: priority,
         search: search,
       );
+      // Cache tickets on success
+      if (response.tickets.isNotEmpty) {
+        await _localDatasource?.cacheTickets(response.tickets);
+      }
+      return response;
     } on NetworkException {
+      // Fallback to cached tickets
+      final cached = await _localDatasource?.getCachedTickets(
+        page: page,
+        limit: limit,
+        statusId: statusId,
+        priority: priority,
+        search: search,
+      );
+      if (cached != null && cached.tickets.isNotEmpty) {
+        debugPrint(
+          '[TicketRepository] Using cached tickets (${cached.tickets.length} items)',
+        );
+        return cached;
+      }
       rethrow;
     } on ServerException {
       rethrow;
@@ -85,6 +132,7 @@ class TicketRepository {
   }
 
   /// Get single ticket by ID with comments
+  /// Cache-first: fetch from API → fallback to cached ticket on network error
   Future<TicketDetailResponse> getTicketById(int id) async {
     try {
       if (_useMock) {
@@ -95,8 +143,21 @@ class TicketRepository {
           totalComments: 0,
         );
       }
-      return await _remoteDatasource!.getTicketById(id);
+      final response = await _remoteDatasource!.getTicketById(id);
+      // Cache the ticket on success
+      await _localDatasource?.cacheTickets([response.ticket]);
+      return response;
     } on NetworkException {
+      // Fallback to cached ticket
+      final cachedTicket = await _localDatasource?.getCachedTicketById(id);
+      if (cachedTicket != null) {
+        debugPrint('[TicketRepository] Using cached ticket #$id');
+        return TicketDetailResponse(
+          ticket: cachedTicket,
+          comments: [],
+          totalComments: 0,
+        );
+      }
       rethrow;
     } on ServerException {
       rethrow;
@@ -107,13 +168,34 @@ class TicketRepository {
     }
   }
 
+  /// Check if local cache has any data (for smart connectivity decisions)
+  Future<bool> hasCache() async {
+    return await _localDatasource?.hasCache() ?? false;
+  }
+
+  /// Get the local datasource reference (for provider-level cache operations)
+  TicketLocalDatasource? get localDatasource => _localDatasource;
+
   /// Get ticket comments from ms-chat service (includes firstname field)
-  Future<CommentsResponse> getTicketComments(int ticketId, {int page = 1, int limit = 50}) async {
+  Future<CommentsResponse> getTicketComments(
+    int ticketId, {
+    int page = 1,
+    int limit = 50,
+  }) async {
     try {
       if (_useMock) {
-        return CommentsResponse(comments: [], total: 0, page: page, limit: limit);
+        return CommentsResponse(
+          comments: [],
+          total: 0,
+          page: page,
+          limit: limit,
+        );
       }
-      return await _remoteDatasource!.getTicketComments(ticketId, page: page, limit: limit);
+      return await _remoteDatasource!.getTicketComments(
+        ticketId,
+        page: page,
+        limit: limit,
+      );
     } on NetworkException {
       rethrow;
     } on ServerException {
