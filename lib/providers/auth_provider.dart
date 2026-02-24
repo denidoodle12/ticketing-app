@@ -8,12 +8,18 @@ enum AuthState { initial, loading, authenticated, unauthenticated, error }
 /// Auth provider for state management
 class AuthProvider extends ChangeNotifier {
   final AuthRepository _authRepository;
+  VoidCallback? _onLogoutCallback;
 
   AuthState _state = AuthState.initial;
   User? _currentUser;
   String? _errorMessage;
 
   AuthProvider(this._authRepository);
+
+  /// Set a callback to be called on logout (e.g., to clear local cache)
+  void setOnLogoutCallback(VoidCallback callback) {
+    _onLogoutCallback = callback;
+  }
 
   // Getters
   AuthState get state => _state;
@@ -96,6 +102,8 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _authRepository.logout();
       _currentUser = null;
+      // Clear local cache on logout
+      _onLogoutCallback?.call();
       _setState(AuthState.unauthenticated);
     } catch (e) {
       _setError('Failed to logout');

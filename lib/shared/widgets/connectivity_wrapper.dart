@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/network/connectivity_service.dart';
 import '../../core/utils/toast_helper.dart';
 import '../../features/tickets/repositories/ticket_repository.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/ticket_provider.dart';
 import 'offline_banner.dart';
 import 'offline_page.dart';
@@ -55,6 +56,9 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper>
     // Small delay to ensure providers are ready
     await Future.delayed(const Duration(milliseconds: 800));
 
+    // Wire up cache cleanup callback for logout
+    _setupLogoutCacheCleanup();
+
     // Initial check
     await _checkConnectivity();
 
@@ -62,6 +66,19 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper>
       setState(() {
         _isInitialized = true;
       });
+    }
+  }
+
+  /// Wire up the AuthProvider to clear local cache on logout
+  void _setupLogoutCacheCleanup() {
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final ticketRepo = context.read<TicketRepository>();
+      authProvider.setOnLogoutCallback(() {
+        ticketRepo.localDatasource?.clearAllCache();
+      });
+    } catch (_) {
+      // Providers not yet available, will be set up later
     }
   }
 
