@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -232,6 +233,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final profileProvider = context.read<ProfileProvider>();
     final authProvider = context.read<AuthProvider>();
 
+    // Check connectivity before saving
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity.contains(ConnectivityResult.none)) {
+      if (mounted) {
+        ToastHelper.showError(
+          context,
+          'Failed to Update Profile',
+          description: 'No internet connection. Please check your network.',
+        );
+      }
+      return;
+    }
+
     final success = await profileProvider.updateProfile(
       name: _nameController.text.trim(),
       lastName: _lastNameController.text.trim(),
@@ -250,7 +264,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       } else {
         ToastHelper.showError(
           context,
-          'Update Failed',
+          'Failed to Update Profile',
           description:
               profileProvider.errorMessage ?? 'Failed to update profile',
         );

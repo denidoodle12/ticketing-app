@@ -13,6 +13,7 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/network/chat_websocket_service.dart';
 import '../../../core/constants/api_config.dart';
+import '../../../core/utils/toast_helper.dart';
 import '../../../data/datasources/local/local_storage.dart';
 import '../../../providers/ticket_provider.dart';
 import '../models/ticket_model.dart';
@@ -221,12 +222,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     }
 
     if (mounted && !_isOffline) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Chat connection error: $error'),
-          backgroundColor: AppColors.warning500,
-          duration: const Duration(seconds: 3),
-        ),
+      ToastHelper.showWarning(
+        context,
+        'Chat connection error',
+        description: error,
       );
     }
   }
@@ -560,6 +559,18 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   /// Download file to device - images go to Gallery, others go to Downloads
   Future<void> _downloadToDevice(String url, String fileName) async {
+    // Check connectivity before downloading
+    if (_isOffline) {
+      if (mounted) {
+        ToastHelper.showError(
+          context,
+          'Failed to Download Attachment',
+          description: 'No internet connection. Please check your network.',
+        );
+      }
+      return;
+    }
+
     final isImage = _isImageFile(fileName);
 
     // Show downloading indicator
@@ -599,12 +610,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.error500,
-          ),
-        );
+        ToastHelper.showError(context, 'Download failed', description: '$e');
       }
     }
   }
@@ -620,11 +626,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         final granted = await Gal.requestAccess(toAlbum: true);
         if (!granted && mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Gallery permission required to save images'),
-              backgroundColor: AppColors.warning500,
-            ),
+          ToastHelper.showWarning(
+            context,
+            'Permission required',
+            description: 'Gallery permission required to save images',
           );
           return;
         }
@@ -651,32 +656,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     // Show success message
     if (mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: AppColors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Image saved'),
-                    Text(
-                      'Saved to Gallery > Ticketing App',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.white.withAlpha(200),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.success500,
-          duration: const Duration(seconds: 3),
-        ),
+      ToastHelper.showSuccess(
+        context,
+        'Image saved',
+        description: 'Saved to Gallery > Ticketing App',
       );
     }
   }
@@ -691,11 +674,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         final manageStatus = await Permission.manageExternalStorage.request();
         if (!manageStatus.isGranted && mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Storage permission required to save files'),
-              backgroundColor: AppColors.warning500,
-            ),
+          ToastHelper.showWarning(
+            context,
+            'Permission required',
+            description: 'Storage permission required to save files',
           );
           return;
         }
@@ -741,38 +723,28 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     // Hide download snackbar and show success
     if (mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: AppColors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Download complete'),
-                    Text(
-                      'Saved to Downloads',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.white.withAlpha(200),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.success500,
-          duration: const Duration(seconds: 3),
-        ),
+      ToastHelper.showSuccess(
+        context,
+        'Download complete',
+        description: 'Saved to Downloads',
       );
     }
   }
 
   /// Share file to other apps
   Future<void> _shareFile(String url, String fileName) async {
+    // Check connectivity before sharing
+    if (_isOffline) {
+      if (mounted) {
+        ToastHelper.showError(
+          context,
+          'Failed to Share Attachment',
+          description: 'No internet connection. Please check your network.',
+        );
+      }
+      return;
+    }
+
     // Show downloading indicator
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -823,12 +795,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.error500,
-          ),
-        );
+        ToastHelper.showError(context, 'Share failed', description: '$e');
       }
     }
   }
@@ -837,20 +804,20 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     if (mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      String errorMessage = 'Download failed';
+      String description = 'Please check your connection and try again';
+
       if (e.response?.statusCode == 401) {
-        errorMessage = 'Unauthorized: Please login again';
+        description = 'Unauthorized: Please login again';
       } else if (e.response?.statusCode == 403) {
-        errorMessage = 'Access denied to this file';
+        description = 'Access denied to this file';
       } else if (e.response?.statusCode == 404) {
-        errorMessage = 'File not found';
+        description = 'File not found on the server';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: AppColors.error500,
-        ),
+      ToastHelper.showError(
+        context,
+        'Download Failed',
+        description: description,
       );
     }
   }
@@ -1245,13 +1212,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
       if (attachmentUrl == null && mounted) {
         // Upload failed
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              provider.errorMessage ?? 'Failed to upload attachment',
-            ),
-            backgroundColor: AppColors.error500,
-          ),
+        ToastHelper.showError(
+          context,
+          provider.errorMessage ?? 'Failed to upload attachment',
         );
         setState(() {
           _isSending = false;
@@ -1296,12 +1259,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
           }
         });
       } else if (mounted && provider.errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(provider.errorMessage!),
-            backgroundColor: AppColors.error500,
-          ),
-        );
+        ToastHelper.showError(context, provider.errorMessage!);
       }
     }
 

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -81,9 +82,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text(
                 'Pilih Lampiran',
-                style: AppTextStyles.h6.copyWith(
-                  color: AppColors.textPrimary,
-                ),
+                style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
               ),
             ),
             // Choose from Gallery option
@@ -94,7 +93,10 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                   color: AppColors.primaryDark.withAlpha(26),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.photo_library, color: AppColors.primaryDark),
+                child: const Icon(
+                  Icons.photo_library,
+                  color: AppColors.primaryDark,
+                ),
               ),
               title: Text(
                 'Choose from Gallery',
@@ -127,7 +129,10 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                   color: AppColors.primaryDark.withAlpha(26),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.camera_alt, color: AppColors.primaryDark),
+                child: const Icon(
+                  Icons.camera_alt,
+                  color: AppColors.primaryDark,
+                ),
               ),
               title: Text(
                 'Take a Photo',
@@ -160,7 +165,10 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                   color: AppColors.primaryDark.withAlpha(26),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.attach_file, color: AppColors.primaryDark),
+                child: const Icon(
+                  Icons.attach_file,
+                  color: AppColors.primaryDark,
+                ),
               ),
               title: Text(
                 'Upload Files',
@@ -188,9 +196,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-    );
+    final result = await FilePicker.platform.pickFiles(type: FileType.any);
 
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
@@ -271,6 +277,18 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
       }
     }
 
+    // Check connectivity before submitting
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity.contains(ConnectivityResult.none)) {
+      if (!mounted) return;
+      ToastHelper.showError(
+        context,
+        'Failed to Create Ticket',
+        description: 'No internet connection. Please check your network.',
+      );
+      return;
+    }
+
     if (!mounted) return;
     final ticketProvider = context.read<TicketProvider>();
     final ticket = await ticketProvider.createTicket(
@@ -293,7 +311,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
     } else {
       ToastHelper.showError(
         context,
-        'Error',
+        'Failed to Create Ticket',
         description: ticketProvider.errorMessage ?? 'Failed to create ticket',
       );
     }
@@ -392,7 +410,10 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     // Back button with rounded square background
@@ -446,11 +467,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
               ),
             ],
           ),
-          child: Icon(
-            icon,
-            color: AppColors.primaryDark,
-            size: 22,
-          ),
+          child: Icon(icon, color: AppColors.primaryDark, size: 22),
         ),
       ),
     );

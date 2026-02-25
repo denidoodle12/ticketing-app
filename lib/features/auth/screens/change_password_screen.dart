@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/themes/app_colors.dart';
@@ -99,6 +100,20 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = context.read<AuthProvider>();
+
+    // Check connectivity before changing password
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity.contains(ConnectivityResult.none)) {
+      if (mounted) {
+        ToastHelper.showError(
+          context,
+          'Failed to Change Password',
+          description: 'No internet connection. Please check your network.',
+        );
+      }
+      return;
+    }
+
     final success = await authProvider.changePassword(
       _oldPasswordController.text,
       _newPasswordController.text,
@@ -120,7 +135,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     } else {
       ToastHelper.showError(
         context,
-        'Failed',
+        'Failed to Change Password',
         description: authProvider.errorMessage ?? 'Failed to change password.',
       );
     }
