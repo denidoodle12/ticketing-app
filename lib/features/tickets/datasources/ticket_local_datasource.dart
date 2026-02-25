@@ -33,10 +33,13 @@ class TicketLocalDatasource {
   }
 
   /// Get cached tickets with optional filters and pagination
+  /// Supports filtering by statusId (integer), statusName (string fallback),
+  /// priority, and search text
   Future<TicketListResponse> getCachedTickets({
     int page = 1,
     int limit = 10,
     int? statusId,
+    String? statusName,
     String? priority,
     String? search,
   }) async {
@@ -69,9 +72,69 @@ class TicketLocalDatasource {
       where: whereClause,
       whereArgs: args.isNotEmpty ? args : null,
     );
-    final total = Sqflite.firstIntValue(countResult) ?? 0;
+    var total = Sqflite.firstIntValue(countResult) ?? 0;
 
-    // Get paginated results
+    // If statusId filter returned 0 results but statusName is available,
+    // retry with name-based matching on the status_json column.
+    // This handles cases where hardcoded status IDs don't match backend IDs.
+    if (total == 0 &&
+        statusId != null &&
+        statusName != null &&
+        statusName.isNotEmpty) {
+      final nameConditions = <String>[];
+      final nameArgs = <dynamic>[];
+
+      // Match by status name inside the JSON blob
+      // Try both exact name and snake_case variant (backend may store either)
+      final snakeName = statusName.toLowerCase().replaceAll(' ', '_');
+      nameConditions.add('(status_json LIKE ? OR status_json LIKE ?)');
+      nameArgs.add('%"name":"$statusName"%');
+      nameArgs.add('%"name":"$snakeName"%');
+
+      if (priority != null && priority.isNotEmpty) {
+        nameConditions.add('priority = ?');
+        nameArgs.add(priority);
+      }
+      if (search != null && search.isNotEmpty) {
+        nameConditions.add('(subject LIKE ? OR description LIKE ?)');
+        nameArgs.add('%$search%');
+        nameArgs.add('%$search%');
+      }
+
+      final nameWhere = nameConditions.join(' AND ');
+      final nameCount = await db.query(
+        'tickets',
+        columns: ['COUNT(*) as count'],
+        where: nameWhere,
+        whereArgs: nameArgs,
+      );
+      total = Sqflite.firstIntValue(nameCount) ?? 0;
+
+      // Use name-based query for results
+      final offset = (page - 1) * limit;
+      final results = await db.query(
+        'tickets',
+        where: nameWhere,
+        whereArgs: nameArgs,
+        orderBy: 'created_at DESC',
+        limit: limit,
+        offset: offset,
+      );
+
+      final tickets = results.map(_ticketFromMap).toList();
+      final hasNext = (page * limit) < total;
+
+      return TicketListResponse(
+        tickets: tickets,
+        total: total,
+        page: page,
+        limit: limit,
+        hasNext: hasNext,
+        hasPrev: page > 1,
+      );
+    }
+
+    // Get paginated results (normal path)
     final offset = (page - 1) * limit;
     final results = await db.query(
       'tickets',

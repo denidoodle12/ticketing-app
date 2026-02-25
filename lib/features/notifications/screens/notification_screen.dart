@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/utils/toast_helper.dart';
@@ -23,6 +25,8 @@ class _NotificationScreenState extends State<NotificationScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
+  bool _isOffline = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   @override
   void initState() {
@@ -30,11 +34,18 @@ class _NotificationScreenState extends State<NotificationScreen>
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     _scrollController.addListener(_onScroll);
+
+    // Listen to connectivity changes for real-time offline/online switch
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _handleConnectivityChange,
+    );
+
     _loadNotifications();
   }
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _tabController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -45,9 +56,20 @@ class _NotificationScreenState extends State<NotificationScreen>
     setState(() {});
   }
 
+  /// Load notifications — skips API call if offline
   void _loadNotifications() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NotificationProvider>().refresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Check connectivity before loading
+      final connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult.contains(ConnectivityResult.none)) {
+        if (mounted) {
+          setState(() => _isOffline = true);
+        }
+        return;
+      }
+      if (mounted) {
+        context.read<NotificationProvider>().refresh();
+      }
     });
   }
 
@@ -55,6 +77,24 @@ class _NotificationScreenState extends State<NotificationScreen>
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       context.read<NotificationProvider>().loadMore();
+    }
+  }
+
+  /// Handle connectivity changes in real-time
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final isNowOffline = results.contains(ConnectivityResult.none);
+
+    if (isNowOffline && !_isOffline) {
+      // Just went offline
+      if (mounted) {
+        setState(() => _isOffline = true);
+      }
+    } else if (!isNowOffline && _isOffline) {
+      // Just came back online — refresh notifications
+      if (mounted) {
+        setState(() => _isOffline = false);
+        context.read<NotificationProvider>().refresh();
+      }
     }
   }
 
@@ -154,6 +194,12 @@ class _NotificationScreenState extends State<NotificationScreen>
       appBar: _buildAppBar(),
       body: Consumer<NotificationProvider>(
         builder: (context, provider, _) {
+          // Always show offline placeholder when device is offline
+          // (notifications are not cached locally)
+          if (_isOffline) {
+            return _buildOfflinePlaceholder();
+          }
+
           return Column(
             children: [
               // Notification list
@@ -409,6 +455,44 @@ class _NotificationScreenState extends State<NotificationScreen>
             child: const Text('Try Again'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOfflinePlaceholder() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.grey200,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.wifi_off_rounded,
+                size: 48,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Notifications Unavailable Offline',
+              style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please connect to the internet to view\nyour notifications.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

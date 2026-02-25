@@ -18,6 +18,7 @@ class TicketChatTab extends StatefulWidget {
   final Function(String message, String? attachmentPath) onSendMessage;
   final WebSocketState connectionState;
   final bool isSending;
+  final bool isOffline;
   final String Function(String)? getAttachmentUrl;
   final void Function(String)? onAttachmentTap;
   final Map<String, String>? authHeaders;
@@ -29,6 +30,7 @@ class TicketChatTab extends StatefulWidget {
     required this.onSendMessage,
     this.connectionState = WebSocketState.disconnected,
     this.isSending = false,
+    this.isOffline = false,
     this.getAttachmentUrl,
     this.onAttachmentTap,
     this.authHeaders,
@@ -38,7 +40,8 @@ class TicketChatTab extends StatefulWidget {
   State<TicketChatTab> createState() => _TicketChatTabState();
 }
 
-class _TicketChatTabState extends State<TicketChatTab> with WidgetsBindingObserver {
+class _TicketChatTabState extends State<TicketChatTab>
+    with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
@@ -78,7 +81,13 @@ class _TicketChatTabState extends State<TicketChatTab> with WidgetsBindingObserv
   void didChangeMetrics() {
     super.didChangeMetrics();
     // Handle keyboard visibility changes
-    final bottomInset = WidgetsBinding.instance.platformDispatcher.views.first.viewInsets.bottom;
+    final bottomInset = WidgetsBinding
+        .instance
+        .platformDispatcher
+        .views
+        .first
+        .viewInsets
+        .bottom;
     if (bottomInset > _previousBottomInset) {
       // Keyboard appeared - scroll to bottom
       _scrollToBottom();
@@ -282,9 +291,7 @@ class _TicketChatTabState extends State<TicketChatTab> with WidgetsBindingObserv
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text(
                 'Pilih Lampiran',
-                style: AppTextStyles.h6.copyWith(
-                  color: AppColors.textPrimary,
-                ),
+                style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
               ),
             ),
             // Photo & Video option
@@ -386,6 +393,11 @@ class _TicketChatTabState extends State<TicketChatTab> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
+    // Show offline placeholder when device is offline
+    if (widget.isOffline) {
+      return _buildOfflinePlaceholder();
+    }
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Column(
@@ -407,6 +419,45 @@ class _TicketChatTabState extends State<TicketChatTab> with WidgetsBindingObserv
           else
             _buildClosedTicketBanner(),
         ],
+      ),
+    );
+  }
+
+  /// Build offline placeholder for chat tab
+  Widget _buildOfflinePlaceholder() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.grey200,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.wifi_off_rounded,
+                size: 48,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Chat Unavailable Offline',
+              style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Chat requires an internet connection.\nPlease connect to the internet to view and send messages.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -675,18 +726,12 @@ class _TicketChatTabState extends State<TicketChatTab> with WidgetsBindingObserv
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.grey100,
-          border: Border(
-            top: BorderSide(color: AppColors.border),
-          ),
+          border: Border(top: BorderSide(color: AppColors.border)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.lock_outline,
-              size: 18,
-              color: AppColors.textSecondary,
-            ),
+            Icon(Icons.lock_outline, size: 18, color: AppColors.textSecondary),
             const SizedBox(width: 8),
             Text(
               'This ticket has been closed',

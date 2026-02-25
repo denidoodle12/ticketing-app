@@ -122,6 +122,7 @@ class TicketRepository {
     int page = 1,
     int limit = 10,
     int? statusId,
+    String? statusName,
     String? priority,
     String? search,
   }) async {
@@ -148,44 +149,59 @@ class TicketRepository {
       }
       return response;
     } on NetworkException {
-      // Fallback to cached tickets
-      final cached = await _localDatasource?.getCachedTickets(
+      return _getTicketsFromCache(
         page: page,
         limit: limit,
         statusId: statusId,
+        statusName: statusName,
         priority: priority,
         search: search,
       );
-      if (cached != null && cached.tickets.isNotEmpty) {
-        debugPrint(
-          '[TicketRepository] Using cached tickets (${cached.tickets.length} items)',
-        );
-        return cached;
-      }
-      rethrow;
     } on ServerException {
       rethrow;
     } catch (e) {
       if (_isNetworkError(e)) {
-        final cached = await _localDatasource?.getCachedTickets(
+        return _getTicketsFromCache(
           page: page,
           limit: limit,
           statusId: statusId,
+          statusName: statusName,
           priority: priority,
           search: search,
-        );
-        if (cached != null && cached.tickets.isNotEmpty) {
-          debugPrint(
-            '[TicketRepository] Using cached tickets (${cached.tickets.length} items)',
-          );
-          return cached;
-        }
-        throw NetworkException(
-          'No internet connection. Please check your network.',
         );
       }
       throw ServerException('Failed to load tickets: $e');
     }
+  }
+
+  /// Helper: get tickets from local cache, returns empty list for filtered queries
+  /// Only throws NetworkException when cache is completely unavailable
+  Future<TicketListResponse> _getTicketsFromCache({
+    required int page,
+    required int limit,
+    int? statusId,
+    String? statusName,
+    String? priority,
+    String? search,
+  }) async {
+    final cached = await _localDatasource?.getCachedTickets(
+      page: page,
+      limit: limit,
+      statusId: statusId,
+      statusName: statusName,
+      priority: priority,
+      search: search,
+    );
+    if (cached != null) {
+      debugPrint(
+        '[TicketRepository] Using cached tickets (${cached.tickets.length} items)',
+      );
+      return cached;
+    }
+    // No local datasource at all
+    throw NetworkException(
+      'No internet connection. Please check your network.',
+    );
   }
 
   /// Get single ticket by ID with comments

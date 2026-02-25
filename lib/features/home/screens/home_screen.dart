@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/api_config.dart';
@@ -22,12 +24,29 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // Counter to force rebuild TicketActivityChart when coming back online
+  int _chartRebuildKey = 0;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  bool _wasOffline = false;
+
   @override
   void initState() {
     super.initState();
+
+    // Listen to connectivity changes for real-time sync
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _handleConnectivityChange,
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -36,6 +55,23 @@ class _HomeScreenState extends State<HomeScreen> {
     await profileProvider.loadProfile();
     if (mounted && profileProvider.user != null) {
       context.read<AuthProvider>().updateCurrentUser(profileProvider.user!);
+    }
+  }
+
+  /// Handle connectivity changes in real-time
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final isNowOffline = results.contains(ConnectivityResult.none);
+
+    if (isNowOffline) {
+      _wasOffline = true;
+    } else if (!isNowOffline && _wasOffline) {
+      // Just came back online — refresh all home data
+      _wasOffline = false;
+      if (mounted) {
+        _loadData();
+        // Force rebuild TicketActivityChart by changing its key
+        setState(() => _chartRebuildKey++);
+      }
     }
   }
 
@@ -263,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Ticket Activity Chart
           FormCard(
             padding: const EdgeInsets.all(16),
-            child: const TicketActivityChart(),
+            child: TicketActivityChart(key: ValueKey(_chartRebuildKey)),
           ),
 
           const SizedBox(height: 28),

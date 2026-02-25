@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:provider/provider.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../providers/ticket_provider.dart';
@@ -35,6 +36,10 @@ class _TicketsScreenState extends State<TicketsScreen> {
   // Flag to track if filter has been initialized
   bool _isFilterInitialized = false;
 
+  // Connectivity listener for real-time sync
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  bool _wasOffline = false;
+
   final List<Map<String, dynamic>> _filterOptions = [
     {'id': 'all', 'label': 'All'},
     {'id': 'open', 'label': 'Open'},
@@ -53,6 +58,11 @@ class _TicketsScreenState extends State<TicketsScreen> {
       _fetchPage(pageKey);
     });
 
+    // Listen to connectivity changes for real-time sync
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _handleConnectivityChange,
+    );
+
     // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ticketProvider = context.read<TicketProvider>();
@@ -64,10 +74,27 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _debounceTimer?.cancel();
     _searchController.dispose();
     _pagingController.dispose();
     super.dispose();
+  }
+
+  /// Handle connectivity changes in real-time
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final isNowOffline = results.contains(ConnectivityResult.none);
+
+    if (isNowOffline) {
+      _wasOffline = true;
+    } else if (!isNowOffline && _wasOffline) {
+      // Just came back online — refresh ticket list and stats
+      _wasOffline = false;
+      if (mounted) {
+        _pagingController.refresh();
+        context.read<TicketProvider>().loadTicketStats();
+      }
+    }
   }
 
   Future<void> _fetchPage(int pageKey) async {
@@ -77,7 +104,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
       // Reset ALL provider filters on first page fetch if not initialized
       // This ensures filters reset when navigating back to this screen
       if (!_isFilterInitialized && pageKey == 1) {
-        ticketProvider.setFilterStatusForPaging(null);
+        ticketProvider.setFilterStatusForPaging(null, statusName: null);
         ticketProvider.setFilterPriorityForPaging(null);
         ticketProvider.setSearchQueryForPaging(null);
         _isFilterInitialized = true;
@@ -155,6 +182,20 @@ class _TicketsScreenState extends State<TicketsScreen> {
     return statusIdMapping[filterId.toLowerCase()];
   }
 
+  /// Get human-readable status name from filter chip ID
+  /// Maps filter IDs (e.g., 'open', 'in_progress') to backend status names
+  String? _getStatusNameFromFilterId(String filterId) {
+    if (filterId == 'all') return null;
+    const nameMapping = <String, String>{
+      'open': 'Open',
+      'in_progress': 'In Progress',
+      'pending': 'Pending',
+      'resolved': 'Resolved',
+      'closed': 'Closed',
+    };
+    return nameMapping[filterId.toLowerCase()];
+  }
+
   void _onFilterSelected(String filterId) {
     if (_selectedFilter == filterId) return;
 
@@ -166,7 +207,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
     final ticketProvider = context.read<TicketProvider>();
     final statusId = _getStatusIdFromFilterId(filterId, ticketProvider);
-    ticketProvider.setFilterStatusForPaging(statusId);
+    // Resolve status name from filter label for offline cache matching
+    final statusName = _getStatusNameFromFilterId(filterId);
+    ticketProvider.setFilterStatusForPaging(statusId, statusName: statusName);
 
     // Refresh the list
     _pagingController.refresh();
@@ -219,7 +262,18 @@ class _TicketsScreenState extends State<TicketsScreen> {
           });
           // Set server-side filters on provider
           ticketProvider.setFilterPriorityForPaging(priority);
-          ticketProvider.setFilterStatusForPaging(statusId);
+          // Resolve status name for offline cache matching
+          String? statusName;
+          if (statusId != null) {
+            final match = ticketProvider.statuses.where(
+              (s) => s.id == statusId,
+            );
+            if (match.isNotEmpty) statusName = match.first.name;
+          }
+          ticketProvider.setFilterStatusForPaging(
+            statusId,
+            statusName: statusName,
+          );
           // Reset top chips to 'all' when bottom sheet overrides status
           if (statusId != null) {
             setState(() {

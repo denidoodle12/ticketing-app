@@ -59,6 +59,7 @@ class TicketProvider extends ChangeNotifier {
 
   // Filters
   int? _filterStatusId;
+  String? _filterStatusName;
   String? _filterPriority;
   String? _searchQuery;
 
@@ -207,6 +208,7 @@ class TicketProvider extends ChangeNotifier {
         page: _currentPage,
         limit: 10,
         statusId: _filterStatusId,
+        statusName: _filterStatusName,
         priority: _filterPriority,
         search: _searchQuery,
       );
@@ -248,26 +250,32 @@ class TicketProvider extends ChangeNotifier {
 
   /// Load ticket detail by ID with comments
   /// Comments are fetched from ms-chat service endpoint which includes firstname field
+  /// Ticket detail loads gracefully even if comments fail (e.g., offline)
   Future<void> loadTicketDetail(int ticketId) async {
     _ticketDetailState = TicketState.loading;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      // Fetch ticket detail and comments in parallel
-      final results = await Future.wait([
-        _ticketRepository.getTicketById(ticketId),
-        _ticketRepository.getTicketComments(ticketId),
-      ]);
+      // Load ticket detail (has cache fallback)
+      final ticketResponse = await _ticketRepository.getTicketById(ticketId);
 
-      final ticketResponse = results[0] as TicketDetailResponse;
-      final commentsResponse = results[1] as CommentsResponse;
+      // Try to load comments separately — they may fail offline (ms-chat service)
+      CommentsResponse? commentsResponse;
+      try {
+        commentsResponse = await _ticketRepository.getTicketComments(ticketId);
+      } catch (_) {
+        // Comments unavailable (offline / ms-chat down) — continue with empty
+        debugPrint(
+          '[TicketProvider] Comments unavailable offline, showing ticket only',
+        );
+      }
 
-      // Use comments from ms-chat service (has firstname) instead of ticket response
       _ticketDetailResponse = TicketDetailResponse(
         ticket: ticketResponse.ticket,
-        comments: commentsResponse.comments.map((c) => c.toJson()).toList(),
-        totalComments: commentsResponse.total,
+        comments:
+            commentsResponse?.comments.map((c) => c.toJson()).toList() ?? [],
+        totalComments: commentsResponse?.total ?? 0,
       );
       _selectedTicket = _ticketDetailResponse?.ticket;
       _ticketDetailState = TicketState.loaded;
@@ -547,9 +555,10 @@ class TicketProvider extends ChangeNotifier {
   }
 
   /// Set filter status
-  void setFilterStatus(int? statusId) {
+  void setFilterStatus(int? statusId, {String? statusName}) {
     if (_filterStatusId != statusId) {
       _filterStatusId = statusId;
+      _filterStatusName = statusName;
       loadTickets(refresh: true);
     }
   }
@@ -633,6 +642,7 @@ class TicketProvider extends ChangeNotifier {
       page: page,
       limit: limit,
       statusId: _filterStatusId,
+      statusName: _filterStatusName,
       priority: _filterPriority,
       search: _searchQuery,
     );
@@ -640,8 +650,9 @@ class TicketProvider extends ChangeNotifier {
 
   /// Set filter status without triggering reload (used with PagingController)
   /// The PagingController will handle refreshing the list
-  void setFilterStatusForPaging(int? statusId) {
+  void setFilterStatusForPaging(int? statusId, {String? statusName}) {
     _filterStatusId = statusId;
+    _filterStatusName = statusName;
   }
 
   /// Set search query for paging (without notifying listeners)

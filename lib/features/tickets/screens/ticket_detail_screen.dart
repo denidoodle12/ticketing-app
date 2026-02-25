@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -39,6 +41,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   final ChatWebSocketService _webSocketService = ChatWebSocketService();
   WebSocketState _wsState = WebSocketState.disconnected;
   bool _isSending = false;
+  bool _isOffline = false;
+
+  // Connectivity listener for real-time online/offline detection
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   // Cached token for image loading (set when connecting WebSocket)
   String? _cachedToken;
@@ -54,6 +60,11 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     _webSocketService.onStateChanged = _handleWebSocketStateChange;
     _webSocketService.onError = _handleWebSocketError;
 
+    // Listen to connectivity changes for real-time offline/online switch
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _handleConnectivityChange,
+    );
+
     // Load ticket detail from API
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadTicketDetail();
@@ -62,6 +73,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _webSocketService.dispose();
     _tabController.dispose();
     super.dispose();
@@ -88,10 +100,26 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   }
 
   /// Connect to WebSocket for real-time chat
+  /// Skips connection when device is offline to prevent error spam
   Future<void> _connectWebSocket() async {
+    // Check connectivity first — don't attempt WebSocket when offline
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult.contains(ConnectivityResult.none)) {
+      if (mounted) {
+        setState(() {
+          _isOffline = true;
+          _wsState = WebSocketState.disconnected;
+        });
+      }
+      return;
+    }
+
+    setState(() => _isOffline = false);
+
     // Use cached token if available, otherwise fetch from storage
     String? token = _cachedToken;
     if (token == null) {
+      if (!mounted) return;
       final localStorage = context.read<LocalStorage>();
       token = await localStorage.getAccessToken();
       _cachedToken = token;
@@ -102,6 +130,30 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         ticketId: _currentTicket.id,
         token: token ?? '',
       );
+    }
+  }
+
+  /// Handle connectivity changes in real-time
+  /// Switches between offline placeholder and live chat seamlessly
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final isNowOffline = results.contains(ConnectivityResult.none);
+
+    if (isNowOffline && !_isOffline) {
+      // Just went offline — pause WebSocket, show placeholder
+      _webSocketService.pauseConnection();
+      if (mounted) {
+        setState(() {
+          _isOffline = true;
+          _wsState = WebSocketState.disconnected;
+        });
+      }
+    } else if (!isNowOffline && _isOffline) {
+      // Just came back online — refresh detail data + reconnect WebSocket
+      if (mounted) {
+        setState(() => _isOffline = false);
+        _loadTicketDetail();
+        _webSocketService.reconnect();
+      }
     }
   }
 
@@ -149,8 +201,26 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   }
 
   /// Handle WebSocket errors
+  /// Suppresses error SnackBars when device is offline to prevent spam
   void _handleWebSocketError(String error) {
-    if (mounted) {
+    // Detect offline from error message as extra safety net
+    final isNetworkError =
+        error.contains('SocketException') ||
+        error.contains('Failed host lookup') ||
+        error.contains('No address associated');
+    if (isNetworkError && !_isOffline) {
+      // WebSocket failed due to network — switch to offline mode
+      _webSocketService.pauseConnection();
+      if (mounted) {
+        setState(() {
+          _isOffline = true;
+          _wsState = WebSocketState.disconnected;
+        });
+      }
+      return;
+    }
+
+    if (mounted && !_isOffline) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Chat connection error: $error'),
@@ -938,6 +1008,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                               onSendMessage: _handleSendMessage,
                               connectionState: _wsState,
                               isSending: _isSending,
+                              isOffline: _isOffline,
                               getAttachmentUrl: _getAttachmentUrl,
                               onAttachmentTap: _handleAttachmentTap,
                               authHeaders: _authHeaders,

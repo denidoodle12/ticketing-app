@@ -5,13 +5,7 @@ import '../constants/api_config.dart';
 import '../../features/tickets/models/comment_model.dart';
 
 /// WebSocket connection state
-enum WebSocketState {
-  disconnected,
-  connecting,
-  connected,
-  reconnecting,
-  error,
-}
+enum WebSocketState { disconnected, connecting, connected, reconnecting, error }
 
 /// Chat WebSocket service for real-time messaging
 class ChatWebSocketService {
@@ -52,10 +46,7 @@ class ChatWebSocketService {
   }
 
   /// Connect to WebSocket for a specific ticket
-  Future<void> connect({
-    required int ticketId,
-    required String token,
-  }) async {
+  Future<void> connect({required int ticketId, required String token}) async {
     // Don't reconnect if already connected to same ticket
     if (_state == WebSocketState.connected && _currentTicketId == ticketId) {
       return;
@@ -134,10 +125,7 @@ class ChatWebSocketService {
 
   /// Send a message through WebSocket
   /// Content and attachment are both optional, but at least one must be provided
-  Future<bool> sendMessage({
-    String? content,
-    String? attachment,
-  }) async {
+  Future<bool> sendMessage({String? content, String? attachment}) async {
     if (_channel == null || _state != WebSocketState.connected) {
       return false;
     }
@@ -149,9 +137,7 @@ class ChatWebSocketService {
     }
 
     try {
-      final messageData = <String, dynamic>{
-        'type': 'message',
-      };
+      final messageData = <String, dynamic>{'type': 'message'};
 
       if (content != null && content.isNotEmpty) {
         messageData['content'] = content;
@@ -173,7 +159,9 @@ class ChatWebSocketService {
   /// Schedule reconnection attempt
   void _scheduleReconnect() {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
-      onError?.call('Unable to reconnect after $_maxReconnectAttempts attempts');
+      onError?.call(
+        'Unable to reconnect after $_maxReconnectAttempts attempts',
+      );
       return;
     }
 
@@ -196,6 +184,30 @@ class ChatWebSocketService {
       _state = newState;
       onStateChanged?.call(newState);
     }
+  }
+
+  /// Pause connection without clearing ticket ID and token
+  /// Used when going offline — allows reconnect() when back online
+  Future<void> pauseConnection() async {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+
+    await _subscription?.cancel();
+    _subscription = null;
+
+    await _channel?.sink.close();
+    _channel = null;
+
+    _reconnectAttempts = 0;
+    _updateState(WebSocketState.disconnected);
+  }
+
+  /// Reconnect using saved ticket ID and token
+  /// Used when coming back online after pauseConnection()
+  Future<void> reconnect() async {
+    if (_currentTicketId == null || _token == null) return;
+    _reconnectAttempts = 0;
+    await _establishConnection();
   }
 
   /// Disconnect from WebSocket
