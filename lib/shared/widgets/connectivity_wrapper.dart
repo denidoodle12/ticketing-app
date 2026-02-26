@@ -213,11 +213,15 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper>
     );
   }
 
-  /// Check auth state reactively using context.watch
+  /// Check auth state reactively using context.watch.
+  /// Returns true for authenticated, loading, and initial states
+  /// to prevent OfflinePage flash during splash while auth is being checked.
+  /// Only returns false when definitively unauthenticated or error.
   bool _checkIsLoggedIn(BuildContext context) {
     try {
       final authProvider = context.watch<AuthProvider>();
-      return authProvider.isAuthenticated;
+      return authProvider.state != AuthState.unauthenticated &&
+          authProvider.state != AuthState.error;
     } catch (_) {
       return false;
     }
