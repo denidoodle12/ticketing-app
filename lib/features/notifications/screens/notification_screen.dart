@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../../core/network/connectivity_service.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/utils/toast_helper.dart';
@@ -31,6 +32,8 @@ class _NotificationScreenState extends State<NotificationScreen>
   @override
   void initState() {
     super.initState();
+    // Set initial offline state synchronously from singleton
+    _isOffline = !ConnectivityService().isConnected;
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     _scrollController.addListener(_onScroll);
@@ -57,20 +60,18 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   /// Load notifications — skips API call if offline
-  void _loadNotifications() {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Check connectivity before loading
-      final connectivityResult = await Connectivity().checkConnectivity();
-      if (connectivityResult.contains(ConnectivityResult.none)) {
-        if (mounted) {
-          setState(() => _isOffline = true);
-        }
-        return;
-      }
+  void _loadNotifications() async {
+    // Check connectivity before loading
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult.contains(ConnectivityResult.none)) {
       if (mounted) {
-        context.read<NotificationProvider>().refresh();
+        setState(() => _isOffline = true);
       }
-    });
+      return;
+    }
+    if (mounted) {
+      context.read<NotificationProvider>().refresh();
+    }
   }
 
   void _onScroll() {
@@ -290,6 +291,11 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   Widget _buildNotificationList(NotificationProvider provider) {
+    // Show offline placeholder immediately (before loading check)
+    if (_isOffline) {
+      return _buildOfflinePlaceholder();
+    }
+
     if (provider.isLoading) {
       return _buildLoadingShimmer();
     }
@@ -460,38 +466,41 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   Widget _buildOfflinePlaceholder() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.grey200,
-                shape: BoxShape.circle,
+    return SizedBox.expand(
+      child: Center(
+        child: Padding(
+          // Extra bottom padding to account for bottom navigation bar
+          padding: const EdgeInsets.fromLTRB(32, 32, 32, 100),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.grey200,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.wifi_off_rounded,
+                  size: 48,
+                  color: AppColors.textSecondary,
+                ),
               ),
-              child: Icon(
-                Icons.wifi_off_rounded,
-                size: 48,
-                color: AppColors.textSecondary,
+              const SizedBox(height: 20),
+              Text(
+                'Notifications Unavailable Offline',
+                style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Notifications Unavailable Offline',
-              style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Please connect to the internet to view\nyour notifications.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textSecondary,
+              const SizedBox(height: 8),
+              Text(
+                'Please connect to the internet to view\nyour notifications.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

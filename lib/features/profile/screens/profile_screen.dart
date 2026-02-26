@@ -6,6 +6,7 @@ import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/api_config.dart';
 import '../../../core/utils/app_info.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../core/utils/toast_helper.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../routes/app_routes.dart';
 import '../../../shared/widgets/form_card.dart';
@@ -512,10 +513,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
-              await context.read<AuthProvider>().logout();
-              if (context.mounted) {
-                context.go(AppRoutes.login);
-              }
+              // Capture provider before navigation invalidates context
+              final authProvider = context.read<AuthProvider>();
+              // Show toast while Navigator is still available
+              ToastHelper.showSuccess(
+                context,
+                'Logged Out',
+                description: 'You have been signed out successfully.',
+              );
+              // Navigate to login FIRST (before logout triggers OfflinePage)
+              context.go(AppRoutes.login);
+              // Then perform logout (clears tokens, cache, auth state)
+              await authProvider.logout();
             },
             child: Text(
               'Sign Out',

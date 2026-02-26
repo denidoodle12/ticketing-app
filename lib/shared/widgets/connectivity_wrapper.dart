@@ -10,8 +10,8 @@ import 'offline_banner.dart';
 import 'offline_page.dart';
 
 /// Smart connectivity wrapper that handles offline mode gracefully:
-/// - Has cached data + offline → show content with an offline banner
-/// - No cached data + offline → show dedicated offline page
+/// - Logged in + offline → show content with an offline banner (user can browse cached data)
+/// - Not logged in + offline → show dedicated offline page (cannot authenticate)
 /// - Connection restored → auto-sync in background + hide banner
 class ConnectivityWrapper extends StatefulWidget {
   final Widget child;
@@ -28,10 +28,8 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper>
   StreamSubscription<bool>? _subscription;
 
   bool _isConnected = true;
-  bool _hasCache = false;
   bool _isRetrying = false;
   bool _isInitialized = false;
-  bool _showBanner = false;
 
   @override
   void initState() {
@@ -102,51 +100,34 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper>
 
   Future<void> _checkConnectivity() async {
     final isConnected = await _connectivityService.checkConnectivity();
-    await _checkCache();
 
     if (mounted) {
       setState(() {
         _isConnected = isConnected;
-        _showBanner = !isConnected && _hasCache;
       });
     }
   }
 
-  Future<void> _checkCache() async {
-    try {
-      final ticketRepo = context.read<TicketRepository>();
-      _hasCache = await ticketRepo.hasCache();
-    } catch (_) {
-      _hasCache = false;
-    }
-  }
-
-  void _onConnectionLost() async {
-    await _checkCache();
-
-    if (mounted) {
-      setState(() {
-        _showBanner = _hasCache;
-      });
-    }
+  void _onConnectionLost() {
+    // No action needed — build() reactively shows banner/OfflinePage
   }
 
   void _onConnectionRestored() {
     _connectivityService.notifyConnectionRestored();
 
-    setState(() {
-      _showBanner = false;
-    });
-
     // Auto-sync data in background
     _autoSync();
 
     if (mounted) {
-      ToastHelper.showSuccess(
-        context,
-        'Back Online',
-        description: 'Connection restored. Syncing data...',
-      );
+      try {
+        ToastHelper.showSuccess(
+          context,
+          'Back Online',
+          description: 'Connection restored. Syncing data...',
+        );
+      } catch (_) {
+        // Toast may fail on screens without Navigator (e.g., login)
+      }
     }
   }
 
@@ -182,11 +163,16 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper>
       if (isConnected) {
         _onConnectionRestored();
       } else {
-        ToastHelper.showError(
-          context,
-          'No Connection',
-          description: 'Still no internet connection. Please try again.',
-        );
+        try {
+          ToastHelper.showError(
+            context,
+            'No Connection',
+            description: 'Still no internet connection. Please try again.',
+          );
+        } catch (_) {
+          // Toast may fail on screens without Navigator (e.g., login)
+          // The "No Internet Connection" overlay is already visible
+        }
       }
     }
   }
@@ -205,19 +191,35 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper>
       return widget.child;
     }
 
-    // Offline + No cache → show full offline page
-    if (!_isConnected && !_hasCache) {
+    // Watch auth state reactively — rebuilds when auth changes (e.g., logout)
+    final isLoggedIn = _checkIsLoggedIn(context);
+
+    // Offline + not logged in → show full offline page
+    if (!_isConnected && !isLoggedIn) {
       return OfflinePage(onRetry: _onRetry, isRetrying: _isRetrying);
     }
 
-    // Online or Offline with cache → show app content with optional banner
+    // Online or Offline with logged in → show app content with optional banner
     return Column(
       children: [
         // Offline banner slides in/out
-        OfflineBanner(isVisible: _showBanner, onRetry: _onRetry),
+        OfflineBanner(
+          isVisible: !_isConnected && isLoggedIn,
+          onRetry: _onRetry,
+        ),
         // App content
         Expanded(child: widget.child),
       ],
     );
+  }
+
+  /// Check auth state reactively using context.watch
+  bool _checkIsLoggedIn(BuildContext context) {
+    try {
+      final authProvider = context.watch<AuthProvider>();
+      return authProvider.isAuthenticated;
+    } catch (_) {
+      return false;
+    }
   }
 }
