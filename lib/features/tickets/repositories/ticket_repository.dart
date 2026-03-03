@@ -439,7 +439,13 @@ class TicketRepository {
         // Extract error message from backend response
         String message = 'Failed to submit rating';
         if (data is Map<String, dynamic>) {
-          message = data['error'] ?? data['message'] ?? message;
+          // Prefer 'message' (descriptive) over 'error' (code like 'bad_request')
+          message = data['message'] ?? message;
+          // If message is still generic, map common error codes
+          if (message == 'Failed to submit rating') {
+            final errorCode = data['error']?.toString() ?? '';
+            message = _mapRatingErrorCode(errorCode, statusCode);
+          }
         }
         if (statusCode == 400 || statusCode == 403 || statusCode == 409) {
           throw ServerException(message);
@@ -469,6 +475,26 @@ class TicketRepository {
       return null;
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Map backend error codes to human-readable messages
+  String _mapRatingErrorCode(String errorCode, int? statusCode) {
+    switch (errorCode) {
+      case 'bad_request':
+        return 'This ticket has no assigned agent';
+      case 'forbidden':
+        return 'Only ticket creators can submit ratings';
+      case 'conflict':
+        return 'This ticket has already been rated';
+      case 'not_found':
+        return 'Ticket not found';
+      default:
+        if (statusCode == 400) return 'Unable to rate this ticket';
+        if (statusCode == 403)
+          return 'You are not authorized to rate this ticket';
+        if (statusCode == 409) return 'This ticket has already been rated';
+        return 'Failed to submit rating';
     }
   }
 }

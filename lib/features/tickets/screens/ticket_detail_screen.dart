@@ -1427,11 +1427,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     if (!mounted) return;
 
     if (result == true) {
-      ToastHelper.showSuccess(
-        context,
-        'Rating submitted successfully',
-        description: 'Thank you for your feedback!',
-      );
+      // Success — bottom sheet already showed animation, just reload rating
+      provider.loadTicketRating(_currentTicket.id);
     } else if (result == false) {
       // Submission failed — show error from provider
       ToastHelper.showError(

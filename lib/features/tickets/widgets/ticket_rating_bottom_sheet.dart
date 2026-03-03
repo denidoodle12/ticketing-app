@@ -6,7 +6,7 @@ import '../../../providers/ticket_provider.dart';
 import 'star_rating_widget.dart';
 
 /// Modern bottom sheet for submitting ticket rating
-/// Features: dynamic emoji, interactive stars, feedback field, gradient submit button
+/// Features: interactive stars, text labels, feedback field, success animation
 class TicketRatingBottomSheet extends StatefulWidget {
   final int ticketId;
 
@@ -17,6 +17,7 @@ class TicketRatingBottomSheet extends StatefulWidget {
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      isDismissible: true,
       backgroundColor: Colors.transparent,
       builder: (context) => TicketRatingBottomSheet(ticketId: ticketId),
     );
@@ -28,40 +29,63 @@ class TicketRatingBottomSheet extends StatefulWidget {
 }
 
 class _TicketRatingBottomSheetState extends State<TicketRatingBottomSheet>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   int _selectedRating = 0;
+  bool _isSuccess = false;
   final _commentController = TextEditingController();
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
 
-  // Rating labels & emojis
-  static const _ratingEmojis = [
-    '\u{1F621}',
-    '\u{1F615}',
-    '\u{1F610}',
-    '\u{1F60A}',
-    '\u{1F929}',
-  ];
+  // Entry animation
+  late AnimationController _entryController;
+  late Animation<double> _entryFade;
+
+  // Success animation
+  late AnimationController _successController;
+  late Animation<double> _checkScale;
+  late Animation<double> _successFade;
+
+  // Rating labels
   static const _ratingLabels = ['Very Bad', 'Bad', 'Okay', 'Good', 'Excellent'];
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+
+    // Entry animation
+    _entryController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
     );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
+    _entryFade = CurvedAnimation(
+      parent: _entryController,
       curve: Curves.easeOut,
     );
-    _animationController.forward();
+    _entryController.forward();
+
+    // Success animation
+    _successController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _checkScale =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.2), weight: 60),
+          TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 40),
+        ]).animate(
+          CurvedAnimation(parent: _successController, curve: Curves.easeOut),
+        );
+    _successFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _successController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+      ),
+    );
   }
 
   @override
   void dispose() {
     _commentController.dispose();
-    _animationController.dispose();
+    _entryController.dispose();
+    _successController.dispose();
     super.dispose();
   }
 
@@ -83,8 +107,20 @@ class _TicketRatingBottomSheetState extends State<TicketRatingBottomSheet>
 
     if (!mounted) return;
 
-    // Always close bottom sheet — detail screen handles success/error display
-    Navigator.of(context).pop(success);
+    if (success) {
+      // Show success animation, then auto-close
+      setState(() => _isSuccess = true);
+      _successController.forward();
+
+      await Future.delayed(const Duration(milliseconds: 1800));
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } else {
+      // Close and let detail screen show error toast
+      Navigator.of(context).pop(false);
+    }
   }
 
   @override
@@ -92,7 +128,7 @@ class _TicketRatingBottomSheetState extends State<TicketRatingBottomSheet>
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return FadeTransition(
-      opacity: _fadeAnimation,
+      opacity: _entryFade,
       child: Container(
         margin: EdgeInsets.only(bottom: bottomInset),
         decoration: const BoxDecoration(
@@ -107,53 +143,154 @@ class _TicketRatingBottomSheetState extends State<TicketRatingBottomSheet>
           ],
         ),
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Drag handle
-                _buildDragHandle(),
-                const SizedBox(height: 20),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+            child: _isSuccess ? _buildSuccessView() : _buildFormView(),
+          ),
+        ),
+      ),
+    );
+  }
 
-                // Title
-                Text(
-                  'How Was Your Experience?',
-                  style: AppTextStyles.h5.copyWith(
-                    color: AppColors.textPrimary,
+  /// The rating form content
+  Widget _buildFormView() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          _buildDragHandle(),
+          const SizedBox(height: 20),
+
+          // Title
+          Text(
+            'How Was Your Experience?',
+            style: AppTextStyles.h5.copyWith(color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Rate the service you received',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Star rating
+          StarRatingWidget(
+            rating: _selectedRating,
+            starSize: 44,
+            onRatingChanged: _onRatingChanged,
+          ),
+          const SizedBox(height: 12),
+
+          // Rating label badge
+          _buildRatingLabel(),
+          const SizedBox(height: 24),
+
+          // Feedback field
+          _buildFeedbackField(),
+          const SizedBox(height: 24),
+
+          // Submit button
+          _buildSubmitButton(),
+        ],
+      ),
+    );
+  }
+
+  /// The success animation view
+  Widget _buildSuccessView() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          _buildDragHandle(),
+          const SizedBox(height: 32),
+
+          // Animated checkmark circle
+          AnimatedBuilder(
+            animation: _successController,
+            builder: (context, child) {
+              return FadeTransition(
+                opacity: _successFade,
+                child: Transform.scale(
+                  scale: _checkScale.value,
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.success500, AppColors.accent500],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.success500.withAlpha(60),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: AppColors.white,
+                      size: 44,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
+              );
+            },
+          ),
+          const SizedBox(height: 20),
+
+          // Thank you text
+          AnimatedBuilder(
+            animation: _successFade,
+            builder: (context, child) {
+              return FadeTransition(opacity: _successFade, child: child);
+            },
+            child: Column(
+              children: [
                 Text(
-                  'Rate the service you received',
-                  style: AppTextStyles.bodySmall.copyWith(
+                  'Thank You!',
+                  style: AppTextStyles.h4.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Your feedback helps us improve',
+                  style: AppTextStyles.bodyMedium.copyWith(
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 24),
-
-                // Emoji & Label
-                _buildEmojiSection(),
-                const SizedBox(height: 20),
-
-                // Star rating
-                StarRatingWidget(
-                  rating: _selectedRating,
-                  starSize: 44,
-                  onRatingChanged: _onRatingChanged,
-                ),
-                const SizedBox(height: 24),
-
-                // Feedback field
-                _buildFeedbackField(),
-                const SizedBox(height: 24),
-
-                // Submit button
-                _buildSubmitButton(),
               ],
             ),
           ),
-        ),
+          const SizedBox(height: 16),
+
+          // Star display (read-only)
+          AnimatedBuilder(
+            animation: _successFade,
+            builder: (context, child) {
+              return FadeTransition(opacity: _successFade, child: child);
+            },
+            child: StarRatingWidget(
+              rating: _selectedRating,
+              starSize: 32,
+              readOnly: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
@@ -171,86 +308,77 @@ class _TicketRatingBottomSheetState extends State<TicketRatingBottomSheet>
     );
   }
 
-  Widget _buildEmojiSection() {
+  /// Animated rating label badge
+  Widget _buildRatingLabel() {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       transitionBuilder: (child, animation) {
-        return ScaleTransition(scale: animation, child: child);
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.2),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
       },
       child: _selectedRating > 0
-          ? Column(
+          ? Container(
               key: ValueKey(_selectedRating),
-              children: [
-                Text(
-                  _ratingEmojis[_selectedRating - 1],
-                  style: const TextStyle(fontSize: 48),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: _getRatingColor().withAlpha(20),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: _getRatingColor().withAlpha(60)),
+              ),
+              child: Text(
+                _ratingLabels[_selectedRating - 1],
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: _getRatingColor(),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getRatingColor().withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _getRatingColor().withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    _ratingLabels[_selectedRating - 1],
-                    style: AppTextStyles.labelLarge.copyWith(
-                      color: _getRatingColor(),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             )
-          : Column(
+          : Text(
               key: const ValueKey(0),
-              children: [
-                Icon(
-                  Icons.star_outline_rounded,
-                  size: 48,
-                  color: AppColors.secondary200,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tap a star to rate',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
+              'Tap a star to rate',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textDisabled,
+              ),
             ),
     );
   }
 
   Widget _buildFeedbackField() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.neutral50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.secondary200),
-      ),
-      child: TextField(
-        controller: _commentController,
-        maxLines: 3,
-        maxLength: 500,
-        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-        decoration: InputDecoration(
-          hintText: 'Write your feedback (optional)...',
-          hintStyle: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.textDisabled,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.all(16),
-          counterStyle: AppTextStyles.labelSmall.copyWith(
-            color: AppColors.textDisabled,
-          ),
+    return TextField(
+      controller: _commentController,
+      maxLines: 3,
+      maxLength: 500,
+      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+      decoration: InputDecoration(
+        hintText: 'Write your feedback (optional)...',
+        hintStyle: AppTextStyles.bodyMedium.copyWith(
+          color: AppColors.textDisabled,
         ),
+        filled: true,
+        fillColor: AppColors.neutral50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.secondary200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.secondary200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.primaryDark, width: 2),
+        ),
+        contentPadding: const EdgeInsets.all(16),
+        counterText: '',
       ),
     );
   }
@@ -275,15 +403,6 @@ class _TicketRatingBottomSheetState extends State<TicketRatingBottomSheet>
                   : null,
               color: isEnabled ? null : AppColors.secondary200,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: isEnabled
-                  ? [
-                      BoxShadow(
-                        color: AppColors.primary500.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
             ),
             child: MaterialButton(
               onPressed: isEnabled ? _onSubmit : null,
@@ -319,7 +438,7 @@ class _TicketRatingBottomSheetState extends State<TicketRatingBottomSheet>
       case 1:
         return AppColors.error500;
       case 2:
-        return AppColors.priorityHigh; // Orange
+        return AppColors.priorityHigh;
       case 3:
         return AppColors.warning500;
       case 4:
