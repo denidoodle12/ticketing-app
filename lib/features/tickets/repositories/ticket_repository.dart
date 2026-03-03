@@ -461,8 +461,13 @@ class TicketRepository {
       return null; // Gracefully handle offline
     } on ServerException {
       return null;
+    } on DioException catch (e) {
+      // 404 = not rated yet (expected behavior, not an error)
+      if (e.response?.statusCode == 404) {
+        return null;
+      }
+      return null;
     } catch (e) {
-      debugPrint('[TicketRepository] Error loading rating: $e');
       return null;
     }
   }

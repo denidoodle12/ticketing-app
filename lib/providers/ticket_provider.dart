@@ -29,6 +29,7 @@ class TicketProvider extends ChangeNotifier {
   bool _isRatingLoading = false;
   bool _isSubmittingRating = false;
   bool _hasRated = false;
+  bool _isRatingChecked = false;
 
   // Data
   List<TicketCategory> _categories = [];
@@ -153,6 +154,7 @@ class TicketProvider extends ChangeNotifier {
   bool get isRatingLoading => _isRatingLoading;
   bool get isSubmittingRating => _isSubmittingRating;
   bool get hasRated => _hasRated;
+  bool get isRatingChecked => _isRatingChecked;
 
   /// Load categories for dropdown
   Future<void> loadCategories() async {
@@ -687,6 +689,7 @@ class TicketProvider extends ChangeNotifier {
   /// Called when entering ticket detail screen
   Future<void> loadTicketRating(int ticketId) async {
     _isRatingLoading = true;
+    _isRatingChecked = false;
     _currentRating = null;
     _hasRated = false;
     notifyListeners();
@@ -696,11 +699,11 @@ class TicketProvider extends ChangeNotifier {
       _currentRating = rating;
       _hasRated = rating != null;
     } catch (e) {
-      debugPrint('[TicketProvider] Error loading rating: $e');
       _hasRated = false;
     }
 
     _isRatingLoading = false;
+    _isRatingChecked = true;
     notifyListeners();
   }
 
@@ -745,5 +748,6 @@ class TicketProvider extends ChangeNotifier {
     _isRatingLoading = false;
     _isSubmittingRating = false;
     _hasRated = false;
+    _isRatingChecked = false;
   }
 }

@@ -45,6 +45,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   WebSocketState _wsState = WebSocketState.disconnected;
   bool _isSending = false;
   bool _isOffline = false;
+  bool _isRatingExpanded = false;
 
   // Connectivity listener for real-time online/offline detection
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
@@ -84,6 +85,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   Future<void> _loadTicketDetail() async {
     final provider = context.read<TicketProvider>();
+    // Clear stale rating state immediately to prevent card flash
+    provider.clearRatingState();
     await provider.loadTicketDetail(widget.ticket.id);
 
     if (mounted && provider.ticketDetailResponse != null) {
@@ -1167,8 +1170,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     // Only show for closed tickets
     if (statusName != 'closed') return const SizedBox.shrink();
 
-    // Loading state
-    if (provider.isRatingLoading) {
+    // Loading or not yet checked — show loading (prevents card flash)
+    if (provider.isRatingLoading || !provider.isRatingChecked) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         color: AppColors.white,
@@ -1206,76 +1209,140 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     return _buildRateButton();
   }
 
-  /// Banner showing existing rating (read-only)
+  /// Banner showing existing rating (read-only, expandable for comment)
   Widget _buildRatedBanner(TicketProvider provider) {
     final rating = provider.currentRating!;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.warning500.withValues(alpha: 0.08),
-            AppColors.warning500.withValues(alpha: 0.03),
-          ],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.warning500.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          // Star icon
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.warning500.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+    final hasComment =
+        rating.comment != null && rating.comment!.trim().isNotEmpty;
+
+    return GestureDetector(
+      onTap: hasComment
+          ? () => setState(() => _isRatingExpanded = !_isRatingExpanded)
+          : null,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignment: Alignment.topCenter,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [AppColors.primary600, AppColors.primary500],
             ),
-            child: const Icon(
-              Icons.star_rounded,
-              color: AppColors.warning500,
-              size: 20,
-            ),
+            borderRadius: BorderRadius.circular(14),
           ),
-          const SizedBox(width: 12),
-          // Rating info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'You have rated this ticket',
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.textSecondary,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Main row: icon, info, badge
+              Row(
+                children: [
+                  // Star icon with frosted circle
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withAlpha(38),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.star_rounded,
+                      color: AppColors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Rating info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'You have rated this ticket',
+                          style: AppTextStyles.labelMedium.copyWith(
+                            color: AppColors.white.withAlpha(190),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        StarRatingWidget(
+                          rating: rating.rating,
+                          starSize: 20,
+                          readOnly: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Rating number badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withAlpha(38),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${rating.rating}/5',
+                      style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  // Expand arrow (only if has comment)
+                  if (hasComment) ...[
+                    const SizedBox(width: 8),
+                    AnimatedRotation(
+                      turns: _isRatingExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: AppColors.white.withAlpha(180),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+
+              // Expandable comment section
+              if (_isRatingExpanded && hasComment) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withAlpha(25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your Feedback',
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.white.withAlpha(160),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        rating.comment!,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.white.withAlpha(220),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                StarRatingWidget(
-                  rating: rating.rating,
-                  starSize: 20,
-                  readOnly: true,
-                ),
               ],
-            ),
+            ],
           ),
-          // Rating number
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.warning500.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${rating.rating}/5',
-              style: AppTextStyles.labelLarge.copyWith(
-                color: AppColors.warning700,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1283,40 +1350,34 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   /// Button to open rating bottom sheet
   Widget _buildRateButton() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [AppColors.primary600, AppColors.primary500],
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: _showRatingBottomSheet,
           borderRadius: BorderRadius.circular(14),
-          child: Container(
+          child: Padding(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary500.withValues(alpha: 0.08),
-                  AppColors.primary500.withValues(alpha: 0.03),
-                ],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: AppColors.primary500.withValues(alpha: 0.2),
-              ),
-            ),
             child: Row(
               children: [
-                // Star icon
+                // Star icon with frosted circle
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.primary500.withValues(alpha: 0.15),
+                    color: AppColors.white.withAlpha(38),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
-                    Icons.star_outline_rounded,
-                    color: AppColors.primary500,
+                    Icons.star_rounded,
+                    color: AppColors.white,
                     size: 20,
                   ),
                 ),
@@ -1328,14 +1389,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                       Text(
                         'Rate This Ticket',
                         style: AppTextStyles.labelLarge.copyWith(
-                          color: AppColors.primary600,
+                          color: AppColors.white,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
                         'Share your experience with this service',
                         style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.white.withAlpha(190),
                         ),
                       ),
                     ],
@@ -1344,7 +1405,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 16,
-                  color: AppColors.primary500,
+                  color: AppColors.white.withAlpha(180),
                 ),
               ],
             ),
