@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/api_endpoints.dart';
+import '../../../core/network/connectivity_service.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
@@ -41,11 +43,29 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
     'Dec',
   ];
 
+  // Connectivity listener for auto-reload when online
+  StreamSubscription<bool>? _connectivitySubscription;
+
   @override
   void initState() {
     super.initState();
     _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
     _loadTrendData();
+
+    // Auto-reload when connection restores
+    _connectivitySubscription = ConnectivityService().connectionStream.listen((
+      isConnected,
+    ) {
+      if (isConnected && _error != null && mounted) {
+        _loadTrendData();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
   }
 
   /// Build a unique cache key for this trend query
@@ -101,6 +121,9 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
           _isLoading = false;
         });
       }
+
+      // Prefetch the other period in background for offline availability
+      _prefetchOtherPeriod(repo);
     } on DioException catch (_) {
       // Offline — try to load from cache
       await _loadFromCache(repo);
@@ -114,6 +137,54 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  /// Prefetch other period data in background for offline use.
+  /// For weekly → prefetch monthly data for current + 2 previous months.
+  /// For monthly → prefetch weekly data.
+  Future<void> _prefetchOtherPeriod(TicketRepository repo) async {
+    try {
+      final dio = DioClient.userInstance;
+
+      if (_selectedPeriod == 'weekly') {
+        // Prefetch current month + 2 previous months of monthly data
+        final now = DateTime.now();
+        for (int i = 0; i < 3; i++) {
+          final targetMonth = DateTime(now.year, now.month - i);
+          final month = targetMonth.month.toString().padLeft(2, '0');
+          final monthKey = 'trend_monthly_${targetMonth.year}-$month';
+
+          try {
+            final response = await dio.get(
+              ApiEndpoints.dashboardStats,
+              queryParameters: {
+                'include': 'trend',
+                'trend_period': 'monthly',
+                'trend_month': '${targetMonth.year}-$month',
+              },
+            );
+            await repo.localDatasource?.cacheDashboardStats(
+              monthKey,
+              jsonEncode(response.data),
+            );
+          } catch (_) {
+            // Individual month prefetch failure is non-critical
+          }
+        }
+      } else {
+        // Prefetch weekly data
+        final response = await dio.get(
+          ApiEndpoints.dashboardStats,
+          queryParameters: {'include': 'trend', 'trend_period': 'weekly'},
+        );
+        await repo.localDatasource?.cacheDashboardStats(
+          'trend_weekly',
+          jsonEncode(response.data),
+        );
+      }
+    } catch (_) {
+      // Prefetch failure is non-critical — silently ignore
     }
   }
 
@@ -138,10 +209,12 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
       // Cache read failed
     }
 
-    // No cache available
+    // No cache available — show descriptive offline message
     if (mounted) {
       setState(() {
-        _error = 'No internet connection';
+        _error = _selectedPeriod == 'monthly'
+            ? 'This month\'s data is not available offline.\nConnect to the internet to load it.'
+            : 'No internet connection';
         _isLoading = false;
       });
     }
@@ -322,22 +395,39 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
     }
 
     if (_error != null) {
+      final isOfflineError =
+          _error!.contains('internet') ||
+          _error!.contains('Offline') ||
+          _error!.contains('offline');
+
       return SizedBox(
         height: 200,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, color: AppColors.error500, size: 32),
+              Icon(
+                isOfflineError ? Icons.wifi_off_rounded : Icons.error_outline,
+                color: isOfflineError
+                    ? AppColors.textSecondary
+                    : AppColors.error500,
+                size: 32,
+              ),
               const SizedBox(height: 8),
               Text(
                 _error!,
+                textAlign: TextAlign.center,
                 style: AppTextStyles.bodySmall.copyWith(
                   color: AppColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: 8),
-              TextButton(onPressed: _loadTrendData, child: const Text('Retry')),
+              if (!isOfflineError) ...[
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _loadTrendData,
+                  child: const Text('Retry'),
+                ),
+              ],
             ],
           ),
         ),

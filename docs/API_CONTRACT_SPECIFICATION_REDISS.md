@@ -404,6 +404,25 @@ X-Super-Admin-Secret: <secret_key>
 - Code expires in 1 hour
 - Email contains the 4-digit code to be used in reset-password endpoint
 
+**Error Responses:**
+
+- **429 Too Many Requests** - Rate limited:
+
+```json
+{
+  "error": "too_many_requests",
+  "message": "too many attempts, please try again in 5 minutes",
+  "retry_after": 300
+}
+```
+
+> [!WARNING]
+>
+> **Rate Limiting:** This endpoint is rate limited to **3 requests per IP** with a **5 minute cooldown**.
+>
+> - Prevents OTP email spam/abuse
+> - Response headers: `X-RateLimit-Limit: 3`, `X-RateLimit-Remaining: N`
+
 ---
 
 ## 3.2. Verify Reset Token ✨ NEW
@@ -3075,6 +3094,145 @@ GET /tickets/status/1?page=1&limit=20
 
 ```json
 { "error": "not_found", "message": "ticket not found" }
+```
+
+---
+
+## Ticket Rating ⭐ NEW
+
+> [!NOTE]
+>
+> - Users can rate agents after ticket is **resolved** or **closed**
+> - Only the **ticket creator** can submit a rating
+> - **1 rating per ticket** (cannot re-rate)
+> - Rating scale: **1-5 stars** with optional comment
+
+### 47a. Submit Rating
+
+| Method | Endpoint               | Access                           |
+| ------ | ---------------------- | -------------------------------- |
+| `POST` | `/tickets/:id/rating`  | Authenticated (ticket creator)   |
+
+**Description:** Submit a rating for the agent who handled the ticket. Ticket must be in `resolved` or `closed` status.
+
+**Request:**
+
+```json
+{
+  "rating": 5,
+  "comment": "Very helpful agent, resolved my issue quickly!"
+}
+```
+
+| Field     | Type    | Required | Description              |
+| --------- | ------- | -------- | ------------------------ |
+| `rating`  | integer | ✅       | 1-5 stars                |
+| `comment` | string  | ❌       | Optional feedback text   |
+
+**Success Response (201):**
+
+```json
+{
+  "message": "rating submitted successfully",
+  "data": {
+    "id": 1,
+    "ticket_id": 15,
+    "agent_id": 5,
+    "rated_by": 10,
+    "rating": 5,
+    "comment": "Very helpful agent, resolved my issue quickly!",
+    "created_at": "2026-03-02T14:00:00Z"
+  }
+}
+```
+
+**Error Responses:**
+
+| Code | Error | Condition |
+|------|-------|-----------|
+| 400 | `ticket must be resolved or closed` | Ticket not yet resolved |
+| 400 | `ticket has no assigned agent` | No agent assigned |
+| 403 | `only the ticket creator can submit a rating` | Not the ticket creator |
+| 404 | `ticket not found` | Invalid ticket ID |
+| 409 | `ticket has already been rated` | Duplicate rating |
+
+---
+
+### 47b. Get Ticket Rating
+
+| Method | Endpoint              | Access              |
+| ------ | --------------------- | ------------------- |
+| `GET`  | `/tickets/:id/rating` | Authenticated Users |
+
+**Description:** Get the rating for a specific ticket.
+
+**Success Response (200):**
+
+```json
+{
+  "message": "rating retrieved successfully",
+  "data": {
+    "id": 1,
+    "ticket_id": 15,
+    "agent_id": 5,
+    "rated_by": 10,
+    "rating": 5,
+    "comment": "Very helpful agent!",
+    "created_at": "2026-03-02T14:00:00Z"
+  }
+}
+```
+
+**Error Response (404):** `this ticket has not been rated yet`
+
+---
+
+### 47c. Get Agent Ratings
+
+| Method | Endpoint              | Access                  |
+| ------ | --------------------- | ----------------------- |
+| `GET`  | `/agents/:id/ratings` | Agent/Admin/Super Admin |
+
+**Description:** Get all ratings for a specific agent with average summary and breakdown.
+
+**Query Parameters:** `page` (default: 1), `limit` (default: 10, max: 100)
+
+**Success Response (200):**
+
+```json
+{
+  "message": "agent ratings retrieved successfully",
+  "data": {
+    "summary": {
+      "agent_id": 5,
+      "total_ratings": 42,
+      "average_rating": 4.3,
+      "breakdown": {
+        "5": 20,
+        "4": 12,
+        "3": 5,
+        "2": 3,
+        "1": 2
+      }
+    },
+    "ratings": [
+      {
+        "id": 1,
+        "ticket_id": 15,
+        "agent_id": 5,
+        "rated_by": 10,
+        "rating": 5,
+        "comment": "Great support!",
+        "created_at": "2026-03-02T14:00:00Z"
+      }
+    ]
+  },
+  "pagination": {
+    "total": 42,
+    "page": 1,
+    "limit": 10
+  }
+}
 ```
 
 ---
