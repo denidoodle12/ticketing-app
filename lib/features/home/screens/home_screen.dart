@@ -1,226 +1,445 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/constants/api_config.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../routes/app_routes.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../providers/profile_provider.dart';
+import '../../../shared/widgets/section_label.dart';
+import '../../../shared/widgets/form_card.dart';
+import '../../tickets/widgets/ticket_card.dart';
+import '../widgets/ticket_statistics_card.dart';
+import '../widgets/ticket_activity_chart.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  // Counter to force rebuild TicketActivityChart when coming back online
+  int _chartRebuildKey = 0;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  bool _wasOffline = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Listen to connectivity changes for real-time sync
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _handleConnectivityChange,
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    context.read<TicketProvider>().loadHomeData();
+    final profileProvider = context.read<ProfileProvider>();
+    await profileProvider.loadProfile();
+    if (mounted && profileProvider.user != null) {
+      context.read<AuthProvider>().updateCurrentUser(profileProvider.user!);
+    }
+  }
+
+  /// Handle connectivity changes in real-time
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final isNowOffline = results.contains(ConnectivityResult.none);
+
+    if (isNowOffline) {
+      _wasOffline = true;
+    } else if (!isNowOffline && _wasOffline) {
+      // Just came back online — refresh all home data
+      _wasOffline = false;
+      if (mounted) {
+        _loadData();
+        // Force rebuild TicketActivityChart by changing its key
+        setState(() => _chartRebuildKey++);
+      }
+    }
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final ticketProvider = context.watch<TicketProvider>();
     final user = authProvider.currentUser;
+    final greeting = _getGreeting();
+    final firstName = user?.name ?? 'User';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authProvider.logout();
-              if (context.mounted) {
-                context.go(AppRoutes.login);
-              }
-            },
-          ),
-        ],
+      backgroundColor: AppColors.white,
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: _buildGradientHeader(firstName, greeting),
+            ),
+            SliverToBoxAdapter(child: _buildContent(ticketProvider)),
+          ],
+        ),
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // User Avatar
-              CircleAvatar(
-                radius: 50,
-                backgroundColor: AppColors.primary,
-                child: Text(
-                  user?.fullName.substring(0, 1).toUpperCase() ?? 'U',
-                  style: AppTextStyles.h1.copyWith(
-                    color: AppColors.white,
+    );
+  }
+
+  Widget _buildGradientHeader(String firstName, String greeting) {
+    final user = context.watch<AuthProvider>().currentUser;
+    final profilePictureUrl = user?.profilePicture != null
+        ? '${ApiConfig.baseUrl}${user!.profilePicture}'
+        : null;
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary600, AppColors.primary500],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Header Row
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Row(
+                children: [
+                  // Avatar
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.white.withAlpha(76),
+                        width: 3,
+                      ),
+                    ),
+                    child: ClipOval(
+                      child: profilePictureUrl != null
+                          ? CachedNetworkImage(
+                              imageUrl: profilePictureUrl,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) =>
+                                  _buildAvatarPlaceholder(firstName),
+                              errorWidget: (_, __, ___) =>
+                                  _buildAvatarPlaceholder(firstName),
+                            )
+                          : _buildAvatarPlaceholder(firstName),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Welcome Message
-              Text(
-                'Selamat Datang!',
-                style: AppTextStyles.h3,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                user?.fullName ?? 'User',
-                style: AppTextStyles.h4.copyWith(
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                user?.email ?? '',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Info Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  children: [
-                    Row(
+                  const SizedBox(width: 14),
+                  // Greeting
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.check_circle,
-                          color: AppColors.success,
+                        Text(
+                          'Hi, $firstName',
+                          style: AppTextStyles.h5.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Login berhasil!',
-                            style: AppTextStyles.bodyLarge.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                        const SizedBox(height: 2),
+                        Text(
+                          greeting,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.white.withAlpha(204),
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Selamat! Anda berhasil login dengan mock data. Sprint 1 authentication flow sudah berfungsi dengan baik.',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // User Stats
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.confirmation_number,
-                      label: 'Tiket Dibuat',
-                      value: user?.statTicketsCreatedCount?.toString() ?? '0',
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.check_circle_outline,
-                      label: 'Tiket Selesai',
-                      value:
-                          user?.statTicketsResolvedCount?.toString() ?? '0',
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+            ),
 
-              // Next Steps Info
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.info.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.info.withValues(alpha: 0.3),
+            const SizedBox(height: 24),
+
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Find your IT\nticketing here',
+                  style: AppTextStyles.h2.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 20,
-                          color: AppColors.info,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Next: Sprint 2',
-                          style: AppTextStyles.labelMedium.copyWith(
-                            color: AppColors.info,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Fitur selanjutnya:\n• Profile Page\n• Register Screen\n• API Integration',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.info,
-                      ),
-                    ),
-                  ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Search Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildSearchBar(),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Curved bottom
+            Container(
+              height: 24,
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
                 ),
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarPlaceholder(String firstName) {
+    return Container(
+      color: AppColors.white.withAlpha(51),
+      child: Center(
+        child: Text(
+          firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
+          style: AppTextStyles.h5.copyWith(
+            color: AppColors.white,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
     );
   }
-}
 
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+  Widget _buildSearchBar() {
+    return GestureDetector(
+      onTap: () => context.push('/search'),
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow.withAlpha(20),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 18, right: 10),
+              child: Icon(Icons.search, color: AppColors.grey400, size: 22),
+            ),
+            Expanded(
+              child: Text(
+                'Search tickets...',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.grey400,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildContent(TicketProvider ticketProvider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: AppColors.primary,
-            size: 32,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: AppTextStyles.h3.copyWith(
-              color: AppColors.primary,
+          // Ticket Statistics
+          FormCard(
+            padding: const EdgeInsets.all(16),
+            child: TicketStatisticsCard(
+              statusCounts: ticketProvider.statusCounts,
+              isLoading: ticketProvider.isStatsLoading,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: AppTextStyles.caption,
-            textAlign: TextAlign.center,
+
+          const SizedBox(height: 24),
+
+          // Ticket Activity Chart
+          FormCard(
+            padding: const EdgeInsets.all(16),
+            child: TicketActivityChart(key: ValueKey(_chartRebuildKey)),
+          ),
+
+          const SizedBox(height: 28),
+
+          // Quick Action
+          const SectionLabel(label: 'Quick Action'),
+          const SizedBox(height: 12),
+          _buildCreateTicketButton(),
+
+          const SizedBox(height: 28),
+
+          // Recent Tickets
+          _buildRecentTicketsSection(ticketProvider),
+
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreateTicketButton() {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [AppColors.primary600, AppColors.primary500],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary500.withAlpha(60),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.push('/tickets/create'),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withAlpha(51),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.add,
+                    size: 18,
+                    color: AppColors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Create New Ticket',
+                  style: AppTextStyles.button.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentTicketsSection(TicketProvider ticketProvider) {
+    final recentTickets = ticketProvider.recentTickets;
+    final isLoading = ticketProvider.isRecentTicketsLoading;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        const SectionLabel(label: 'Recent Tickets'),
+        const SizedBox(height: 12),
+
+        // Content
+        if (isLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (recentTickets.isEmpty)
+          FormCard(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.inbox_outlined,
+                      size: 48,
+                      color: AppColors.textSecondary.withAlpha(128),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No tickets yet',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Create a new ticket to get started',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textDisabled,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          ...recentTickets.map(
+            (ticket) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TicketCard(
+                ticket: ticket,
+                onTap: () => context.push('/tickets/detail', extra: ticket),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

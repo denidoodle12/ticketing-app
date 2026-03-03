@@ -1,0 +1,25 @@
+                                                                                
+ ▐▛███▜▌   Claude Code v2.1.14                                                  
+▝▜█████▛▘  Opus 4.5 · Claude Pro                                                
+  ▘▘ ▝▝    D:\after graduate\Magang Enigma\Project Ticketing App\ticketing_…    
+                                                                                
+> /context                                                                      
+  ⎿   Context Usage                                                             
+     ⛁ ⛀ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   claude-opus-4-5-20251101 · 22k/200k tokens (11%)     
+     ⛁ ⛀ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶                                                        
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   Estimated usage by category                          
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System prompt: 3.3k tokens (1.7%)                  
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 16.2k tokens (8.1%)                  
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Memory files: 2.1k tokens (1.1%)                   
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Messages: 8 tokens (0.0%)                          
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛝ ⛝ ⛝   ⛶ Free space: 133k (66.7%)                           
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛝ Autocompact buffer: 45.0k tokens (22.5%)           
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝                                                        
+                                                                                
+                                                                                
+     Memory files · /memory                                                     
+     └ CLAUDE.md: 2.1k tokens                                                   
+                                                                                
+                                                                                
+                                                                                
+

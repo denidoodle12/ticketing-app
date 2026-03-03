@@ -1,9 +1,11 @@
 {
+  "alwaysThinkingEnabled": true,
   "permissions": {
     "allow": [
       "Bash(ping:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "model": "opus"
 }

@@ -38,6 +38,13 @@ class AppTextStyles {
     height: 1.4,
   );
 
+  static const TextStyle h6 = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+    height: 1.4,
+  );
+
   // Body Styles
   static const TextStyle bodyLarge = TextStyle(
     fontSize: 16,

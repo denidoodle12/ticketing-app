@@ -37,6 +37,7 @@ Sebelum mengerjakan fitur, SELALU baca dokumen berikut:
 - `docs/ERD.md` - Struktur database dan relasi (jika ada)
 - `docs/ENDPOINTS_SPRINT_1.md` - API endpoints Sprint 1
 - `docs/ENDPOINTS_SPRINT_2.md` - API endpoints Sprint 2
+- `docs/GIT_WORKFLOW.md` - Aturan commit, push, dan merge
 
 ---
 

@@ -1,19 +1,14 @@
 import 'package:flutter/foundation.dart';
-import '../data/models/user_model.dart';
-import '../data/repositories/auth_repository.dart';
+import '../features/auth/models/user_model.dart';
+import '../features/auth/repositories/auth_repository.dart';
 
 /// Auth state enum
-enum AuthState {
-  initial,
-  loading,
-  authenticated,
-  unauthenticated,
-  error,
-}
+enum AuthState { initial, loading, authenticated, unauthenticated, error }
 
 /// Auth provider for state management
 class AuthProvider extends ChangeNotifier {
   final AuthRepository _authRepository;
+  VoidCallback? _onLogoutCallback;
 
   AuthState _state = AuthState.initial;
   User? _currentUser;
@@ -21,12 +16,18 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider(this._authRepository);
 
+  /// Set a callback to be called on logout (e.g., to clear local cache)
+  void setOnLogoutCallback(VoidCallback callback) {
+    _onLogoutCallback = callback;
+  }
+
   // Getters
   AuthState get state => _state;
   User? get currentUser => _currentUser;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _state == AuthState.authenticated;
   bool get isLoading => _state == AuthState.loading;
+  bool get isFirstLogin => _currentUser?.isFirstLogin ?? false;
 
   /// Check authentication status (called on splash screen)
   Future<void> checkAuthStatus() async {
@@ -47,24 +48,25 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Login with email and password
-  Future<bool> login(String email, String password) async {
+  /// Login with identifier (email or username) and password
+  Future<bool> login(String identifier, String password) async {
     _setState(AuthState.loading);
 
     try {
-      final result = await _authRepository.login(email, password);
+      final result = await _authRepository.login(identifier, password);
 
       if (result.isSuccess) {
         _currentUser = result.data;
         _setState(AuthState.authenticated);
         return true;
       } else {
-        _setError(result.failure!.message);
+        final errorMsg = result.failure!.message;
+        _setError(errorMsg);
         _setState(AuthState.error);
         return false;
       }
     } catch (e) {
-      _setError('An unexpected error occurred');
+      _setError('An unexpected error occurred: ${e.toString()}');
       _setState(AuthState.error);
       return false;
     }
@@ -100,11 +102,57 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _authRepository.logout();
       _currentUser = null;
+      // Clear local cache on logout
+      _onLogoutCallback?.call();
       _setState(AuthState.unauthenticated);
     } catch (e) {
       _setError('Failed to logout');
       _setState(AuthState.error);
     }
+  }
+
+  /// Change password
+  Future<bool> changePassword(String oldPassword, String newPassword) async {
+    _setState(AuthState.loading);
+
+    try {
+      final result = await _authRepository.changePassword(
+        oldPassword,
+        newPassword,
+      );
+
+      if (result.isSuccess) {
+        // Update current user's isFirstLogin to false
+        if (_currentUser != null) {
+          _currentUser = _currentUser!.copyWith(isFirstLogin: false);
+        }
+        _setState(AuthState.authenticated);
+        return true;
+      } else {
+        _setError(result.failure!.message);
+        _setState(AuthState.authenticated);
+        return false;
+      }
+    } catch (e) {
+      _setError('An unexpected error occurred: ${e.toString()}');
+      _setState(AuthState.authenticated);
+      return false;
+    }
+  }
+
+  /// Set first login complete (updates local user state)
+  void setFirstLoginComplete() {
+    if (_currentUser != null) {
+      _currentUser = _currentUser!.copyWith(isFirstLogin: false);
+      _authRepository.setFirstLoginComplete();
+      notifyListeners();
+    }
+  }
+
+  /// Update current user (called from ProfileProvider after profile update)
+  void updateCurrentUser(User user) {
+    _currentUser = user;
+    notifyListeners();
   }
 
   /// Clear error message
@@ -124,5 +172,90 @@ class AuthProvider extends ChangeNotifier {
   void _setError(String message) {
     _errorMessage = message;
     notifyListeners();
+  }
+
+  // ========== Forgot Password Flow ==========
+
+  String? _resetToken;
+
+  /// Get the stored reset token
+  String? get resetToken => _resetToken;
+
+  /// Request password reset - sends 4-digit code to email
+  Future<bool> requestPasswordReset(String email) async {
+    _setState(AuthState.loading);
+    _errorMessage = null;
+
+    try {
+      final result = await _authRepository.requestPasswordReset(email);
+
+      if (result.isSuccess) {
+        _setState(AuthState.unauthenticated);
+        return true;
+      } else {
+        _setError(result.failure!.message);
+        _setState(AuthState.error);
+        return false;
+      }
+    } catch (e) {
+      _setError('An unexpected error occurred: ${e.toString()}');
+      _setState(AuthState.error);
+      return false;
+    }
+  }
+
+  /// Verify reset token - check if 4-digit code is valid
+  Future<bool> verifyResetToken(String token) async {
+    _setState(AuthState.loading);
+    _errorMessage = null;
+
+    try {
+      final result = await _authRepository.verifyResetToken(token);
+
+      if (result.isSuccess && result.data == true) {
+        // Store valid token for use in reset password step
+        _resetToken = token;
+        _setState(AuthState.unauthenticated);
+        return true;
+      } else {
+        _setError(result.failure?.message ?? 'Invalid or expired code.');
+        _setState(AuthState.error);
+        return false;
+      }
+    } catch (e) {
+      _setError('An unexpected error occurred: ${e.toString()}');
+      _setState(AuthState.error);
+      return false;
+    }
+  }
+
+  /// Reset password using the 4-digit code
+  Future<bool> resetPassword(String token, String newPassword) async {
+    _setState(AuthState.loading);
+    _errorMessage = null;
+
+    try {
+      final result = await _authRepository.resetPassword(token, newPassword);
+
+      if (result.isSuccess) {
+        // Clear stored token after successful reset
+        _resetToken = null;
+        _setState(AuthState.unauthenticated);
+        return true;
+      } else {
+        _setError(result.failure!.message);
+        _setState(AuthState.error);
+        return false;
+      }
+    } catch (e) {
+      _setError('An unexpected error occurred: ${e.toString()}');
+      _setState(AuthState.error);
+      return false;
+    }
+  }
+
+  /// Clear reset token (call when user cancels flow)
+  void clearResetToken() {
+    _resetToken = null;
   }
 }

@@ -53,14 +53,31 @@ class LocalStorage {
   Future<void> saveUserData({
     required String userId,
     required String email,
+    required String username,
     required String fullName,
     required String role,
+    bool isFirstLogin = false,
+    String? lastName,
+    String? phoneNumber,
+    String? profilePicture,
     String? avatarUrl,
   }) async {
     await _prefs.setString(StorageKeys.userId, userId);
     await _prefs.setString(StorageKeys.userEmail, email);
-    await _prefs.setString(StorageKeys.userFullName, fullName);
+    await _prefs.setString(StorageKeys.userUsername, username);
+    await _prefs.setString(StorageKeys.userName, fullName);
+    await _prefs.setString(StorageKeys.userFullName, fullName); // Legacy support
     await _prefs.setString(StorageKeys.userRole, role);
+    await _prefs.setBool(StorageKeys.userIsFirstLogin, isFirstLogin);
+    if (lastName != null) {
+      await _prefs.setString(StorageKeys.userLastName, lastName);
+    }
+    if (phoneNumber != null) {
+      await _prefs.setString(StorageKeys.userPhoneNumber, phoneNumber);
+    }
+    if (profilePicture != null) {
+      await _prefs.setString(StorageKeys.userProfilePicture, profilePicture);
+    }
     if (avatarUrl != null) {
       await _prefs.setString(StorageKeys.userAvatarUrl, avatarUrl);
     }
@@ -76,9 +93,35 @@ class LocalStorage {
     return _prefs.getString(StorageKeys.userEmail);
   }
 
-  /// Get user full name
+  /// Get username
+  String? getUserUsername() {
+    return _prefs.getString(StorageKeys.userUsername);
+  }
+
+  /// Get user name (first name)
+  String? getUserName() {
+    return _prefs.getString(StorageKeys.userName) ??
+        _prefs.getString(StorageKeys.userFullName); // Fallback to legacy
+  }
+
+  /// Get user full name (legacy - for backward compatibility)
   String? getUserFullName() {
     return _prefs.getString(StorageKeys.userFullName);
+  }
+
+  /// Get user last name
+  String? getUserLastName() {
+    return _prefs.getString(StorageKeys.userLastName);
+  }
+
+  /// Get user phone number
+  String? getUserPhoneNumber() {
+    return _prefs.getString(StorageKeys.userPhoneNumber);
+  }
+
+  /// Get user profile picture URL
+  String? getUserProfilePicture() {
+    return _prefs.getString(StorageKeys.userProfilePicture);
   }
 
   /// Get user role
@@ -91,13 +134,29 @@ class LocalStorage {
     return _prefs.getString(StorageKeys.userAvatarUrl);
   }
 
+  /// Get user is first login flag
+  bool getUserIsFirstLogin() {
+    return _prefs.getBool(StorageKeys.userIsFirstLogin) ?? false;
+  }
+
+  /// Set user is first login flag
+  Future<void> setUserIsFirstLogin(bool value) async {
+    await _prefs.setBool(StorageKeys.userIsFirstLogin, value);
+  }
+
   /// Clear user data
   Future<void> clearUserData() async {
     await _prefs.remove(StorageKeys.userId);
     await _prefs.remove(StorageKeys.userEmail);
+    await _prefs.remove(StorageKeys.userUsername);
+    await _prefs.remove(StorageKeys.userName);
+    await _prefs.remove(StorageKeys.userLastName);
     await _prefs.remove(StorageKeys.userFullName);
+    await _prefs.remove(StorageKeys.userPhoneNumber);
+    await _prefs.remove(StorageKeys.userProfilePicture);
     await _prefs.remove(StorageKeys.userRole);
     await _prefs.remove(StorageKeys.userAvatarUrl);
+    await _prefs.remove(StorageKeys.userIsFirstLogin);
   }
 
   // ==================== APP PREFERENCES ====================

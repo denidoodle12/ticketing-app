@@ -6,6 +6,7 @@ class CustomButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
   final bool isFullWidth;
+  final bool isEnabled;
   final Color? backgroundColor;
   final Color? textColor;
   final double? height;
@@ -17,6 +18,7 @@ class CustomButton extends StatelessWidget {
     required this.onPressed,
     this.isLoading = false,
     this.isFullWidth = true,
+    this.isEnabled = true,
     this.backgroundColor,
     this.textColor,
     this.height,
@@ -25,15 +27,22 @@ class CustomButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDisabled = !isEnabled || isLoading;
+
     return SizedBox(
       width: isFullWidth ? double.infinity : null,
       height: height ?? 52,
       child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
+        onPressed: isDisabled ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? AppColors.primary,
-          foregroundColor: textColor ?? AppColors.white,
+          backgroundColor: isDisabled
+              ? AppColors.grey300
+              : (backgroundColor ?? AppColors.primary600),
+          foregroundColor: isDisabled
+              ? AppColors.grey500
+              : (textColor ?? AppColors.white),
           disabledBackgroundColor: AppColors.grey300,
+          disabledForegroundColor: AppColors.grey500,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

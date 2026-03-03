@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 import 'text_styles.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
+      fontFamily: GoogleFonts.figtree().fontFamily,
       useMaterial3: true,
       colorScheme: ColorScheme.light(
         primary: AppColors.primary,
@@ -87,7 +89,7 @@ class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(
-            color: AppColors.primary,
+            color: AppColors.primaryDark,
             width: 2,
           ),
         ),
@@ -102,11 +104,15 @@ class AppTheme {
             width: 2,
           ),
         ),
-        labelStyle: AppTextStyles.labelMedium.copyWith(
+        labelStyle: AppTextStyles.bodyMedium.copyWith(
           color: AppColors.textSecondary,
         ),
         hintStyle: AppTextStyles.bodyMedium.copyWith(
           color: AppColors.textDisabled,
+        ),
+        floatingLabelStyle: AppTextStyles.bodySmall.copyWith(
+          color: AppColors.primaryDark,
+          fontWeight: FontWeight.w500,
         ),
         errorStyle: AppTextStyles.error,
       ),
@@ -141,18 +147,20 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
         ),
       ),
-      textTheme: const TextTheme(
-        displayLarge: AppTextStyles.h1,
-        displayMedium: AppTextStyles.h2,
-        displaySmall: AppTextStyles.h3,
-        headlineMedium: AppTextStyles.h4,
-        headlineSmall: AppTextStyles.h5,
-        bodyLarge: AppTextStyles.bodyLarge,
-        bodyMedium: AppTextStyles.bodyMedium,
-        bodySmall: AppTextStyles.bodySmall,
-        labelLarge: AppTextStyles.labelLarge,
-        labelMedium: AppTextStyles.labelMedium,
-        labelSmall: AppTextStyles.labelSmall,
+      textTheme: GoogleFonts.figtreeTextTheme(
+        const TextTheme(
+          displayLarge: AppTextStyles.h1,
+          displayMedium: AppTextStyles.h2,
+          displaySmall: AppTextStyles.h3,
+          headlineMedium: AppTextStyles.h4,
+          headlineSmall: AppTextStyles.h5,
+          bodyLarge: AppTextStyles.bodyLarge,
+          bodyMedium: AppTextStyles.bodyMedium,
+          bodySmall: AppTextStyles.bodySmall,
+          labelLarge: AppTextStyles.labelLarge,
+          labelMedium: AppTextStyles.labelMedium,
+          labelSmall: AppTextStyles.labelSmall,
+        ),
       ),
     );
   }

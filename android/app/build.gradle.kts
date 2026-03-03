@@ -1,5 +1,8 @@
 plugins {
     id("com.android.application")
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
@@ -11,6 +14,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // Enable core library desugaring for flutter_local_notifications
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -23,8 +28,11 @@ android {
         applicationId = "com.enigma.ticketing_app"
         minSdk = flutter.minSdkVersion  // Android 5.0
         targetSdk = 36  // Latest stable
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = flutter.versionCode  // from pubspec.yaml
+        versionName = flutter.versionName  // from pubspec.yaml
+        
+        // Required for flutter_local_notifications
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -36,6 +44,11 @@ android {
     }
 }
 
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+
 flutter {
     source = "../.."
 }
+
