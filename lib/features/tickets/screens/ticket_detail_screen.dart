@@ -1215,14 +1215,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.warning500.withOpacity(0.08),
-            AppColors.warning500.withOpacity(0.03),
+            AppColors.warning500.withValues(alpha: 0.08),
+            AppColors.warning500.withValues(alpha: 0.03),
           ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.warning500.withOpacity(0.2)),
+        border: Border.all(color: AppColors.warning500.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -1230,7 +1230,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.warning500.withOpacity(0.15),
+              color: AppColors.warning500.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
@@ -1264,7 +1264,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.warning500.withOpacity(0.15),
+              color: AppColors.warning500.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -1294,14 +1294,16 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.primary500.withOpacity(0.08),
-                  AppColors.primary500.withOpacity(0.03),
+                  AppColors.primary500.withValues(alpha: 0.08),
+                  AppColors.primary500.withValues(alpha: 0.03),
                 ],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.primary500.withOpacity(0.2)),
+              border: Border.all(
+                color: AppColors.primary500.withValues(alpha: 0.2),
+              ),
             ),
             child: Row(
               children: [
@@ -1309,7 +1311,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.primary500.withOpacity(0.15),
+                    color: AppColors.primary500.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -1354,16 +1356,27 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   /// Show the rating bottom sheet
   Future<void> _showRatingBottomSheet() async {
+    final provider = context.read<TicketProvider>();
+
     final result = await TicketRatingBottomSheet.show(
       context,
       _currentTicket.id,
     );
 
-    if (result == true && mounted) {
+    if (!mounted) return;
+
+    if (result == true) {
       ToastHelper.showSuccess(
         context,
         'Rating submitted successfully',
         description: 'Thank you for your feedback!',
+      );
+    } else if (result == false) {
+      // Submission failed — show error from provider
+      ToastHelper.showError(
+        context,
+        'Failed to submit rating',
+        description: provider.errorMessage ?? 'Please try again later',
       );
     }
   }

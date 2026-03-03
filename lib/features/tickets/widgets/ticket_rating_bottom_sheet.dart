@@ -83,21 +83,8 @@ class _TicketRatingBottomSheetState extends State<TicketRatingBottomSheet>
 
     if (!mounted) return;
 
-    if (success) {
-      Navigator.of(context).pop(true);
-    } else {
-      // Show error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(provider.errorMessage ?? 'Failed to submit rating'),
-          backgroundColor: AppColors.error500,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
+    // Always close bottom sheet — detail screen handles success/error display
+    Navigator.of(context).pop(success);
   }
 
   @override
@@ -205,10 +192,10 @@ class _TicketRatingBottomSheetState extends State<TicketRatingBottomSheet>
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: _getRatingColor().withOpacity(0.1),
+                    color: _getRatingColor().withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: _getRatingColor().withOpacity(0.3),
+                      color: _getRatingColor().withValues(alpha: 0.3),
                     ),
                   ),
                   child: Text(
@@ -291,7 +278,7 @@ class _TicketRatingBottomSheetState extends State<TicketRatingBottomSheet>
               boxShadow: isEnabled
                   ? [
                       BoxShadow(
-                        color: AppColors.primary500.withOpacity(0.3),
+                        color: AppColors.primary500.withValues(alpha: 0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),

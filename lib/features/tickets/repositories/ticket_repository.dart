@@ -433,11 +433,17 @@ class TicketRepository {
     } on ServerException {
       rethrow;
     } catch (e) {
-      if (e is DioException && e.response?.statusCode == 409) {
-        throw ServerException('The ticket has already been rated.');
-      }
-      if (e is DioException && e.response?.statusCode == 403) {
-        throw ServerException('Only ticket creators can give ratings');
+      if (e is DioException && e.response != null) {
+        final statusCode = e.response!.statusCode;
+        final data = e.response!.data;
+        // Extract error message from backend response
+        String message = 'Failed to submit rating';
+        if (data is Map<String, dynamic>) {
+          message = data['error'] ?? data['message'] ?? message;
+        }
+        if (statusCode == 400 || statusCode == 403 || statusCode == 409) {
+          throw ServerException(message);
+        }
       }
       throw ServerException('Failed to submit rating: $e');
     }
