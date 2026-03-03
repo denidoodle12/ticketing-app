@@ -3,6 +3,7 @@ import '../core/errors/exceptions.dart';
 import '../features/tickets/models/ticket_model.dart';
 import '../features/tickets/models/ticket_category_model.dart';
 import '../features/tickets/models/ticket_status_model.dart';
+import '../features/tickets/models/ticket_rating_model.dart';
 import '../features/tickets/models/comment_model.dart';
 import '../features/tickets/repositories/ticket_repository.dart';
 
@@ -22,6 +23,12 @@ class TicketProvider extends ChangeNotifier {
   TicketState _createCommentState = TicketState.initial;
   TicketState _recentTicketsState = TicketState.initial;
   TicketState _statsState = TicketState.initial;
+
+  // Rating states
+  TicketRating? _currentRating;
+  bool _isRatingLoading = false;
+  bool _isSubmittingRating = false;
+  bool _hasRated = false;
 
   // Data
   List<TicketCategory> _categories = [];
@@ -140,6 +147,12 @@ class TicketProvider extends ChangeNotifier {
   bool get isCreatingComment => _createCommentState == TicketState.loading;
   bool get isRecentTicketsLoading => _recentTicketsState == TicketState.loading;
   bool get isStatsLoading => _statsState == TicketState.loading;
+
+  // Getters - Rating
+  TicketRating? get currentRating => _currentRating;
+  bool get isRatingLoading => _isRatingLoading;
+  bool get isSubmittingRating => _isSubmittingRating;
+  bool get hasRated => _hasRated;
 
   /// Load categories for dropdown
   Future<void> loadCategories() async {
@@ -610,6 +623,7 @@ class TicketProvider extends ChangeNotifier {
     _selectedTicket = null;
     _ticketDetailResponse = null;
     _ticketDetailState = TicketState.initial;
+    clearRatingState();
     notifyListeners();
   }
 
@@ -663,5 +677,73 @@ class TicketProvider extends ChangeNotifier {
   /// Set filter priority for paging (without notifying listeners)
   void setFilterPriorityForPaging(String? priority) {
     _filterPriority = priority;
+  }
+
+  // ============================================================
+  // Rating methods
+  // ============================================================
+
+  /// Load existing rating for a ticket
+  /// Called when entering ticket detail screen
+  Future<void> loadTicketRating(int ticketId) async {
+    _isRatingLoading = true;
+    _currentRating = null;
+    _hasRated = false;
+    notifyListeners();
+
+    try {
+      final rating = await _ticketRepository.getTicketRating(ticketId);
+      _currentRating = rating;
+      _hasRated = rating != null;
+    } catch (e) {
+      debugPrint('[TicketProvider] Error loading rating: $e');
+      _hasRated = false;
+    }
+
+    _isRatingLoading = false;
+    notifyListeners();
+  }
+
+  /// Submit a rating for a closed ticket
+  /// Returns true if successful, false otherwise
+  Future<bool> submitTicketRating({
+    required int ticketId,
+    required int rating,
+    String? comment,
+  }) async {
+    _isSubmittingRating = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final result = await _ticketRepository.submitRating(
+        ticketId: ticketId,
+        rating: rating,
+        comment: comment,
+      );
+      _currentRating = result;
+      _hasRated = true;
+      _isSubmittingRating = false;
+      notifyListeners();
+      return true;
+    } on NetworkException catch (e) {
+      _errorMessage = e.message;
+    } on ServerException catch (e) {
+      _errorMessage = e.message;
+    } catch (e) {
+      _errorMessage = 'Failed to send rating';
+    }
+
+    _isSubmittingRating = false;
+    notifyListeners();
+    return false;
+  }
+
+  /// Clear rating state (called when leaving ticket detail)
+  void clearRatingState() {
+    _currentRating = null;
+    _isRatingLoading = false;
+    _isSubmittingRating = false;
+    _hasRated = false;
   }
 }

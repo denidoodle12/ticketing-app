@@ -21,6 +21,8 @@ import '../models/comment_model.dart';
 import '../widgets/ticket_detail_tab.dart';
 import '../widgets/ticket_chat_tab.dart';
 import '../widgets/ticket_files_tab.dart';
+import '../widgets/ticket_rating_bottom_sheet.dart';
+import '../widgets/star_rating_widget.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final Ticket ticket;
@@ -94,6 +96,12 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         _comments = _parseComments(provider.ticketDetailResponse!.comments);
         _attachments = _extractAttachments(_comments, _currentTicket);
       });
+
+      // Load rating for closed tickets
+      final statusName = _currentTicket.status?.name.toLowerCase() ?? '';
+      if (statusName == 'closed') {
+        provider.loadTicketRating(_currentTicket.id);
+      }
 
       // Connect to WebSocket for real-time chat
       _connectWebSocket();
@@ -956,6 +964,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                 // Ticket Info (Subject + Meta)
                 _buildTicketInfo(),
 
+                // Rating Banner (only for closed tickets)
+                _buildRatingSection(provider),
+
                 // Tabs
                 _buildTabBar(),
 
@@ -1147,6 +1158,214 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         ],
       ),
     );
+  }
+
+  /// Build rating section based on ticket status and rating state
+  Widget _buildRatingSection(TicketProvider provider) {
+    final statusName = _currentTicket.status?.name.toLowerCase() ?? '';
+
+    // Only show for closed tickets
+    if (statusName != 'closed') return const SizedBox.shrink();
+
+    // Loading state
+    if (provider.isRatingLoading) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        color: AppColors.white,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.secondary500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Loading rating...',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Already rated - show read-only
+    if (provider.hasRated && provider.currentRating != null) {
+      return _buildRatedBanner(provider);
+    }
+
+    // Not rated yet - show rate button
+    return _buildRateButton();
+  }
+
+  /// Banner showing existing rating (read-only)
+  Widget _buildRatedBanner(TicketProvider provider) {
+    final rating = provider.currentRating!;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.warning500.withOpacity(0.08),
+            AppColors.warning500.withOpacity(0.03),
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.warning500.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          // Star icon
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.warning500.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.star_rounded,
+              color: AppColors.warning500,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Rating info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'You have rated this ticket',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                StarRatingWidget(
+                  rating: rating.rating,
+                  starSize: 20,
+                  readOnly: true,
+                ),
+              ],
+            ),
+          ),
+          // Rating number
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.warning500.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${rating.rating}/5',
+              style: AppTextStyles.labelLarge.copyWith(
+                color: AppColors.warning700,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Button to open rating bottom sheet
+  Widget _buildRateButton() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showRatingBottomSheet,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary500.withOpacity(0.08),
+                  AppColors.primary500.withOpacity(0.03),
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.primary500.withOpacity(0.2)),
+            ),
+            child: Row(
+              children: [
+                // Star icon
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary500.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.star_outline_rounded,
+                    color: AppColors.primary500,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rate This Ticket',
+                        style: AppTextStyles.labelLarge.copyWith(
+                          color: AppColors.primary600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Share your experience with this service',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: AppColors.primary500,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show the rating bottom sheet
+  Future<void> _showRatingBottomSheet() async {
+    final result = await TicketRatingBottomSheet.show(
+      context,
+      _currentTicket.id,
+    );
+
+    if (result == true && mounted) {
+      ToastHelper.showSuccess(
+        context,
+        'Rating submitted successfully',
+        description: 'Thank you for your feedback!',
+      );
+    }
   }
 
   Widget _buildTabBar() {

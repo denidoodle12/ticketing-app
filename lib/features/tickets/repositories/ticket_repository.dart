@@ -434,14 +434,12 @@ class TicketRepository {
       rethrow;
     } catch (e) {
       if (e is DioException && e.response?.statusCode == 409) {
-        throw ServerException('Ticket sudah pernah diberikan rating');
+        throw ServerException('The ticket has already been rated.');
       }
       if (e is DioException && e.response?.statusCode == 403) {
-        throw ServerException(
-          'Hanya pembuat ticket yang bisa memberikan rating',
-        );
+        throw ServerException('Only ticket creators can give ratings');
       }
-      throw ServerException('Gagal mengirim rating: $e');
+      throw ServerException('Failed to submit rating: $e');
     }
   }
 
