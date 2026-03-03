@@ -62,4 +62,7 @@ class ApiEndpoints {
 
   // Mark all notifications as read
   static const String notificationsReadAll = '/notifications/read-all';
+
+  // Ticket Rating
+  static String ticketRating(int ticketId) => '/tickets/$ticketId/rating';
 }

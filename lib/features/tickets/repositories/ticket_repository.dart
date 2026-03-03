@@ -7,6 +7,7 @@ import '../datasources/ticket_local_datasource.dart';
 import '../models/ticket_model.dart';
 import '../models/ticket_category_model.dart';
 import '../models/ticket_status_model.dart';
+import '../models/ticket_rating_model.dart';
 import '../models/comment_model.dart';
 
 class TicketRepository {
@@ -410,5 +411,55 @@ class TicketRepository {
       return _mockDatasource!.getFileUrl(filename);
     }
     return _remoteDatasource!.getChatFileUrl(filename);
+  }
+
+  /// Submit a rating for a closed ticket
+  Future<TicketRating> submitRating({
+    required int ticketId,
+    required int rating,
+    String? comment,
+  }) async {
+    try {
+      if (_useMock) {
+        throw ServerException('Mock submitRating not implemented');
+      }
+      return await _remoteDatasource!.submitRating(
+        ticketId: ticketId,
+        rating: rating,
+        comment: comment,
+      );
+    } on NetworkException {
+      rethrow;
+    } on ServerException {
+      rethrow;
+    } catch (e) {
+      if (e is DioException && e.response?.statusCode == 409) {
+        throw ServerException('Ticket sudah pernah diberikan rating');
+      }
+      if (e is DioException && e.response?.statusCode == 403) {
+        throw ServerException(
+          'Hanya pembuat ticket yang bisa memberikan rating',
+        );
+      }
+      throw ServerException('Gagal mengirim rating: $e');
+    }
+  }
+
+  /// Get existing rating for a ticket
+  /// Returns null if ticket has not been rated yet
+  Future<TicketRating?> getTicketRating(int ticketId) async {
+    try {
+      if (_useMock) {
+        return null;
+      }
+      return await _remoteDatasource!.getTicketRating(ticketId);
+    } on NetworkException {
+      return null; // Gracefully handle offline
+    } on ServerException {
+      return null;
+    } catch (e) {
+      debugPrint('[TicketRepository] Error loading rating: $e');
+      return null;
+    }
   }
 }

@@ -4,6 +4,7 @@ import '../../../core/network/dio_client.dart';
 import '../models/ticket_model.dart';
 import '../models/ticket_category_model.dart';
 import '../models/ticket_status_model.dart';
+import '../models/ticket_rating_model.dart';
 import '../models/comment_model.dart';
 
 class TicketRemoteDatasource {
@@ -185,5 +186,39 @@ class TicketRemoteDatasource {
   /// Get chat file URL for viewing/downloading
   String getChatFileUrl(String filename) {
     return '${ApiEndpoints.ticketBaseUrl}${ApiEndpoints.chatUploads(filename)}';
+  }
+
+  /// Submit a rating for a closed ticket
+  Future<TicketRating> submitRating({
+    required int ticketId,
+    required int rating,
+    String? comment,
+  }) async {
+    final data = <String, dynamic>{
+      'rating': rating,
+      if (comment != null && comment.isNotEmpty) 'comment': comment,
+    };
+
+    final response = await _dio.post(
+      ApiEndpoints.ticketRating(ticketId),
+      data: data,
+    );
+    return TicketRating.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  /// Get existing rating for a ticket
+  /// Returns null if ticket has not been rated yet (404)
+  Future<TicketRating?> getTicketRating(int ticketId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.ticketRating(ticketId));
+      return TicketRating.fromJson(
+        response.data['data'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return null; // Not rated yet
+      }
+      rethrow;
+    }
   }
 }
