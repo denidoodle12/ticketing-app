@@ -4,6 +4,7 @@ import '../../../data/datasources/local/database_helper.dart';
 import '../models/ticket_model.dart';
 import '../models/ticket_category_model.dart';
 import '../models/ticket_status_model.dart';
+import '../models/ticket_rating_model.dart';
 
 /// Local datasource for offline caching of ticket data.
 /// Uses sqflite to store and retrieve tickets, categories, statuses,
@@ -351,9 +352,59 @@ class TicketLocalDatasource {
     batch.delete('tickets');
     batch.delete('ticket_categories');
     batch.delete('ticket_statuses');
+    batch.delete('ticket_ratings');
     batch.delete('dashboard_cache');
     batch.delete('cache_metadata');
     await batch.commit(noResult: true);
+  }
+
+  // ==================== TICKET RATINGS ====================
+
+  /// Cache a ticket rating (insert or replace)
+  Future<void> cacheTicketRating(TicketRating rating) async {
+    final db = await _dbHelper.database;
+    await db.insert('ticket_ratings', {
+      'id': rating.id,
+      'ticket_id': rating.ticketId,
+      'agent_id': rating.agentId,
+      'rated_by': rating.ratedBy,
+      'rating': rating.rating,
+      'comment': rating.comment,
+      'created_at': rating.createdAt.toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Get cached ticket rating by ticket ID
+  Future<TicketRating?> getCachedTicketRating(int ticketId) async {
+    final db = await _dbHelper.database;
+    final results = await db.query(
+      'ticket_ratings',
+      where: 'ticket_id = ?',
+      whereArgs: [ticketId],
+      limit: 1,
+    );
+
+    if (results.isEmpty) return null;
+    final row = results.first;
+    return TicketRating(
+      id: row['id'] as int,
+      ticketId: row['ticket_id'] as int,
+      agentId: row['agent_id'] as int,
+      ratedBy: row['rated_by'] as int,
+      rating: row['rating'] as int,
+      comment: row['comment'] as String?,
+      createdAt: DateTime.parse(row['created_at'] as String),
+    );
+  }
+
+  /// Delete cached ticket rating by ticket ID
+  Future<void> deleteCachedTicketRating(int ticketId) async {
+    final db = await _dbHelper.database;
+    await db.delete(
+      'ticket_ratings',
+      where: 'ticket_id = ?',
+      whereArgs: [ticketId],
+    );
   }
 
   // ==================== HELPERS ====================

@@ -100,9 +100,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         _attachments = _extractAttachments(_comments, _currentTicket);
       });
 
-      // Load rating for closed tickets
+      // Load rating for closed/resolved tickets
       final statusName = _currentTicket.status?.name.toLowerCase() ?? '';
-      if (statusName == 'closed') {
+      if (statusName == 'closed' || statusName == 'resolved') {
         provider.loadTicketRating(_currentTicket.id);
       }
 
@@ -967,7 +967,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                 // Ticket Info (Subject + Meta)
                 _buildTicketInfo(),
 
-                // Rating Banner (only for closed tickets)
+                // Rating Banner (only for closed/resolved tickets)
                 _buildRatingSection(provider),
 
                 // Tabs
@@ -1167,8 +1167,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   Widget _buildRatingSection(TicketProvider provider) {
     final statusName = _currentTicket.status?.name.toLowerCase() ?? '';
 
-    // Only show for closed tickets
-    if (statusName != 'closed') return const SizedBox.shrink();
+    // Only show for closed/resolved tickets
+    if (statusName != 'closed' && statusName != 'resolved') {
+      return const SizedBox.shrink();
+    }
 
     // Loading or not yet checked — show loading (prevents card flash)
     if (provider.isRatingLoading || !provider.isRatingChecked) {

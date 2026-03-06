@@ -729,12 +729,13 @@ class TicketProvider extends ChangeNotifier {
       _isSubmittingRating = false;
       notifyListeners();
       return true;
-    } on NetworkException catch (e) {
-      _errorMessage = e.message;
+    } on NetworkException {
+      _errorMessage =
+          'No internet connection. Please check your network and try again.';
     } on ServerException catch (e) {
       _errorMessage = e.message;
     } catch (e) {
-      _errorMessage = 'Failed to send rating';
+      _errorMessage = 'Something went wrong. Please try again later.';
     }
 
     _isSubmittingRating = false;

@@ -10,7 +10,7 @@ class DatabaseHelper {
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
 
-  static const int _version = 1;
+  static const int _version = 2;
   static const String _dbName = 'ticketing_cache.db';
 
   /// Get or create the database instance
@@ -104,12 +104,42 @@ class DatabaseHelper {
     await db.execute(
       'CREATE INDEX idx_tickets_created_at ON tickets(created_at DESC)',
     );
+
+    // Ticket ratings table (v2)
+    await db.execute('''
+      CREATE TABLE ticket_ratings (
+        id INTEGER PRIMARY KEY,
+        ticket_id INTEGER NOT NULL UNIQUE,
+        agent_id INTEGER NOT NULL,
+        rated_by INTEGER NOT NULL,
+        rating INTEGER NOT NULL,
+        comment TEXT,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX idx_ticket_ratings_ticket_id ON ticket_ratings(ticket_id)',
+    );
   }
 
   /// Handle schema migrations for future versions
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Future migrations go here
-    // if (oldVersion < 2) { ... }
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ticket_ratings (
+          id INTEGER PRIMARY KEY,
+          ticket_id INTEGER NOT NULL UNIQUE,
+          agent_id INTEGER NOT NULL,
+          rated_by INTEGER NOT NULL,
+          rating INTEGER NOT NULL,
+          comment TEXT,
+          created_at TEXT NOT NULL
+        )
+      ''');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_ticket_ratings_ticket_id ON ticket_ratings(ticket_id)',
+      );
+    }
   }
 
   /// Close the database connection

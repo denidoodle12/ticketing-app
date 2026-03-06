@@ -423,17 +423,26 @@ class TicketRepository {
       if (_useMock) {
         throw ServerException('Mock submitRating not implemented');
       }
-      return await _remoteDatasource!.submitRating(
+      final result = await _remoteDatasource!.submitRating(
         ticketId: ticketId,
         rating: rating,
         comment: comment,
       );
+      // Cache the rating locally on success
+      await _localDatasource?.cacheTicketRating(result);
+      return result;
     } on NetworkException {
       rethrow;
     } on ServerException {
       rethrow;
     } catch (e) {
-      if (e is DioException && e.response != null) {
+      if (e is DioException) {
+        // Offline / timeout — no server response
+        if (e.response == null) {
+          throw ServerException(
+            'No internet connection. Please check your network and try again.',
+          );
+        }
         final statusCode = e.response!.statusCode;
         final data = e.response!.data;
         // Extract error message from backend response
@@ -451,7 +460,7 @@ class TicketRepository {
           throw ServerException(message);
         }
       }
-      throw ServerException('Failed to submit rating: $e');
+      throw ServerException('Something went wrong. Please try again later.');
     }
   }
 
@@ -462,18 +471,32 @@ class TicketRepository {
       if (_useMock) {
         return null;
       }
-      return await _remoteDatasource!.getTicketRating(ticketId);
+      final rating = await _remoteDatasource!.getTicketRating(ticketId);
+      // Cache the rating locally on success
+      if (rating != null) {
+        await _localDatasource?.cacheTicketRating(rating);
+      }
+      return rating;
     } on NetworkException {
-      return null; // Gracefully handle offline
+      // Fallback to cached rating when offline
+      return await _localDatasource?.getCachedTicketRating(ticketId);
     } on ServerException {
       return null;
     } on DioException catch (e) {
-      // 404 = not rated yet (expected behavior, not an error)
+      // 404 = not rated yet (expected behavior)
       if (e.response?.statusCode == 404) {
         return null;
       }
+      // Offline/timeout — fallback to cache
+      if (e.response == null) {
+        return await _localDatasource?.getCachedTicketRating(ticketId);
+      }
       return null;
     } catch (e) {
+      // Network error — fallback to cache
+      if (_isNetworkError(e)) {
+        return await _localDatasource?.getCachedTicketRating(ticketId);
+      }
       return null;
     }
   }
@@ -491,8 +514,9 @@ class TicketRepository {
         return 'Ticket not found';
       default:
         if (statusCode == 400) return 'Unable to rate this ticket';
-        if (statusCode == 403)
+        if (statusCode == 403) {
           return 'You are not authorized to rate this ticket';
+        }
         if (statusCode == 409) return 'This ticket has already been rated';
         return 'Failed to submit rating';
     }
