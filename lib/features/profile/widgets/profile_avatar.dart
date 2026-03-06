@@ -37,10 +37,7 @@ class ProfileAvatar extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.primary100,
-              border: Border.all(
-                color: AppColors.primary400,
-                width: 2,
-              ),
+              border: Border.all(color: AppColors.primaryDark, width: 2),
             ),
             child: ClipOval(
               child: imageUrl != null
@@ -59,7 +56,7 @@ class ProfileAvatar extends StatelessWidget {
                             strokeWidth: 2,
                             value: loadingProgress.expectedTotalBytes != null
                                 ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
+                                      loadingProgress.expectedTotalBytes!
                                 : null,
                           ),
                         );
@@ -75,12 +72,9 @@ class ProfileAvatar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary500,
+                  color: AppColors.primaryDark,
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.white,
-                    width: 2,
-                  ),
+                  border: Border.all(color: AppColors.white, width: 2),
                 ),
                 child: Icon(
                   Icons.camera_alt,

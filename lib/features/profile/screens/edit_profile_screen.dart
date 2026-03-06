@@ -351,18 +351,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _buildHeader(user, bool isLoading) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary600, AppColors.primary500],
-        ),
-      ),
+      color: AppColors.white,
       child: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            // Custom AppBar
+            // Custom AppBar - flat white, matching ticket detail style
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
@@ -376,7 +370,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       child: Text(
                         'Edit Profile',
                         style: AppTextStyles.h5.copyWith(
-                          color: AppColors.white,
+                          color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -386,21 +380,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
             // Avatar Section
             _buildAvatarSection(user, isLoading),
-            const SizedBox(height: 24),
-            // Curved bottom
-            Container(
-              height: 24,
-              decoration: const BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -411,17 +394,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.white.withAlpha(76), width: 3),
+            border: Border.all(color: AppColors.primaryDark, width: 2),
           ),
           child: ProfileAvatar(
             imageUrl: user?.profilePicture != null
                 ? '${ApiConfig.baseUrl}${user!.profilePicture}'
                 : null,
             name: user?.fullName ?? 'User',
-            size: 110,
+            size: 100,
             showEditIcon: true,
             onTap: isLoading ? null : _pickImage,
           ),
@@ -430,22 +413,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         Text(
           'Tap avatar to change photo',
           style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.white.withAlpha(204),
+            color: AppColors.textSecondary,
           ),
         ),
         if (user?.profilePicture != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           TextButton.icon(
             onPressed: isLoading ? null : _downloadProfilePicture,
             icon: Icon(
               Icons.download_rounded,
               size: 18,
-              color: AppColors.white.withAlpha(230),
+              color: AppColors.primaryDark,
             ),
             label: Text(
               'Download Photo',
               style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.white.withAlpha(230),
+                color: AppColors.primaryDark,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -455,6 +438,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  /// Back button matching ticket detail screen style
   Widget _buildActionButton({required IconData icon, VoidCallback? onTap}) {
     return Material(
       color: Colors.transparent,
@@ -465,10 +449,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: AppColors.white.withAlpha(51),
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadow.withAlpha(20),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: Icon(icon, color: AppColors.white, size: 22),
+          child: Icon(icon, color: AppColors.primaryDark, size: 22),
         ),
       ),
     );
@@ -523,9 +514,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   CustomTextField(
                     controller: _nameController,
                     hint: 'Enter your first name',
-                    prefixIcon: const Icon(Icons.person_outline),
+                    prefixIcon: const Icon(
+                      Icons.person_outline,
+                      color: AppColors.primaryDark,
+                    ),
                     enabled: !isLoading,
                     validator: Validators.profileFirstName,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   _buildFieldLabel('Last Name'),
@@ -533,9 +530,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   CustomTextField(
                     controller: _lastNameController,
                     hint: 'Enter your last name',
-                    prefixIcon: const Icon(Icons.person_outline),
+                    prefixIcon: const Icon(
+                      Icons.person_outline,
+                      color: AppColors.primaryDark,
+                    ),
                     enabled: !isLoading,
                     validator: Validators.profileLastName,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   _buildFieldLabel('Phone Number'),
@@ -543,11 +546,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   CustomTextField(
                     controller: _phoneController,
                     hint: 'Enter your phone number',
-                    prefixIcon: const Icon(Icons.phone_outlined),
+                    prefixIcon: const Icon(
+                      Icons.phone_outlined,
+                      color: AppColors.primaryDark,
+                    ),
                     keyboardType: TextInputType.phone,
                     enabled: !isLoading,
                     maxLength: AppConstants.maxPhoneNumberLength,
                     validator: Validators.profilePhoneNumber,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ],
               ),
@@ -559,46 +568,98 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           // Action Buttons
           Row(
             children: [
+              // Discard button
               Expanded(
-                child: OutlinedButton(
-                  onPressed: isLoading ? null : _discardChanges,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: AppColors.border),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                flex: 2,
+                child: SizedBox(
+                  height: 50,
+                  child: OutlinedButton(
+                    onPressed: isLoading ? null : _discardChanges,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primaryDark,
+                      side: const BorderSide(color: AppColors.grey300),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    'Discard',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w600,
+                    child: Text(
+                      'Cancel',
+                      style: AppTextStyles.button.copyWith(
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
+              // Save Changes button
               Expanded(
-                child: ElevatedButton(
-                  onPressed: (isLoading || !_hasChanges) ? null : _saveProfile,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary500,
-                    foregroundColor: AppColors.white,
-                    disabledBackgroundColor: AppColors.grey300,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
+                flex: 3,
+                child: SizedBox(
+                  height: 50,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: (isLoading || !_hasChanges)
+                          ? null
+                          : const LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                AppColors.primary600,
+                                AppColors.primary500,
+                              ],
+                            ),
+                      color: (isLoading || !_hasChanges)
+                          ? AppColors.grey300
+                          : null,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                  child: Text(
-                    'Save Changes',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: (isLoading || !_hasChanges)
-                          ? AppColors.textDisabled
-                          : AppColors.white,
-                      fontWeight: FontWeight.w600,
+                    child: ElevatedButton(
+                      onPressed: (isLoading || !_hasChanges)
+                          ? null
+                          : _saveProfile,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: AppColors.white,
+                        disabledBackgroundColor: Colors.transparent,
+                        disabledForegroundColor: AppColors.textDisabled,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.white,
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Save Changes',
+                                  style: AppTextStyles.buttonSmall.copyWith(
+                                    color: (isLoading || !_hasChanges)
+                                        ? AppColors.textDisabled
+                                        : AppColors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.save_rounded,
+                                  color: (isLoading || !_hasChanges)
+                                      ? AppColors.textDisabled
+                                      : AppColors.white,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
                     ),
                   ),
                 ),
@@ -652,7 +713,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               color: AppColors.primary50,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: AppColors.primary500, size: 20),
+            child: Icon(icon, color: AppColors.primaryDark, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(

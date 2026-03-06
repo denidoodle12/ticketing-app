@@ -29,9 +29,7 @@ class ImagePickerHelper {
   }) async {
     try {
       // Pick image without compression first to check original size
-      final XFile? pickedFile = await _picker.pickImage(
-        source: source,
-      );
+      final XFile? pickedFile = await _picker.pickImage(source: source);
 
       if (pickedFile == null) {
         return ImagePickResult(); // User cancelled
@@ -46,7 +44,8 @@ class ImagePickerHelper {
       if (fileSize > maxSizeBytes) {
         final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(1);
         return ImagePickResult(
-          error: 'File size ($fileSizeMB MB) exceeds maximum limit (${maxSize}MB)',
+          error:
+              'File size ($fileSizeMB MB) exceeds maximum limit (${maxSize}MB)',
         );
       }
 
@@ -166,55 +165,84 @@ class ImagePickerHelper {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
                 width: 40,
                 height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
+                margin: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: AppColors.grey300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary100,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.photo_camera,
-                    color: AppColors.primary500,
-                  ),
+            ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                'Select Photo',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
-                title: const Text('Take Photo'),
-                subtitle: const Text('Use camera to take a new photo'),
-                onTap: () => Navigator.pop(context, ImageSource.camera),
               ),
-              const Divider(height: 1, indent: 72),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary100,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.photo_library,
-                    color: AppColors.primary500,
-                  ),
+            ),
+            // Take Photo option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryDark.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                title: const Text('Choose from Gallery'),
-                subtitle: const Text('Select an existing photo'),
-                onTap: () => Navigator.pop(context, ImageSource.gallery),
+                child: Icon(Icons.photo_camera, color: AppColors.primaryDark),
               ),
-            ],
-          ),
+              title: Text(
+                'Take Photo',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'Use camera to take a new photo',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            // Choose from Gallery option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryDark.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.photo_library, color: AppColors.primaryDark),
+              ),
+              title: Text(
+                'Choose from Gallery',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'Select an existing photo',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
       ),
     );

@@ -9,8 +9,6 @@ import '../../../providers/auth_provider.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../routes/app_routes.dart';
-import '../../../shared/widgets/form_card.dart';
-import '../../../shared/widgets/section_label.dart';
 import '../widgets/profile_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -22,6 +20,11 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _pushNotificationEnabled = true;
+
+  // Avatar size and overlap constants
+  static const double _avatarRadius = 45.0;
+  static const double _avatarBorderWidth = 4.0;
+  static const double _avatarTotalRadius = _avatarRadius + _avatarBorderWidth;
 
   @override
   void initState() {
@@ -57,9 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                // Header with gradient
-                SliverToBoxAdapter(child: _buildHeader(user)),
-                // Menu content
+                SliverToBoxAdapter(child: _buildHeaderWithAvatar(user)),
                 SliverToBoxAdapter(child: _buildMenuContent(user)),
               ],
             ),
@@ -69,149 +70,131 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildHeader(user) {
+  /// Builds the gradient header + overlapping avatar as a single unit.
+  /// Uses a Stack so the avatar sits at the boundary of gradient and white.
+  Widget _buildHeaderWithAvatar(user) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: [
+        // Gradient header
+        Column(
+          children: [
+            _buildGradientHeader(user),
+            // White space below gradient to hold the bottom half of the avatar
+            SizedBox(height: _avatarTotalRadius + 12),
+          ],
+        ),
+        // Avatar overlapping the gradient/white boundary
+        Positioned(bottom: 12, child: _buildOverlappingAvatar(user)),
+      ],
+    );
+  }
+
+  Widget _buildGradientHeader(user) {
     return Container(
+      width: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [AppColors.primary600, AppColors.primary500],
         ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
       ),
       child: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            // Custom AppBar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  const SizedBox(width: 44),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'Profile',
-                        style: AppTextStyles.h5.copyWith(
-                          color: AppColors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: [
+              // AppBar - only "Profile" text, no icons
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: Text(
+                    'Profile',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  // Settings icon
-                  _buildActionButton(
-                    icon: Icons.settings_outlined,
-                    onTap: () {
-                      // TODO: Open settings
-                    },
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Full Name
+              Text(
+                user?.fullName ?? 'User',
+                style: AppTextStyles.h5.copyWith(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 4),
+
+              // Email
+              Text(
+                user?.email ?? '',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.white.withAlpha(204),
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 10),
+
+              // Role Badge
+              if (user?.role != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Avatar
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.white.withAlpha(76),
-                  width: 3,
-                ),
-              ),
-              child: ProfileAvatar(
-                imageUrl: user?.profilePicture != null
-                    ? '${ApiConfig.baseUrl}${user!.profilePicture}'
-                    : null,
-                name: user?.fullName ?? 'User',
-                size: 90,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Name
-            Text(
-              user?.fullName ?? 'User',
-              style: AppTextStyles.h5.copyWith(
-                color: AppColors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 4),
-
-            // Email
-            Text(
-              user?.email ?? '',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.white.withAlpha(204),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // Role Badge
-            if (user?.role != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.white.withAlpha(51),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  user!.role.substring(0, 1).toUpperCase() +
-                      user.role.substring(1).toLowerCase(),
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.white,
-                    fontWeight: FontWeight.w600,
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withAlpha(51),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    user!.role.substring(0, 1).toUpperCase() +
+                        user.role.substring(1).toLowerCase(),
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
 
-            const SizedBox(height: 24),
-
-            // Curved bottom
-            Container(
-              height: 24,
-              decoration: const BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-            ),
-          ],
+              // Space for the top half of the avatar to sit inside the gradient
+              SizedBox(height: _avatarTotalRadius + 16),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.white.withAlpha(51),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: AppColors.white, size: 22),
-        ),
+  /// Avatar with a white border, centered at the gradient/white boundary.
+  Widget _buildOverlappingAvatar(user) {
+    return Container(
+      padding: const EdgeInsets.all(_avatarBorderWidth),
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.white,
+      ),
+      child: ProfileAvatar(
+        imageUrl: user?.profilePicture != null
+            ? '${ApiConfig.baseUrl}${user!.profilePicture}'
+            : null,
+        name: user?.fullName ?? 'User',
+        size: _avatarRadius * 2,
       ),
     );
   }
@@ -222,11 +205,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Account Section
-          const SectionLabel(label: 'Account'),
-          const SizedBox(height: 12),
-          FormCard(
-            padding: EdgeInsets.zero,
+          const SizedBox(height: 8),
+
+          // Single flat menu card
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.shadow.withAlpha(15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: Column(
               children: [
                 _buildMenuItem(
@@ -240,44 +233,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: Icons.lock_outline,
                   title: 'Change Password',
                   onTap: () => context.push(AppRoutes.changePassword),
-                  isLast: true,
                 ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Settings Section
-          const SectionLabel(label: 'Settings'),
-          const SizedBox(height: 12),
-          FormCard(
-            padding: EdgeInsets.zero,
-            child: _buildSwitchMenuItem(
-              icon: Icons.notifications_outlined,
-              title: 'Push Notification',
-              value: _pushNotificationEnabled,
-              onChanged: (value) {
-                setState(() => _pushNotificationEnabled = value);
-                // TODO: Implement push notification toggle
-              },
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Support Section
-          const SectionLabel(label: 'Support'),
-          const SizedBox(height: 12),
-          FormCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
+                const Divider(height: 1, indent: 60, endIndent: 16),
+                _buildSwitchMenuItem(
+                  icon: Icons.notifications_outlined,
+                  title: 'Push Notification',
+                  value: _pushNotificationEnabled,
+                  onChanged: (value) {
+                    setState(() => _pushNotificationEnabled = value);
+                    // TODO: Implement push notification toggle
+                  },
+                ),
+                const Divider(height: 1, indent: 60, endIndent: 16),
                 _buildMenuItem(
                   icon: Icons.help_outline,
                   title: 'FAQs',
                   onTap: () => _showAboutDialog(context),
-                  isFirst: true,
                 ),
                 const Divider(height: 1, indent: 60, endIndent: 16),
                 _buildMenuItem(

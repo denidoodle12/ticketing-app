@@ -19,6 +19,7 @@ class CustomTextField extends StatefulWidget {
   final bool readOnly;
   final List<TextInputFormatter>? inputFormatters;
   final TextCapitalization textCapitalization;
+  final TextStyle? style;
 
   const CustomTextField({
     super.key,
@@ -38,6 +39,7 @@ class CustomTextField extends StatefulWidget {
     this.readOnly = false,
     this.inputFormatters,
     this.textCapitalization = TextCapitalization.none,
+    this.style,
   });
 
   @override
@@ -68,6 +70,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       onTap: widget.onTap,
       inputFormatters: widget.inputFormatters,
       textCapitalization: widget.textCapitalization,
+      style: widget.style,
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: widget.hint,
