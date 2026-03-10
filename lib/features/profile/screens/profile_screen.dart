@@ -19,8 +19,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _pushNotificationEnabled = true;
-
   // Avatar size
   static const double _avatarSize = 60.0;
 
@@ -166,26 +164,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 20),
 
-          // ── Settings Section ──
-          _buildSectionHeader('Settings'),
-          const SizedBox(height: 8),
-          _buildSectionCard(
-            children: [
-              _buildSwitchMenuItem(
-                icon: Icons.notifications_outlined,
-                title: 'Push Notification',
-                subtitle: 'Receive alerts for ticket updates',
-                value: _pushNotificationEnabled,
-                onChanged: (value) {
-                  setState(() => _pushNotificationEnabled = value);
-                  // TODO: Implement push notification toggle
-                },
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
           // ── Support Section ──
           _buildSectionHeader('Support'),
           const SizedBox(height: 8),
@@ -304,52 +282,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSwitchMenuItem({
-    required IconData icon,
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-    String? subtitle,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.primaryDark, size: 22),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            activeTrackColor: AppColors.success500,
-          ),
-        ],
       ),
     );
   }

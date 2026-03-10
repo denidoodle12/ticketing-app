@@ -16,7 +16,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../shared/widgets/custom_text_field.dart';
 import '../../../shared/widgets/loading_overlay.dart';
-import '../../../shared/widgets/form_card.dart';
+
 import '../../../shared/widgets/section_label.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/image_preview_dialog.dart';
@@ -474,22 +474,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           // Account Info (Read-only)
           const SectionLabel(label: 'Account Information'),
           const SizedBox(height: 12),
-          FormCard(
-            padding: EdgeInsets.zero,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.shadow.withAlpha(12),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Column(
               children: [
                 _buildReadOnlyField(
                   label: 'Email',
                   value: user?.email ?? '',
                   icon: Icons.email_outlined,
-                  isFirst: true,
                 ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
+                const Divider(height: 16, thickness: 0.5),
                 _buildReadOnlyField(
                   label: 'Username',
                   value: '@${user?.username ?? ''}',
                   icon: Icons.alternate_email,
-                  isLast: true,
                 ),
               ],
             ),
@@ -500,66 +509,64 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           // Personal Info (Editable)
           const SectionLabel(label: 'Personal Information'),
           const SizedBox(height: 12),
-          FormCard(
-            child: Form(
-              key: _formKey,
-              autovalidateMode: _hasAttemptedSubmit
-                  ? AutovalidateMode.onUserInteraction
-                  : AutovalidateMode.disabled,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildFieldLabel('First Name', isRequired: true),
-                  const SizedBox(height: 8),
-                  CustomTextField(
-                    controller: _nameController,
-                    hint: 'Enter your first name',
-                    prefixIcon: const Icon(
-                      Icons.person_outline,
-                      color: AppColors.primaryDark,
-                    ),
-                    enabled: !isLoading,
-                    validator: Validators.profileFirstName,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
+          Form(
+            key: _formKey,
+            autovalidateMode: _hasAttemptedSubmit
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFieldLabel('First Name', isRequired: true),
+                const SizedBox(height: 8),
+                CustomTextField(
+                  controller: _nameController,
+                  hint: 'Enter your first name',
+                  prefixIcon: const Icon(
+                    Icons.person_outline,
+                    color: AppColors.primaryDark,
                   ),
-                  const SizedBox(height: 20),
-                  _buildFieldLabel('Last Name'),
-                  const SizedBox(height: 8),
-                  CustomTextField(
-                    controller: _lastNameController,
-                    hint: 'Enter your last name',
-                    prefixIcon: const Icon(
-                      Icons.person_outline,
-                      color: AppColors.primaryDark,
-                    ),
-                    enabled: !isLoading,
-                    validator: Validators.profileLastName,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
+                  enabled: !isLoading,
+                  validator: Validators.profileFirstName,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
                   ),
-                  const SizedBox(height: 20),
-                  _buildFieldLabel('Phone Number'),
-                  const SizedBox(height: 8),
-                  CustomTextField(
-                    controller: _phoneController,
-                    hint: 'Enter your phone number',
-                    prefixIcon: const Icon(
-                      Icons.phone_outlined,
-                      color: AppColors.primaryDark,
-                    ),
-                    keyboardType: TextInputType.phone,
-                    enabled: !isLoading,
-                    maxLength: AppConstants.maxPhoneNumberLength,
-                    validator: Validators.profilePhoneNumber,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
+                ),
+                const SizedBox(height: 20),
+                _buildFieldLabel('Last Name'),
+                const SizedBox(height: 8),
+                CustomTextField(
+                  controller: _lastNameController,
+                  hint: 'Enter your last name',
+                  prefixIcon: const Icon(
+                    Icons.person_outline,
+                    color: AppColors.primaryDark,
                   ),
-                ],
-              ),
+                  enabled: !isLoading,
+                  validator: Validators.profileLastName,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildFieldLabel('Phone Number'),
+                const SizedBox(height: 8),
+                CustomTextField(
+                  controller: _phoneController,
+                  hint: 'Enter your phone number',
+                  prefixIcon: const Icon(
+                    Icons.phone_outlined,
+                    color: AppColors.primaryDark,
+                  ),
+                  keyboardType: TextInputType.phone,
+                  enabled: !isLoading,
+                  maxLength: AppConstants.maxPhoneNumberLength,
+                  validator: Validators.profilePhoneNumber,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -699,22 +706,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required String label,
     required String value,
     required IconData icon,
-    bool isFirst = false,
-    bool isLast = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.primary50,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: AppColors.primaryDark, size: 20),
-          ),
+          Icon(icon, color: AppColors.primaryDark, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
