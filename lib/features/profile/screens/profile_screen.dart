@@ -21,10 +21,8 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _pushNotificationEnabled = true;
 
-  // Avatar size and overlap constants
-  static const double _avatarRadius = 45.0;
-  static const double _avatarBorderWidth = 4.0;
-  static const double _avatarTotalRadius = _avatarRadius + _avatarBorderWidth;
+  // Avatar size
+  static const double _avatarSize = 60.0;
 
   @override
   void initState() {
@@ -47,6 +45,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
+      appBar: AppBar(
+        title: const Text(
+          'Profile',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
       body: Consumer2<ProfileProvider, AuthProvider>(
         builder: (context, profileProvider, authProvider, child) {
           final user = profileProvider.user ?? authProvider.currentUser;
@@ -60,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                SliverToBoxAdapter(child: _buildHeaderWithAvatar(user)),
+                SliverToBoxAdapter(child: _buildProfileHeader(user)),
                 SliverToBoxAdapter(child: _buildMenuContent(user)),
               ],
             ),
@@ -70,131 +82,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// Builds the gradient header + overlapping avatar as a single unit.
-  /// Uses a Stack so the avatar sits at the boundary of gradient and white.
-  Widget _buildHeaderWithAvatar(user) {
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.topCenter,
-      children: [
-        // Gradient header
-        Column(
-          children: [
-            _buildGradientHeader(user),
-            // White space below gradient to hold the bottom half of the avatar
-            SizedBox(height: _avatarTotalRadius + 12),
-          ],
-        ),
-        // Avatar overlapping the gradient/white boundary
-        Positioned(bottom: 12, child: _buildOverlappingAvatar(user)),
-      ],
-    );
-  }
-
-  Widget _buildGradientHeader(user) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary600, AppColors.primary500],
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: [
-              // AppBar - only "Profile" text, no icons
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Center(
-                  child: Text(
-                    'Profile',
-                    style: TextStyle(
-                      color: AppColors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Full Name
-              Text(
-                user?.fullName ?? 'User',
-                style: AppTextStyles.h5.copyWith(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 4),
-
-              // Email
-              Text(
-                user?.email ?? '',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.white.withAlpha(204),
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 10),
-
-              // Role Badge
-              if (user?.role != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.white.withAlpha(51),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    user!.role.substring(0, 1).toUpperCase() +
-                        user.role.substring(1).toLowerCase(),
-                    style: AppTextStyles.labelMedium.copyWith(
-                      color: AppColors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-
-              // Space for the top half of the avatar to sit inside the gradient
-              SizedBox(height: _avatarTotalRadius + 16),
-            ],
+  /// Profile header: Avatar left + user info right in a Row
+  Widget _buildProfileHeader(user) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Row(
+        children: [
+          // Avatar
+          ProfileAvatar(
+            imageUrl: user?.profilePicture != null
+                ? '${ApiConfig.baseUrl}${user!.profilePicture}'
+                : null,
+            name: user?.fullName ?? 'User',
+            size: _avatarSize,
           ),
-        ),
-      ),
-    );
-  }
-
-  /// Avatar with a white border, centered at the gradient/white boundary.
-  Widget _buildOverlappingAvatar(user) {
-    return Container(
-      padding: const EdgeInsets.all(_avatarBorderWidth),
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.white,
-      ),
-      child: ProfileAvatar(
-        imageUrl: user?.profilePicture != null
-            ? '${ApiConfig.baseUrl}${user!.profilePicture}'
-            : null,
-        name: user?.fullName ?? 'User',
-        size: _avatarRadius * 2,
+          const SizedBox(width: 16),
+          // User info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Full Name
+                Text(
+                  user?.fullName ?? 'User',
+                  style: AppTextStyles.h5.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // Email
+                Text(
+                  user?.email ?? '',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Logout icon button
+          IconButton(
+            onPressed: () => _showLogoutDialog(context),
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: AppColors.error500,
+              size: 22,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -207,80 +143,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           const SizedBox(height: 8),
 
-          // Single flat menu card
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.shadow.withAlpha(15),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                _buildMenuItem(
-                  icon: Icons.person_outline,
-                  title: 'User Profile',
-                  onTap: () => context.push(AppRoutes.editProfile),
-                  isFirst: true,
-                ),
-                const Divider(height: 1, indent: 60, endIndent: 16),
-                _buildMenuItem(
-                  icon: Icons.lock_outline,
-                  title: 'Change Password',
-                  onTap: () => context.push(AppRoutes.changePassword),
-                ),
-                const Divider(height: 1, indent: 60, endIndent: 16),
-                _buildSwitchMenuItem(
-                  icon: Icons.notifications_outlined,
-                  title: 'Push Notification',
-                  value: _pushNotificationEnabled,
-                  onChanged: (value) {
-                    setState(() => _pushNotificationEnabled = value);
-                    // TODO: Implement push notification toggle
-                  },
-                ),
-                const Divider(height: 1, indent: 60, endIndent: 16),
-                _buildMenuItem(
-                  icon: Icons.help_outline,
-                  title: 'FAQs',
-                  onTap: () => _showAboutDialog(context),
-                ),
-                const Divider(height: 1, indent: 60, endIndent: 16),
-                _buildMenuItem(
-                  icon: Icons.headset_mic_outlined,
-                  title: 'Contact Support',
-                  onTap: () {
-                    // TODO: Open contact support
-                  },
-                  isLast: true,
-                ),
-              ],
-            ),
+          // ── Account Section ──
+          _buildSectionHeader('Account'),
+          const SizedBox(height: 8),
+          _buildSectionCard(
+            children: [
+              _buildMenuItem(
+                icon: Icons.person_outline,
+                title: 'User Profile',
+                subtitle: 'Manage your personal information',
+                onTap: () => context.push(AppRoutes.editProfile),
+              ),
+              const Divider(height: 1, indent: 40),
+              _buildMenuItem(
+                icon: Icons.lock_outline,
+                title: 'Change Password',
+                subtitle: 'Update your security credentials',
+                onTap: () => context.push(AppRoutes.changePassword),
+              ),
+            ],
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
 
-          // Sign Out Button
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _showLogoutDialog(context),
-              icon: const Icon(Icons.logout, size: 20),
-              label: const Text('Sign Out'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error500,
-                side: const BorderSide(color: AppColors.error500),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+          // ── Settings Section ──
+          _buildSectionHeader('Settings'),
+          const SizedBox(height: 8),
+          _buildSectionCard(
+            children: [
+              _buildSwitchMenuItem(
+                icon: Icons.notifications_outlined,
+                title: 'Push Notification',
+                subtitle: 'Receive alerts for ticket updates',
+                value: _pushNotificationEnabled,
+                onChanged: (value) {
+                  setState(() => _pushNotificationEnabled = value);
+                  // TODO: Implement push notification toggle
+                },
               ),
-            ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Support Section ──
+          _buildSectionHeader('Support'),
+          const SizedBox(height: 8),
+          _buildSectionCard(
+            children: [
+              _buildMenuItem(
+                icon: Icons.help_outline,
+                title: 'FAQs',
+                subtitle: 'Frequently asked questions',
+                onTap: () => _showAboutDialog(context),
+              ),
+              const Divider(height: 1, indent: 40),
+              _buildMenuItem(
+                icon: Icons.headset_mic_outlined,
+                title: 'Contact Support',
+                subtitle: 'Get help from our team',
+                onTap: () {
+                  // TODO: Open contact support
+                },
+              ),
+            ],
           ),
 
           const SizedBox(height: 24),
@@ -302,53 +228,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        title,
+        style: AppTextStyles.bodyMedium.copyWith(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({required List<Widget> children}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow.withAlpha(12),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Column(children: children),
+    );
+  }
+
   Widget _buildMenuItem({
     required IconData icon,
     required String title,
     required VoidCallback onTap,
-    bool isFirst = false,
-    bool isLast = false,
+    String? subtitle,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.only(
-          topLeft: isFirst ? const Radius.circular(16) : Radius.zero,
-          topRight: isFirst ? const Radius.circular(16) : Radius.zero,
-          bottomLeft: isLast ? const Radius.circular(16) : Radius.zero,
-          bottomRight: isLast ? const Radius.circular(16) : Radius.zero,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.primary50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: AppColors.primary500, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w500,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.primaryDark, size: 22),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              Icon(
-                Icons.chevron_right,
-                color: AppColors.textDisabled,
-                size: 20,
-              ),
-            ],
-          ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textDisabled,
+              size: 20,
+            ),
+          ],
         ),
       ),
     );
@@ -359,28 +313,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String title,
     required bool value,
     required ValueChanged<bool> onChanged,
+    String? subtitle,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.primary50,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: AppColors.primary500, size: 20),
-          ),
-          const SizedBox(width: 12),
+          Icon(icon, color: AppColors.primaryDark, size: 22),
+          const SizedBox(width: 14),
           Expanded(
-            child: Text(
-              title,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           Switch.adaptive(
