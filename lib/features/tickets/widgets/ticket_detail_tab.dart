@@ -54,6 +54,7 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      key: const PageStorageKey<String>('details'),
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

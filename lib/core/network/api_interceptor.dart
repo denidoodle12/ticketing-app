@@ -70,7 +70,11 @@ class ApiInterceptor extends Interceptor {
 
       case DioExceptionType.badResponse:
         final statusCode = err.response?.statusCode;
-        final data = err.response?.data;
+        final rawData = err.response?.data;
+        // Safely extract message — handle both Map and String responses
+        final data = rawData is Map<String, dynamic> ? rawData : null;
+        final message = data?['message'] as String? ??
+            (rawData is String ? rawData : null);
 
         if (statusCode == 401) {
           // Don't try refresh for auth endpoints (avoid infinite loop)
@@ -83,7 +87,7 @@ class ApiInterceptor extends Interceptor {
               DioException(
                 requestOptions: err.requestOptions,
                 error: UnauthorizedException(
-                  data?['message'] ?? 'Unauthorized access',
+                  message ?? 'Unauthorized access',
                 ),
               ),
             );
@@ -127,7 +131,7 @@ class ApiInterceptor extends Interceptor {
           return handler.reject(
             DioException(
               requestOptions: err.requestOptions,
-              error: ForbiddenException(data?['message'] ?? 'Access forbidden'),
+              error: ForbiddenException(message ?? 'Access forbidden'),
             ),
           );
         } else if (statusCode == 404) {
@@ -135,7 +139,7 @@ class ApiInterceptor extends Interceptor {
             DioException(
               requestOptions: err.requestOptions,
               error: NotFoundException(
-                data?['message'] ?? 'Resource not found',
+                message ?? 'Resource not found',
               ),
             ),
           );
@@ -155,7 +159,7 @@ class ApiInterceptor extends Interceptor {
             DioException(
               requestOptions: err.requestOptions,
               error: ValidationException(
-                data?['message'] ?? 'Validation failed',
+                message ?? 'Validation failed',
                 errorMap,
               ),
             ),
@@ -165,7 +169,7 @@ class ApiInterceptor extends Interceptor {
             DioException(
               requestOptions: err.requestOptions,
               error: ServerException(
-                data?['message'] ?? 'Server error occurred',
+                message ?? 'Server error occurred',
               ),
             ),
           );

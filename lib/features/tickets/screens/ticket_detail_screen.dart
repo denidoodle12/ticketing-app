@@ -53,10 +53,18 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   // Cached token for image loading (set when connecting WebSocket)
   String? _cachedToken;
 
+  // Scroll controller for NestedScrollView (outer scroll)
+  late ScrollController _nestedScrollController;
+
+  // Track current tab to conditionally show ticket info
+  int _currentTabIndex = 0;
+
   @override
   void initState() {
     super.initState();
+    _nestedScrollController = ScrollController();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_handleTabChange);
     _currentTicket = widget.ticket;
 
     // Setup WebSocket callbacks
@@ -79,8 +87,39 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   void dispose() {
     _connectivitySubscription?.cancel();
     _webSocketService.dispose();
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
+    _nestedScrollController.dispose();
     super.dispose();
+  }
+
+  /// Handle tab changes — reset scroll on Chat/Files, restore on Details
+  void _handleTabChange() {
+    final newIndex = _tabController.index;
+    if (newIndex == _currentTabIndex) return;
+
+    setState(() {
+      _currentTabIndex = newIndex;
+    });
+
+    // Reset outer scroll to top so tab content starts at the top
+    if (_nestedScrollController.hasClients) {
+      _nestedScrollController.jumpTo(0);
+    }
+  }
+
+  /// Calculate expanded height for SliverAppBar based on rating visibility
+  double _getExpandedHeight() {
+    const toolbarHeight = 68.0;
+    const ticketInfoHeight = 90.0;
+
+    final statusName = _currentTicket.status?.name.toLowerCase() ?? '';
+    final showRating = statusName == 'closed' || statusName == 'resolved';
+
+    if (showRating) {
+      return toolbarHeight + ticketInfoHeight + 84;
+    }
+    return toolbarHeight + ticketInfoHeight;
   }
 
   Future<void> _loadTicketDetail() async {
@@ -953,8 +992,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Hide ticket info & rating when keyboard is open to prevent overflow
-    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final isDetailsTab = _currentTabIndex == 0;
+    final expandedHeight = isDetailsTab ? _getExpandedHeight() : 68.0;
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -962,56 +1001,131 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       body: SafeArea(
         child: Consumer<TicketProvider>(
           builder: (context, provider, child) {
-            return Column(
-              children: [
-                // Header
-                _buildHeader(),
-
-                // Ticket Info & Rating — hidden when keyboard is open
-                // to free vertical space and prevent overflow
-                if (!isKeyboardVisible) ...[
-                  // Ticket Info (Subject + Meta)
-                  _buildTicketInfo(),
-
-                  // Rating Banner (only for closed/resolved tickets)
-                  _buildRatingSection(provider),
-                ],
-
-                // Tabs
-                _buildTabBar(),
-
-                // Tab Content
-                Expanded(
-                  child: provider.isTicketDetailLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : provider.ticketDetailState == TicketState.error
-                      ? _buildErrorState(provider.errorMessage)
-                      : TabBarView(
-                          controller: _tabController,
-                          children: [
-                            TicketDetailTab(ticket: _currentTicket),
-                            TicketChatTab(
-                              comments: _comments,
-                              ticket: _currentTicket,
-                              onSendMessage: _handleSendMessage,
-                              connectionState: _wsState,
-                              isSending: _isSending,
-                              isOffline: _isOffline,
-                              getAttachmentUrl: _getAttachmentUrl,
-                              onAttachmentTap: _handleAttachmentTap,
-                              authHeaders: _authHeaders,
-                            ),
-                            TicketFilesTab(
-                              attachments: _attachments,
-                              getAttachmentUrl: _getAttachmentUrl,
-                              onImagePreview: _showImageViewer,
-                              onFileOpen: _openFileInBrowser,
-                              authHeaders: _authHeaders,
-                            ),
-                          ],
+            return NestedScrollView(
+              controller: _nestedScrollController,
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  // Collapsible header — ticket info only visible on Details tab
+                  SliverAppBar(
+                    pinned: true,
+                    floating: false,
+                    expandedHeight: expandedHeight,
+                    toolbarHeight: 68,
+                    backgroundColor: AppColors.white,
+                    surfaceTintColor: Colors.transparent,
+                    elevation: 0,
+                    scrolledUnderElevation: 0,
+                    automaticallyImplyLeading: false,
+                    leadingWidth: 76,
+                    leading: Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: Center(
+                        child: _buildActionButton(
+                          icon: Icons.arrow_back,
+                          onTap: () => Navigator.pop(context),
                         ),
-                ),
-              ],
+                      ),
+                    ),
+                    title: Text(
+                      'Ticket Details',
+                      style: AppTextStyles.h5.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    centerTitle: true,
+                    actions: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: Center(
+                          child: _buildActionButton(
+                            icon: Icons.more_vert,
+                            onTap: _showMoreOptions,
+                          ),
+                        ),
+                      ),
+                    ],
+                    // Smooth white sliver overlay — content fades into white bg
+                    flexibleSpace: isDetailsTab
+                        ? LayoutBuilder(
+                            builder: (context, constraints) {
+                              final currentHeight = constraints.maxHeight;
+                              const toolbarHeight = 68.0;
+                              final collapsibleRange = expandedHeight - toolbarHeight;
+                              // 1.0 = fully expanded, 0.0 = fully collapsed
+                              final expandProgress = collapsibleRange > 0
+                                  ? ((currentHeight - toolbarHeight) / collapsibleRange)
+                                      .clamp(0.0, 1.0)
+                                  : 0.0;
+
+                              return Stack(
+                                clipBehavior: Clip.hardEdge,
+                                children: [
+                                  // White background — always visible
+                                  Positioned.fill(
+                                    child: Container(color: AppColors.white),
+                                  ),
+                                  // Content fades out smoothly as it collapses
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    top: toolbarHeight,
+                                    child: Opacity(
+                                      opacity: expandProgress,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          _buildTicketInfo(),
+                                          _buildRatingSection(provider),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          )
+                        : null,
+                  ),
+
+                  // Pinned tab bar
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _SliverTabBarDelegate(
+                      _buildTabBarWidget(),
+                    ),
+                  ),
+                ];
+              },
+              body: provider.isTicketDetailLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : provider.ticketDetailState == TicketState.error
+                  ? _buildErrorState(provider.errorMessage)
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        TicketDetailTab(ticket: _currentTicket),
+                        TicketChatTab(
+                          comments: _comments,
+                          ticket: _currentTicket,
+                          onSendMessage: _handleSendMessage,
+                          connectionState: _wsState,
+                          isSending: _isSending,
+                          isOffline: _isOffline,
+                          getAttachmentUrl: _getAttachmentUrl,
+                          onAttachmentTap: _handleAttachmentTap,
+                          authHeaders: _authHeaders,
+                        ),
+                        TicketFilesTab(
+                          attachments: _attachments,
+                          getAttachmentUrl: _getAttachmentUrl,
+                          onImagePreview: _showImageViewer,
+                          onFileOpen: _openFileInBrowser,
+                          authHeaders: _authHeaders,
+                        ),
+                      ],
+                    ),
             );
           },
         ),
@@ -1060,34 +1174,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: AppColors.white,
-      child: Row(
-        children: [
-          // Back button with rounded square background
-          _buildActionButton(
-            icon: Icons.arrow_back,
-            onTap: () => Navigator.pop(context),
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                'Ticket Details',
-                style: AppTextStyles.h5.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          ),
-          // More options button with rounded square background
-          _buildActionButton(icon: Icons.more_vert, onTap: _showMoreOptions),
-        ],
-      ),
-    );
-  }
+  // _buildHeader() — integrated into SliverAppBar leading/title/actions
 
   Widget _buildActionButton({
     required IconData icon,
@@ -1448,41 +1535,23 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     }
   }
 
-  Widget _buildTabBar() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          color: AppColors.white,
-          child: TabBar(
-            controller: _tabController,
-            labelColor: AppColors.primaryDark,
-            unselectedLabelColor: AppColors.textSecondary,
-            indicatorColor: AppColors.primaryDark,
-            indicatorWeight: 3,
-            dividerColor: Colors.transparent,
-            labelStyle: AppTextStyles.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-            unselectedLabelStyle: AppTextStyles.bodyMedium,
-            tabs: [
-              const Tab(text: 'Details'),
-              Tab(text: 'Chat (${_comments.length})'),
-              Tab(text: 'Files (${_attachments.length})'),
-            ],
-          ),
-        ),
-        // Bottom shadow divider
-        Container(
-          height: 8,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.black.withAlpha(15), Colors.transparent],
-            ),
-          ),
-        ),
+  /// Build TabBar widget for SliverPersistentHeader
+  TabBar _buildTabBarWidget() {
+    return TabBar(
+      controller: _tabController,
+      labelColor: AppColors.primaryDark,
+      unselectedLabelColor: AppColors.textSecondary,
+      indicatorColor: AppColors.primaryDark,
+      indicatorWeight: 3,
+      dividerColor: Colors.transparent,
+      labelStyle: AppTextStyles.bodyMedium.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
+      unselectedLabelStyle: AppTextStyles.bodyMedium,
+      tabs: [
+        const Tab(text: 'Details'),
+        Tab(text: 'Chat (${_comments.length})'),
+        Tab(text: 'Files (${_attachments.length})'),
       ],
     );
   }
@@ -1569,3 +1638,47 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     }
   }
 }
+
+/// SliverPersistentHeaderDelegate for pinning the TabBar
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+
+  _SliverTabBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => tabBar.preferredSize.height + 8;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height + 8;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: AppColors.white,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          tabBar,
+          Container(
+            height: 8,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.black.withAlpha(15), Colors.transparent],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _SliverTabBarDelegate oldDelegate) => true;
+}
+

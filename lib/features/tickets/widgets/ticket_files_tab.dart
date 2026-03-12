@@ -27,6 +27,7 @@ class TicketFilesTab extends StatelessWidget {
     }
 
     return SingleChildScrollView(
+      key: const PageStorageKey<String>('files'),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
