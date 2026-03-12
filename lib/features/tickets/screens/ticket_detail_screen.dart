@@ -953,6 +953,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Hide ticket info & rating when keyboard is open to prevent overflow
+    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
       backgroundColor: AppColors.white,
       resizeToAvoidBottomInset: true,
@@ -964,11 +967,15 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                 // Header
                 _buildHeader(),
 
-                // Ticket Info (Subject + Meta)
-                _buildTicketInfo(),
+                // Ticket Info & Rating — hidden when keyboard is open
+                // to free vertical space and prevent overflow
+                if (!isKeyboardVisible) ...[
+                  // Ticket Info (Subject + Meta)
+                  _buildTicketInfo(),
 
-                // Rating Banner (only for closed/resolved tickets)
-                _buildRatingSection(provider),
+                  // Rating Banner (only for closed/resolved tickets)
+                  _buildRatingSection(provider),
+                ],
 
                 // Tabs
                 _buildTabBar(),
