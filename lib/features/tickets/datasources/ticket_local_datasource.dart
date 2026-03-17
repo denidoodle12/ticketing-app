@@ -17,14 +17,40 @@ class TicketLocalDatasource {
   // ==================== TICKETS ====================
 
   /// Cache a list of tickets (insert or replace)
+  /// Preserves assignee_info/creator_info from previous cache if new data lacks them
   Future<void> cacheTickets(List<Ticket> tickets) async {
     final db = await _dbHelper.database;
-    final batch = db.batch();
 
+    // Load existing user info fields to preserve them
+    final ids = tickets.map((t) => t.id).toList();
+    if (ids.isEmpty) return;
+    final placeholders = ids.map((_) => '?').join(',');
+    final existing = await db.query(
+      'tickets',
+      columns: ['id', 'assignee_info', 'creator_info'],
+      where: 'id IN ($placeholders)',
+      whereArgs: ids,
+    );
+    final existingMap = {for (var row in existing) row['id'] as int: row};
+
+    final batch = db.batch();
     for (final ticket in tickets) {
+      final map = _ticketToMap(ticket);
+
+      // Preserve existing user info if new data doesn't have it
+      final prev = existingMap[ticket.id];
+      if (prev != null) {
+        if (map['assignee_info'] == null && prev['assignee_info'] != null) {
+          map['assignee_info'] = prev['assignee_info'];
+        }
+        if (map['creator_info'] == null && prev['creator_info'] != null) {
+          map['creator_info'] = prev['creator_info'];
+        }
+      }
+
       batch.insert(
         'tickets',
-        _ticketToMap(ticket),
+        map,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }

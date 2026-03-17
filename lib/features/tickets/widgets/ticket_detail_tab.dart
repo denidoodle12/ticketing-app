@@ -139,8 +139,11 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
   }
 
   Widget _buildTicketInfoSection() {
+    final assigneeName = widget.ticket.assigneeInfo?.name;
     final agentName = widget.ticket.assignedTo != null
-        ? 'Agent #${widget.ticket.assignedTo}'
+        ? (assigneeName != null && assigneeName.isNotEmpty
+            ? assigneeName
+            : '')
         : 'Not Assigned Yet';
 
     return Container(

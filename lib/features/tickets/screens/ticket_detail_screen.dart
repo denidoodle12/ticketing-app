@@ -112,12 +112,19 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   double _getExpandedHeight() {
     const toolbarHeight = 68.0;
     const ticketInfoHeight = 90.0;
+    const ratingBannerHeight = 84.0;
+    const ratingCommentHeight = 80.0;
 
     final statusName = _currentTicket.status?.name.toLowerCase() ?? '';
     final showRating = statusName == 'closed' || statusName == 'resolved';
 
     if (showRating) {
-      return toolbarHeight + ticketInfoHeight + 84;
+      final baseHeight = toolbarHeight + ticketInfoHeight + ratingBannerHeight;
+      // Add extra height when rating comment is expanded
+      if (_isRatingExpanded) {
+        return baseHeight + ratingCommentHeight;
+      }
+      return baseHeight;
     }
     return toolbarHeight + ticketInfoHeight;
   }
@@ -371,124 +378,23 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   }
 
   void _showImageViewer(String imageUrl, String fileName) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(8),
-        child: Stack(
-          children: [
-            // Image viewer with auth headers
-            Center(
-              child: InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 4.0,
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  httpHeaders: _authHeaders,
-                  fit: BoxFit.contain,
-                  placeholder: (context, url) => Container(
-                    width: 300,
-                    height: 300,
-                    color: AppColors.black.withAlpha(200),
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    width: 300,
-                    height: 200,
-                    color: AppColors.black.withAlpha(200),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.broken_image,
-                          size: 64,
-                          color: AppColors.white.withAlpha(150),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Failed to load image',
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // Close button
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.black.withAlpha(150),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    color: AppColors.white,
-                    size: 24,
-                  ),
-                ),
-              ),
-            ),
-            // File name and download button at bottom
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 16,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.black.withAlpha(180),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        fileName,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.white,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton.icon(
-                      onPressed: () => _openFileInBrowser(imageUrl, fileName),
-                      icon: const Icon(
-                        Icons.download_rounded,
-                        color: AppColors.white,
-                        size: 18,
-                      ),
-                      label: Text(
-                        'Download',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black87,
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return _ImageViewerScreen(
+            imageUrl: imageUrl,
+            fileName: fileName,
+            authHeaders: _authHeaders,
+            onDownload: () => _openFileInBrowser(imageUrl, fileName),
+          );
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 250),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
       ),
     );
   }
@@ -872,13 +778,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     }
   }
 
-  String _getAssignedAgent() {
-    if (_currentTicket.assignedTo != null) {
-      return 'Agent #${_currentTicket.assignedTo}';
-    }
-    return 'Unassigned';
-  }
-
   String _getUpdatedTimeAgo() {
     if (_currentTicket.updatedAt == null) return '';
 
@@ -1051,11 +950,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                             builder: (context, constraints) {
                               final currentHeight = constraints.maxHeight;
                               const toolbarHeight = 68.0;
-                              final collapsibleRange = expandedHeight - toolbarHeight;
+                              final collapsibleRange =
+                                  expandedHeight - toolbarHeight;
                               // 1.0 = fully expanded, 0.0 = fully collapsed
                               final expandProgress = collapsibleRange > 0
-                                  ? ((currentHeight - toolbarHeight) / collapsibleRange)
-                                      .clamp(0.0, 1.0)
+                                  ? ((currentHeight - toolbarHeight) /
+                                            collapsibleRange)
+                                        .clamp(0.0, 1.0)
                                   : 0.0;
 
                               return Stack(
@@ -1073,7 +974,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                                     child: Opacity(
                                       opacity: expandProgress,
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           _buildTicketInfo(),
@@ -1092,9 +994,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                   // Pinned tab bar
                   SliverPersistentHeader(
                     pinned: true,
-                    delegate: _SliverTabBarDelegate(
-                      _buildTabBarWidget(),
-                    ),
+                    delegate: _SliverTabBarDelegate(_buildTabBarWidget()),
                   ),
                 ];
               },
@@ -1227,20 +1127,23 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
           // Meta info: Agent and Updated time
           Row(
             children: [
-              // Agent/Unassigned
-              Icon(
-                Icons.person_outline,
-                size: 18,
-                color: AppColors.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                _getAssignedAgent(),
-                style: AppTextStyles.bodySmall.copyWith(
+              // Agent name — only show after detail API loads (avoids flash)
+              if (_currentTicket.assigneeInfo != null &&
+                  _currentTicket.assigneeInfo!.name.isNotEmpty) ...[
+                Icon(
+                  Icons.person_outline,
+                  size: 18,
                   color: AppColors.textSecondary,
                 ),
-              ),
-              const SizedBox(width: 20),
+                const SizedBox(width: 6),
+                Text(
+                  _currentTicket.assigneeInfo!.name,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 20),
+              ],
               // Updated time
               Icon(Icons.access_time, size: 18, color: AppColors.textSecondary),
               const SizedBox(width: 6),
@@ -1682,3 +1585,290 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _SliverTabBarDelegate oldDelegate) => true;
 }
 
+/// Premium full-screen image viewer with zoom/pan, auto-hiding UI,
+/// and glassmorphism download bar.
+class _ImageViewerScreen extends StatefulWidget {
+  final String imageUrl;
+  final String fileName;
+  final Map<String, String>? authHeaders;
+  final VoidCallback onDownload;
+
+  const _ImageViewerScreen({
+    required this.imageUrl,
+    required this.fileName,
+    required this.authHeaders,
+    required this.onDownload,
+  });
+
+  @override
+  State<_ImageViewerScreen> createState() => _ImageViewerScreenState();
+}
+
+class _ImageViewerScreenState extends State<_ImageViewerScreen>
+    with SingleTickerProviderStateMixin {
+  bool _showOverlay = true;
+  late final AnimationController _overlayController;
+  late final Animation<double> _overlayAnimation;
+  final TransformationController _transformController =
+      TransformationController();
+
+  @override
+  void initState() {
+    super.initState();
+    _overlayController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+      value: 1.0,
+    );
+    _overlayAnimation = CurvedAnimation(
+      parent: _overlayController,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _overlayController.dispose();
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  void _toggleOverlay() {
+    setState(() {
+      _showOverlay = !_showOverlay;
+      if (_showOverlay) {
+        _overlayController.forward();
+      } else {
+        _overlayController.reverse();
+      }
+    });
+  }
+
+  void _handleDoubleTap() {
+    if (_transformController.value != Matrix4.identity()) {
+      _transformController.value = Matrix4.identity();
+    } else {
+      _transformController.value = Matrix4.diagonal3Values(2.5, 2.5, 1.0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final topPadding = mediaQuery.padding.top;
+    final bottomPadding = mediaQuery.padding.bottom;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Image viewer with zoom/pan
+          GestureDetector(
+            onTap: _toggleOverlay,
+            onDoubleTap: _handleDoubleTap,
+            child: InteractiveViewer(
+              transformationController: _transformController,
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: Center(
+                child: CachedNetworkImage(
+                  imageUrl: widget.imageUrl,
+                  httpHeaders: widget.authHeaders,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.white.withAlpha(200),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Loading image...',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.white.withAlpha(150),
+                        ),
+                      ),
+                    ],
+                  ),
+                  errorWidget: (context, url, error) => Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.white.withAlpha(20),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          size: 56,
+                          color: AppColors.white.withAlpha(130),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Failed to load image',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.white.withAlpha(180),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tap to try again',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.white.withAlpha(100),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Top bar — back button + title
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: FadeTransition(
+              opacity: _overlayAnimation,
+              child: Container(
+                padding: EdgeInsets.only(
+                  top: topPadding + 8,
+                  bottom: 12,
+                  left: 4,
+                  right: 16,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withAlpha(180),
+                      Colors.black.withAlpha(60),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: AppColors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Image Preview',
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Bottom bar — filename + download button
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: FadeTransition(
+              opacity: _overlayAnimation,
+              child: Container(
+                padding: EdgeInsets.only(
+                  top: 16,
+                  bottom: bottomPadding + 16,
+                  left: 20,
+                  right: 20,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withAlpha(200),
+                      Colors.black.withAlpha(80),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Filename
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.image_outlined,
+                          size: 18,
+                          color: AppColors.white.withAlpha(180),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            widget.fileName,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.white.withAlpha(200),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    // Download button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          widget.onDownload();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryDark,
+                          foregroundColor: AppColors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.download_rounded, size: 20),
+                        label: Text(
+                          'Download',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -7,25 +7,37 @@ class UserInfo {
   final String name;
   final String email;
   final String? firstname;
+  final String? profilePicture;
 
   UserInfo({
     required this.id,
     required this.name,
     required this.email,
     this.firstname,
+    this.profilePicture,
   });
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
+    final firstname = json['firstname'] as String?;
+    // API may send 'name' or 'firstname' — use firstname as fallback
+    final name = json['name'] as String? ?? firstname ?? '';
     return UserInfo(
       id: json['id'] as int? ?? 0,
-      name: json['name'] as String? ?? '',
+      name: name,
       email: json['email'] as String? ?? '',
-      firstname: json['firstname'] as String?,
+      firstname: firstname,
+      profilePicture: json['profile_picture'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'name': name, 'email': email, 'firstname': firstname};
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'firstname': firstname,
+      'profile_picture': profilePicture,
+    };
   }
 }
 
