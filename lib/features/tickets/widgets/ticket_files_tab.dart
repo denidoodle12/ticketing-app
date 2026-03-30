@@ -28,47 +28,13 @@ class TicketFilesTab extends StatelessWidget {
 
     return SingleChildScrollView(
       key: const PageStorageKey<String>('files'),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Row(
-            children: [
-              Icon(
-                Icons.attach_file_rounded,
-                size: 20,
-                color: AppColors.textSecondary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'All Attachments',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${attachments.length}',
-                  style: AppTextStyles.caption.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
           // File list
           ...attachments.map((attachment) => _buildFileItem(context, attachment)),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -116,17 +82,29 @@ class TicketFilesTab extends StatelessWidget {
   Widget _buildFileItem(BuildContext context, TicketAttachment attachment) {
     final fullUrl = getAttachmentUrl(attachment.fileUrl);
 
+    // Use a wider card with image preview for image attachments
+    if (attachment.isImage) {
+      return _buildImageFileCard(context, attachment, fullUrl);
+    }
+    return _buildDocumentFileCard(context, attachment);
+  }
+
+  /// Card layout for image attachments — shows a wide preview thumbnail
+  Widget _buildImageFileCard(
+    BuildContext context,
+    TicketAttachment attachment,
+    String fullUrl,
+  ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadow.withAlpha(10),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: AppColors.shadow.withAlpha(15),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -134,32 +112,174 @@ class TicketFilesTab extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _handlePreview(context, attachment),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image preview
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(14),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 160,
+                  child: CachedNetworkImage(
+                    imageUrl: fullUrl,
+                    httpHeaders: authHeaders,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: AppColors.grey100,
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.primary.withAlpha(150),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: AppColors.grey100,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.broken_image_outlined,
+                            size: 32,
+                            color: AppColors.grey300,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Preview unavailable',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Info row
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                child: Row(
+                  children: [
+                    // File type icon
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withAlpha(20),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.image_rounded,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Name + date
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            attachment.fileName,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${attachment.extension.toUpperCase()} • ${attachment.formattedDate}',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Download
+                    _buildDownloadButton(context, attachment),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Card layout for document attachments — compact row with icon
+  Widget _buildDocumentFileCard(
+    BuildContext context,
+    TicketAttachment attachment,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow.withAlpha(15),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _handlePreview(context, attachment),
+          borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
             child: Row(
               children: [
-                // Thumbnail or File icon
-                _buildThumbnail(attachment, fullUrl),
+                // File type icon
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: _getFileBackgroundColor(attachment),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    _getFileIcon(attachment),
+                    color: _getFileIconColor(attachment),
+                    size: 22,
+                  ),
+                ),
                 const SizedBox(width: 12),
-
                 // File info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // File name
                       Text(
                         attachment.fileName,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w500,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      // File meta info
                       Row(
                         children: [
                           _buildMetaChip(
@@ -172,30 +292,7 @@ class TicketFilesTab extends StatelessWidget {
                               '${attachment.formattedDate} • ${attachment.formattedTime}',
                               style: AppTextStyles.caption.copyWith(
                                 color: AppColors.textSecondary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      // Uploaded by
-                      Row(
-                        children: [
-                          Icon(
-                            attachment.isFromAgent
-                                ? Icons.support_agent
-                                : Icons.person_outline,
-                            size: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              attachment.uploadedBy,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.textSecondary,
+                                fontSize: 11,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -206,8 +303,7 @@ class TicketFilesTab extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                // Download button
+                // Download
                 _buildDownloadButton(context, attachment),
               ],
             ),
@@ -217,99 +313,39 @@ class TicketFilesTab extends StatelessWidget {
     );
   }
 
-  Widget _buildThumbnail(TicketAttachment attachment, String fullUrl) {
-    if (attachment.isImage) {
-      // Image thumbnail
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          width: 56,
-          height: 56,
-          child: CachedNetworkImage(
-            imageUrl: fullUrl,
-            httpHeaders: authHeaders,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              color: AppColors.grey100,
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primary.withAlpha(150),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              color: AppColors.primary100,
-              child: Icon(
-                Icons.image_outlined,
-                color: AppColors.primary,
-                size: 24,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Document icon
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        color: _getFileBackgroundColor(attachment),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(
-        _getFileIcon(attachment),
-        color: _getFileIconColor(attachment),
-        size: 28,
-      ),
-    );
-  }
-
   Widget _buildMetaChip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withAlpha(25),
+        color: color.withAlpha(20),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         label,
         style: AppTextStyles.caption.copyWith(
           fontSize: 10,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: color,
+          letterSpacing: 0.3,
         ),
       ),
     );
   }
 
   Widget _buildDownloadButton(BuildContext context, TicketAttachment attachment) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _handleDownload(context, attachment),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.primary100,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.download_rounded,
-            size: 20,
-            color: AppColors.primary,
-          ),
+    return IconButton(
+      onPressed: () => _handleDownload(context, attachment),
+      style: IconButton.styleFrom(
+        backgroundColor: AppColors.primary.withAlpha(15),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
         ),
+        fixedSize: const Size(38, 38),
+      ),
+      icon: Icon(
+        Icons.download_rounded,
+        size: 19,
+        color: AppColors.primary,
       ),
     );
   }
