@@ -71,6 +71,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     _webSocketService.onMessageReceived = _handleWebSocketMessage;
     _webSocketService.onStateChanged = _handleWebSocketStateChange;
     _webSocketService.onError = _handleWebSocketError;
+    _webSocketService.onTokenRefreshNeeded = _getRefreshedToken;
 
     // Listen to connectivity changes for real-time offline/online switch
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
@@ -157,8 +158,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     }
   }
 
-  /// Connect to WebSocket for real-time chat
-  /// Skips connection when device is offline to prevent error spam
+   /// Connect to WebSocket for real-time chat
+  /// Always reads fresh token from secure storage to handle token refresh
   Future<void> _connectWebSocket() async {
     // Check connectivity first — don't attempt WebSocket when offline
     final connectivityResult = await Connectivity().checkConnectivity();
@@ -174,14 +175,12 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
     setState(() => _isOffline = false);
 
-    // Use cached token if available, otherwise fetch from storage
-    String? token = _cachedToken;
-    if (token == null) {
-      if (!mounted) return;
-      final localStorage = context.read<LocalStorage>();
-      token = await localStorage.getAccessToken();
-      _cachedToken = token;
-    }
+    // Always read fresh token from secure storage
+    // (Dio interceptor saves refreshed tokens here on 401)
+    if (!mounted) return;
+    final localStorage = context.read<LocalStorage>();
+    final token = await localStorage.getAccessToken();
+    _cachedToken = token;
 
     if (mounted) {
       await _webSocketService.connect(
@@ -206,11 +205,11 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         });
       }
     } else if (!isNowOffline && _isOffline) {
-      // Just came back online — refresh detail data + reconnect WebSocket
+      // Just came back online — refresh detail data + reconnect with fresh token
       if (mounted) {
         setState(() => _isOffline = false);
         _loadTicketDetail();
-        _webSocketService.reconnect();
+        // _connectWebSocket() will be called by _loadTicketDetail after loading
       }
     }
   }
@@ -221,6 +220,17 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       return {'Authorization': 'Bearer $_cachedToken'};
     }
     return null;
+  }
+
+  /// Get fresh auth headers for downloads — reads latest token from storage
+  /// This ensures downloads work even if the cached token has been refreshed
+  Future<Map<String, String>> _getFreshAuthHeaders() async {
+    final localStorage = context.read<LocalStorage>();
+    final token = await localStorage.getAccessToken();
+    if (token != null) {
+      _cachedToken = token;
+    }
+    return {'Authorization': 'Bearer ${token ?? _cachedToken ?? ""}'};
   }
 
   /// Handle incoming message from WebSocket
@@ -259,7 +269,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   }
 
   /// Handle WebSocket errors
-  /// Suppresses error SnackBars when device is offline to prevent spam
+  /// When reconnect fails after max attempts, tries fresh token reconnect if online
   void _handleWebSocketError(String error) {
     // Detect offline from error message as extra safety net
     final isNetworkError =
@@ -278,6 +288,12 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       return;
     }
 
+    // When max reconnect attempts exhausted, try one more time with fresh token
+    if (error.contains('Unable to reconnect') && !_isOffline) {
+      _retryWithFreshToken();
+      return;
+    }
+
     if (mounted && !_isOffline) {
       ToastHelper.showWarning(
         context,
@@ -285,6 +301,37 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
         description: error,
       );
     }
+  }
+
+  /// Attempt to reconnect WebSocket with a fresh token
+  /// Called when max reconnect attempts fail (likely due to expired token)
+  Future<void> _retryWithFreshToken() async {
+    // Check if device is actually online first
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult.contains(ConnectivityResult.none)) {
+      if (mounted) {
+        setState(() {
+          _isOffline = true;
+          _wsState = WebSocketState.disconnected;
+        });
+      }
+      return;
+    }
+
+    // Device is online — reconnect with fresh token
+    _connectWebSocket();
+  }
+
+  /// Get a fresh token from secure storage for WS reconnection
+  /// Used as the onTokenRefreshNeeded callback in ChatWebSocketService
+  Future<String?> _getRefreshedToken() async {
+    if (!mounted) return _cachedToken;
+    final localStorage = context.read<LocalStorage>();
+    final token = await localStorage.getAccessToken();
+    if (token != null) {
+      _cachedToken = token;
+    }
+    return token;
   }
 
   List<Comment> _parseComments(List<dynamic> commentsJson) {
@@ -596,9 +643,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     final tempDir = await getTemporaryDirectory();
     final tempPath = '${tempDir.path}/$fileName';
 
-    // Download file with auth headers
+    // Download file with fresh auth headers
     final dio = Dio();
-    await dio.download(url, tempPath, options: Options(headers: _authHeaders));
+    final headers = await _getFreshAuthHeaders();
+    await dio.download(url, tempPath, options: Options(headers: headers));
 
     // Save to gallery with album name
     await Gal.putImage(tempPath, album: 'Ticketing App');
@@ -672,9 +720,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       counter++;
     }
 
-    // Download file with auth headers using Dio
+    // Download file with fresh auth headers using Dio
     final dio = Dio();
-    await dio.download(url, finalPath, options: Options(headers: _authHeaders));
+    final headers = await _getFreshAuthHeaders();
+    await dio.download(url, finalPath, options: Options(headers: headers));
 
     // Hide download snackbar and show success
     if (mounted) {
@@ -730,12 +779,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       final tempDir = await getTemporaryDirectory();
       final filePath = '${tempDir.path}/$fileName';
 
-      // Download file with auth headers using Dio
+      // Download file with fresh auth headers using Dio
       final dio = Dio();
+      final headers = await _getFreshAuthHeaders();
       await dio.download(
         url,
         filePath,
-        options: Options(headers: _authHeaders),
+        options: Options(headers: headers),
       );
 
       // Hide download snackbar

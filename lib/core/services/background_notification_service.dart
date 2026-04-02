@@ -19,6 +19,7 @@ class BackgroundNotificationService {
   final FlutterBackgroundService _service = FlutterBackgroundService();
 
   static const String _tokenKey = 'sse_access_token';
+  static const String _refreshTokenKey = 'sse_refresh_token';
 
   /// Initialize the background service
   Future<void> initialize() async {
@@ -61,26 +62,36 @@ class BackgroundNotificationService {
     );
   }
 
-  /// Start the background service with access token
-  Future<void> startService(String accessToken) async {
+  /// Start the background service with access token and refresh token
+  Future<void> startService(String accessToken, {String? refreshToken}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, accessToken);
+    if (refreshToken != null) {
+      await prefs.setString(_refreshTokenKey, refreshToken);
+    }
 
     final isRunning = await _service.isRunning();
     if (isRunning) {
-      _service.invoke('updateToken', {'token': accessToken});
+      _service.invoke('updateToken', {
+        'token': accessToken,
+        if (refreshToken != null) 'refreshToken': refreshToken,
+      });
       return;
     }
 
     await _service.startService();
     await Future.delayed(const Duration(seconds: 1));
-    _service.invoke('updateToken', {'token': accessToken});
+    _service.invoke('updateToken', {
+      'token': accessToken,
+      if (refreshToken != null) 'refreshToken': refreshToken,
+    });
   }
 
   /// Stop the background service
   Future<void> stopService() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    await prefs.remove(_refreshTokenKey);
     _service.invoke('stopService');
   }
 
@@ -120,6 +131,7 @@ void _onStart(ServiceInstance service) async {
   HttpClient? sseClient;
   StreamSubscription? sseSubscription;
   String? accessToken;
+  String? refreshToken;
   String currentEvent = '';
   String currentData = '';
   int notificationIdCounter = 100;
@@ -133,6 +145,44 @@ void _onStart(ServiceInstance service) async {
   // SSE URL
   const baseUrl = 'https://magang.damarbrawijaya.my.id';
   const sseEndpoint = '/notifications/stream';
+  const authRefreshEndpoint = '/auth/refresh';
+
+  /// Try to refresh the access token using the refresh token
+  Future<String?> refreshAccessToken() async {
+    if (refreshToken == null || refreshToken!.isEmpty) return null;
+
+    try {
+      final httpClient = HttpClient();
+      httpClient.connectionTimeout = const Duration(seconds: 10);
+
+      final uri = Uri.parse('$baseUrl$authRefreshEndpoint');
+      final request = await httpClient.postUrl(uri);
+      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Accept', 'application/json');
+      request.write(jsonEncode({'refresh_token': refreshToken}));
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(responseBody) as Map<String, dynamic>;
+        final data = json['data'] as Map<String, dynamic>?;
+        final newToken = data?['access_token'] as String?;
+
+        if (newToken != null) {
+          accessToken = newToken;
+          // Persist the new token so reconnects use the fresh one
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('sse_access_token', newToken);
+          return newToken;
+        }
+      }
+      httpClient.close();
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Connect to SSE stream
   Future<void> connectSSE() async {
@@ -219,6 +269,23 @@ void _onStart(ServiceInstance service) async {
               },
               cancelOnError: false,
             );
+      } else if (response.statusCode == 401) {
+        // Token expired — try to refresh
+        final newToken = await refreshAccessToken();
+        if (newToken != null) {
+          // Successfully refreshed — reconnect with new token
+          reconnectAttempts = 0;
+          connectSSE();
+        } else {
+          // Refresh failed — session expired, stop reconnecting
+          shouldReconnect = false;
+          if (service is AndroidServiceInstance) {
+            service.setForegroundNotificationInfo(
+              title: 'Ticketing App',
+              content: 'Session expired',
+            );
+          }
+        }
       } else {
         _scheduleReconnect(
           reconnectTimer,
@@ -249,6 +316,9 @@ void _onStart(ServiceInstance service) async {
   service.on('updateToken').listen((event) {
     if (event != null && event['token'] != null) {
       accessToken = event['token'] as String;
+      if (event['refreshToken'] != null) {
+        refreshToken = event['refreshToken'] as String;
+      }
       connectSSE();
     }
   });
@@ -262,10 +332,14 @@ void _onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  // Auto-recover: load saved token on service start
+  // Auto-recover: load saved tokens on service start
   try {
     final prefs = await SharedPreferences.getInstance();
     final savedToken = prefs.getString('sse_access_token');
+    final savedRefreshToken = prefs.getString('sse_refresh_token');
+    if (savedRefreshToken != null && savedRefreshToken.isNotEmpty) {
+      refreshToken = savedRefreshToken;
+    }
     if (savedToken != null && savedToken.isNotEmpty) {
       accessToken = savedToken;
       connectSSE();

@@ -16,7 +16,7 @@ class AuthMockDatasource {
       'username': 'testuser',
       'password': 'test123',
       'full_name': 'Test User',
-      'role': 'customer',
+      'role': 'user',
       'is_first_login': false,
     },
     {
@@ -25,7 +25,7 @@ class AuthMockDatasource {
       'username': 'denymobile',
       'password': 'deny123',
       'full_name': 'Deny Mobile Dev',
-      'role': 'customer',
+      'role': 'user',
       'is_first_login': false,
     },
     {
@@ -34,7 +34,7 @@ class AuthMockDatasource {
       'username': 'newuser',
       'password': 'Newuser123',
       'full_name': 'New User',
-      'role': 'customer',
+      'role': 'user',
       'is_first_login': true,
     },
   ];
@@ -125,7 +125,7 @@ class AuthMockDatasource {
       'email': email,
       'password': password,
       'full_name': name,
-      'role': 'customer',
+      'role': 'user',
       'phone_number': null,
       'avatar_url': null,
       'stat_tickets_created_count': 0,

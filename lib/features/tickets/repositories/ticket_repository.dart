@@ -117,7 +117,7 @@ class TicketRepository {
     }
   }
 
-  /// Get paginated list of tickets (customer sees only own tickets)
+  /// Get paginated list of tickets (user sees only own tickets)
   /// Cache-first: fetch from API → cache → fallback to cache on network error
   Future<TicketListResponse> getTickets({
     int page = 1,

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:gal/gal.dart';
+import '../../../data/datasources/local/local_storage.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/api_config.dart';
@@ -194,7 +195,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final tempPath = '${tempDir.path}/$fileName';
 
       final dio = Dio();
-      await dio.download(imageUrl, tempPath);
+
+      // Read fresh token for auth header
+      if (!mounted) return;
+      final localStorage = context.read<LocalStorage>();
+      final token = await localStorage.getAccessToken();
+      final headers = <String, String>{};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      await dio.download(imageUrl, tempPath, options: Options(headers: headers));
       await Gal.putImage(tempPath, album: 'Ticketing App');
 
       final tempFile = File(tempPath);

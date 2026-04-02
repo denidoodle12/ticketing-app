@@ -21,17 +21,17 @@ class ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isFromCustomer = comment.isFromCustomer;
+    final isFromUser = comment.isFromUser;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
-        crossAxisAlignment: isFromCustomer
+        crossAxisAlignment: isFromUser
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
           // Agent name (only for agent messages)
-          if (!isFromCustomer) ...[
+          if (!isFromUser) ...[
             Padding(
               padding: const EdgeInsets.only(left: 44, bottom: 4),
               child: Text(
@@ -45,22 +45,22 @@ class ChatBubble extends StatelessWidget {
           ],
 
           Row(
-            mainAxisAlignment: isFromCustomer
+            mainAxisAlignment: isFromUser
                 ? MainAxisAlignment.end
                 : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // Agent avatar (left side)
-              if (!isFromCustomer) ...[
+              if (!isFromUser) ...[
                 _buildAvatar(isAgent: true),
                 const SizedBox(width: 8),
               ],
 
               // Message bubble
-              Flexible(child: _buildMessageBubble(context, isFromCustomer)),
+              Flexible(child: _buildMessageBubble(context, isFromUser)),
 
-              // Customer avatar (right side)
-              if (isFromCustomer) ...[
+              // User avatar (right side)
+              if (isFromUser) ...[
                 const SizedBox(width: 8),
                 _buildAvatar(isAgent: false),
               ],
@@ -126,7 +126,7 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildMessageBubble(BuildContext context, bool isFromCustomer) {
+  Widget _buildMessageBubble(BuildContext context, bool isFromUser) {
     // Fix: Check both null AND empty string (API returns "" for no attachment)
     final hasAttachment =
         comment.attachment != null && comment.attachment!.isNotEmpty;
@@ -137,14 +137,14 @@ class ChatBubble extends StatelessWidget {
         maxWidth: MediaQuery.of(context).size.width * 0.7,
       ),
       decoration: BoxDecoration(
-        color: isFromCustomer ? AppColors.primary : AppColors.surface,
+        color: isFromUser ? AppColors.primary : AppColors.surface,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(16),
           topRight: const Radius.circular(16),
-          bottomLeft: Radius.circular(isFromCustomer ? 16 : 4),
-          bottomRight: Radius.circular(isFromCustomer ? 4 : 16),
+          bottomLeft: Radius.circular(isFromUser ? 16 : 4),
+          bottomRight: Radius.circular(isFromUser ? 4 : 16),
         ),
-        border: isFromCustomer ? null : Border.all(color: AppColors.border),
+        border: isFromUser ? null : Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadow.withAlpha(26),
@@ -157,8 +157,8 @@ class ChatBubble extends StatelessWidget {
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(16),
           topRight: const Radius.circular(16),
-          bottomLeft: Radius.circular(isFromCustomer ? 16 : 4),
-          bottomRight: Radius.circular(isFromCustomer ? 4 : 16),
+          bottomLeft: Radius.circular(isFromUser ? 16 : 4),
+          bottomRight: Radius.circular(isFromUser ? 4 : 16),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,9 +166,9 @@ class ChatBubble extends StatelessWidget {
             // Attachment preview (if any)
             if (hasAttachment) ...[
               if (isImage)
-                _buildImageAttachment(isFromCustomer)
+                _buildImageAttachment(isFromUser)
               else
-                _buildFileAttachment(isFromCustomer),
+                _buildFileAttachment(isFromUser),
             ],
 
             // Message content (only show if content is not empty)
@@ -186,7 +186,7 @@ class ChatBubble extends StatelessWidget {
                     Text(
                       comment.content,
                       style: AppTextStyles.bodyMedium.copyWith(
-                        color: isFromCustomer
+                        color: isFromUser
                             ? AppColors.white
                             : AppColors.textPrimary,
                         height: 1.4,
@@ -197,7 +197,7 @@ class ChatBubble extends StatelessWidget {
                   Text(
                     comment.formattedTime,
                     style: AppTextStyles.caption.copyWith(
-                      color: isFromCustomer
+                      color: isFromUser
                           ? AppColors.white.withAlpha(179)
                           : AppColors.textSecondary,
                     ),
@@ -211,7 +211,7 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildImageAttachment(bool isFromCustomer) {
+  Widget _buildImageAttachment(bool isFromUser) {
     final attachmentPath = comment.attachment ?? '';
     final fullUrl = getAttachmentUrl?.call(attachmentPath) ?? attachmentPath;
 
@@ -297,7 +297,7 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildFileAttachment(bool isFromCustomer) {
+  Widget _buildFileAttachment(bool isFromUser) {
     final attachmentPath = comment.attachment ?? '';
     // Extract filename from path (e.g., /chat-uploads/file.pdf -> file.pdf)
     final fileName = attachmentPath.split('/').last;
@@ -309,7 +309,7 @@ class ChatBubble extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isFromCustomer
+          color: isFromUser
               ? AppColors.white.withAlpha(38)
               : AppColors.grey100,
           borderRadius: BorderRadius.circular(8),
@@ -320,7 +320,7 @@ class ChatBubble extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isFromCustomer
+                color: isFromUser
                     ? AppColors.white.withAlpha(51)
                     : _getFileBackgroundColor(extension),
                 borderRadius: BorderRadius.circular(8),
@@ -328,7 +328,7 @@ class ChatBubble extends StatelessWidget {
               child: Icon(
                 _getFileIcon(extension),
                 size: 24,
-                color: isFromCustomer
+                color: isFromUser
                     ? AppColors.white
                     : _getFileIconColor(extension),
               ),
@@ -341,7 +341,7 @@ class ChatBubble extends StatelessWidget {
                   Text(
                     fileName,
                     style: AppTextStyles.bodySmall.copyWith(
-                      color: isFromCustomer
+                      color: isFromUser
                           ? AppColors.white
                           : AppColors.textPrimary,
                       fontWeight: FontWeight.w500,
@@ -356,7 +356,7 @@ class ChatBubble extends StatelessWidget {
                       Text(
                         extension.toUpperCase(),
                         style: AppTextStyles.caption.copyWith(
-                          color: isFromCustomer
+                          color: isFromUser
                               ? AppColors.white.withAlpha(179)
                               : AppColors.textSecondary,
                         ),
@@ -365,7 +365,7 @@ class ChatBubble extends StatelessWidget {
                       Icon(
                         Icons.download_rounded,
                         size: 14,
-                        color: isFromCustomer
+                        color: isFromUser
                             ? AppColors.white.withAlpha(179)
                             : AppColors.textSecondary,
                       ),
@@ -373,7 +373,7 @@ class ChatBubble extends StatelessWidget {
                       Text(
                         'Tap to open',
                         style: AppTextStyles.caption.copyWith(
-                          color: isFromCustomer
+                          color: isFromUser
                               ? AppColors.white.withAlpha(179)
                               : AppColors.textSecondary,
                         ),

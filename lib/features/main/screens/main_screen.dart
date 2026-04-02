@@ -61,11 +61,13 @@ class MainScreenState extends State<MainScreen> {
       try {
         final localStorage = context.read<LocalStorage>();
         final accessToken = await localStorage.getAccessToken();
+        final refreshToken = await localStorage.getRefreshToken();
 
         if (accessToken != null && accessToken.isNotEmpty && mounted) {
           // Start background foreground service with SSE
           await BackgroundNotificationService.instance.startService(
             accessToken,
+            refreshToken: refreshToken,
           );
 
           if (!mounted) return;

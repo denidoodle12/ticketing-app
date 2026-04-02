@@ -28,7 +28,7 @@ class TicketRemoteDatasource {
         .toList();
   }
 
-  /// Get tickets with optional filters (customer only sees own tickets)
+  /// Get tickets with optional filters (user only sees own tickets)
   Future<TicketListResponse> getTickets({
     int page = 1,
     int limit = 10,

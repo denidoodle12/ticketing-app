@@ -32,7 +32,7 @@ class Comment {
       userName: json['user_name'] as String? ?? 'Unknown',
       firstname: json['firstname'] as String?,
       profilePicture: json['profile_picture'] as String?,
-      userRole: json['user_role'] as String? ?? 'customer',
+      userRole: json['user_role'] as String? ?? 'user',
       content: json['content'] as String? ?? '',
       attachment: json['attachment'] as String?,
       createdAt: json['created_at'] != null
@@ -57,21 +57,21 @@ class Comment {
   }
 
   /// Check if this comment is from an agent
-  bool get isFromAgent => userRole.toLowerCase() != 'customer';
+  bool get isFromAgent => userRole.toLowerCase() != 'user';
 
-  /// Check if this comment is from the current user (customer)
-  bool get isFromCustomer => userRole.toLowerCase() == 'customer';
+  /// Check if this comment is from the current user
+  bool get isFromUser => userRole.toLowerCase() == 'user';
 
   /// Get display name
   /// For agent/admin/superadmin: "firstname.role" format
-  /// For customer: firstname or extracted from email
+  /// For user: firstname or extracted from email
   String get displayName {
-    // For non-customer (agent/admin/superadmin), show "firstname.role" format
-    if (!isFromCustomer && firstname != null && firstname!.isNotEmpty) {
+    // For non-user (agent/admin/superadmin), show "firstname.role" format
+    if (!isFromUser && firstname != null && firstname!.isNotEmpty) {
       return '$firstname - $userRole';
     }
 
-    // For customer or if firstname is not available, use firstname or extract from email
+    // For user or if firstname is not available, use firstname or extract from email
     if (firstname != null && firstname!.isNotEmpty) {
       return firstname!;
     }

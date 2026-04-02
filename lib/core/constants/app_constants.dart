@@ -23,7 +23,7 @@ class AppConstants {
   static const int maxProfilePictureSizeMB = 2; // 2MB
 
   // Allowed roles for this app (end-user app)
-  static const String allowedRole = 'customer';
+  static const String allowedRole = 'user';
 
   // Delays
   static const int splashDurationMs = 2000; // 2 seconds

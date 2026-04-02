@@ -21,6 +21,9 @@ class ChatWebSocketService {
   Function(Comment)? onMessageReceived;
   Function(WebSocketState)? onStateChanged;
   Function(String)? onError;
+  /// Callback to get a fresh token before reconnecting
+  /// Called when the WS needs to reconnect (e.g., after token expiry)
+  Future<String?> Function()? onTokenRefreshNeeded;
 
   // Reconnection settings
   int _reconnectAttempts = 0;
@@ -157,6 +160,7 @@ class ChatWebSocketService {
   }
 
   /// Schedule reconnection attempt
+  /// Gets a fresh token via callback before each attempt
   void _scheduleReconnect() {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       onError?.call(
@@ -165,15 +169,26 @@ class ChatWebSocketService {
       return;
     }
 
-    if (_currentTicketId == null || _token == null) return;
+    if (_currentTicketId == null) return;
 
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(_reconnectDelay, () {
+    _reconnectTimer = Timer(_reconnectDelay, () async {
       if (_state != WebSocketState.connected &&
           _state != WebSocketState.connecting) {
         _reconnectAttempts++;
         _updateState(WebSocketState.reconnecting);
-        _establishConnection();
+
+        // Get fresh token before reconnecting
+        if (onTokenRefreshNeeded != null) {
+          final freshToken = await onTokenRefreshNeeded!();
+          if (freshToken != null && freshToken.isNotEmpty) {
+            _token = freshToken;
+          }
+        }
+
+        if (_token != null) {
+          _establishConnection();
+        }
       }
     });
   }
@@ -234,5 +249,6 @@ class ChatWebSocketService {
     onMessageReceived = null;
     onStateChanged = null;
     onError = null;
+    onTokenRefreshNeeded = null;
   }
 }
