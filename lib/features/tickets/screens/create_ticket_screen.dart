@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/utils/validators.dart';
@@ -225,7 +226,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
 
     // Validate file size (max 5MB)
     final fileSize = await file.length();
-    final sizeError = Validators.fileSize(fileSize, maxSizeInMB: 5);
+    final sizeError = Validators.fileSize(fileSize, maxSizeInMB: AppConstants.maxAttachmentSizeMB);
 
     if (sizeError != null) {
       if (!mounted) return;
@@ -265,7 +266,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
     // Validate file size before submit (double check)
     if (_attachmentFile != null) {
       final fileSize = await _attachmentFile!.length();
-      final validationError = Validators.fileSize(fileSize, maxSizeInMB: 5);
+      final validationError = Validators.fileSize(fileSize, maxSizeInMB: AppConstants.maxAttachmentSizeMB);
       if (!mounted) return;
       if (validationError != null) {
         ToastHelper.showError(

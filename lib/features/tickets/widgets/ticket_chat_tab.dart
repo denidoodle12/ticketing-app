@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/network/chat_websocket_service.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/utils/toast_helper.dart';
@@ -165,7 +166,7 @@ class _TicketChatTabState extends State<TicketChatTab>
     }
 
     // Check file size
-    final sizeError = Validators.fileSize(size, maxSizeInMB: 5);
+    final sizeError = Validators.fileSize(size, maxSizeInMB: AppConstants.maxChatAttachmentSizeMB);
     if (sizeError != null) {
       ToastHelper.showError(
         context,

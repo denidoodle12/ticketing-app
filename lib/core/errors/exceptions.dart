@@ -52,3 +52,12 @@ class CacheException extends AppException {
   CacheException([String message = 'Cache error occurred'])
       : super(message, 'CACHE_ERROR');
 }
+
+/// Session refreshed exception
+/// Thrown when token was refreshed but the original request cannot be retried
+/// (e.g., FormData/file upload where the stream was already consumed)
+class SessionRefreshedException extends AppException {
+  SessionRefreshedException([
+    String message = 'Session refreshed. Please try again.',
+  ]) : super(message, 'SESSION_REFRESHED');
+}

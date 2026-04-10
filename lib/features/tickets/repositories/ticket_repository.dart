@@ -328,6 +328,10 @@ class TicketRepository {
     } on ValidationException {
       rethrow;
     } catch (e) {
+      // Unwrap SessionRefreshedException from DioException
+      if (e is DioException && e.error is SessionRefreshedException) {
+        throw e.error as SessionRefreshedException;
+      }
       throw ServerException('Failed to create ticket: $e');
     }
   }
@@ -344,6 +348,10 @@ class TicketRepository {
     } on ServerException {
       rethrow;
     } catch (e) {
+      // Unwrap SessionRefreshedException from DioException
+      if (e is DioException && e.error is SessionRefreshedException) {
+        throw e.error as SessionRefreshedException;
+      }
       throw ServerException('Failed to upload file: $e');
     }
   }

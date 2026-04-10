@@ -461,6 +461,8 @@ class TicketLocalDatasource {
       'status_json': ticket.status != null
           ? jsonEncode(ticket.status!.toJson())
           : null,
+      'due_date': ticket.dueDate?.toIso8601String(),
+      'is_overdue': ticket.isOverdue ? 1 : 0,
       'created_at': ticket.createdAt?.toIso8601String(),
       'updated_at': ticket.updatedAt?.toIso8601String(),
     };
@@ -502,6 +504,10 @@ class TicketLocalDatasource {
               jsonDecode(map['status_json'] as String) as Map<String, dynamic>,
             )
           : null,
+      dueDate: map['due_date'] != null
+          ? DateTime.parse(map['due_date'] as String)
+          : null,
+      isOverdue: (map['is_overdue'] as int?) == 1,
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'] as String)
           : null,

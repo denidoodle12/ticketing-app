@@ -73,7 +73,7 @@ class User {
         lastName: json['last_name'] as String?,
         email: email as String,
         username: username as String,
-        phoneNumber: json['phone_number'] as String?,
+        phoneNumber: json['phone'] as String? ?? json['phone_number'] as String?,
         profilePicture: json['profile_picture'] as String?,
         role: roleName,
         isFirstLogin: json['is_first_login'] as bool? ?? false,

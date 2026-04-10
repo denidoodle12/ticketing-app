@@ -8,7 +8,11 @@ import '../../../core/themes/text_styles.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/background_notification_service.dart';
+import '../../../core/services/token_refresh_service.dart';
+import '../../../core/constants/storage_keys.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../data/datasources/local/local_storage.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../routes/app_routes.dart';
 import '../../home/screens/home_screen.dart';
@@ -40,6 +44,9 @@ class MainScreenState extends State<MainScreen> {
     // Start background SSE service for real-time notifications
     _initBackgroundService();
 
+    // Listen for session expired (auto-redirect to login)
+    _setupAuthListener();
+
     // Show welcome toast after first frame if flag is set
     if (widget.showWelcomeToast) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -53,6 +60,28 @@ class MainScreenState extends State<MainScreen> {
       });
     }
   }
+
+  /// Listen to AuthProvider state changes.
+  /// When forceLogout() is triggered (refresh token expired),
+  /// state becomes unauthenticated → redirect to login.
+  void _setupAuthListener() {
+    final authProvider = context.read<AuthProvider>();
+    authProvider.addListener(_onAuthStateChanged);
+  }
+
+  void _onAuthStateChanged() {
+    if (!mounted) return;
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.state == AuthState.unauthenticated) {
+      // Remove listener to prevent multiple redirects
+      authProvider.removeListener(_onAuthStateChanged);
+      // Redirect to login
+      if (mounted) {
+        context.go(AppRoutes.login);
+      }
+    }
+  }
+
 
   Future<void> _initBackgroundService() async {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -70,6 +99,31 @@ class MainScreenState extends State<MainScreen> {
             refreshToken: refreshToken,
           );
 
+          // Register callback: when proactive token refresh fires,
+          // push new token to the SSE background service so it reconnects
+          TokenRefreshService.instance.onTokenRefreshed = (newToken) {
+            BackgroundNotificationService.instance.startService(
+              newToken,
+              refreshToken: refreshToken,
+            );
+          };
+
+          // Listen for token synced from background SSE isolate (Gap 2 fix).
+          // When SSE independently refreshes, it sends the new token back
+          // so FlutterSecureStorage stays in sync with the background service.
+          BackgroundNotificationService.instance.on('tokenSynced').listen((data) async {
+            final syncedToken = data?['token'] as String?;
+            if (syncedToken != null) {
+              const secureStorage = FlutterSecureStorage();
+              await secureStorage.write(
+                key: StorageKeys.accessToken,
+                value: syncedToken,
+              );
+              // Restart proactive timer with the synced token
+              TokenRefreshService.instance.startProactiveRefresh();
+            }
+          });
+
           if (!mounted) return;
 
           // Setup listener for notifications from background service
@@ -85,8 +139,12 @@ class MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    // Safely remove auth listener
+    try {
+      context.read<AuthProvider>().removeListener(_onAuthStateChanged);
+    } catch (_) {}
     // Don't stop background service on dispose - it should keep running!
-    // Only stop on logout via NotificationProvider.clear()
+    // Only stop on logout via forceLogout() or logout()
     super.dispose();
   }
 

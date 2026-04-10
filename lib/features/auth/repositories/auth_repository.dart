@@ -7,6 +7,7 @@ import '../../../core/constants/api_config.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/errors/exceptions.dart';
 import '../../../core/errors/failures.dart';
+import '../../../core/services/token_refresh_service.dart';
 
 /// Result type for repository methods
 class Result<T> {
@@ -118,6 +119,13 @@ class AuthRepositoryImpl implements AuthRepository {
         await _localStorage.saveTokens(
           accessToken: loginResponse.accessToken ?? loginResponse.token,
           refreshToken: loginResponse.refreshToken ?? loginResponse.token,
+        );
+
+        // Start proactive token refresh timer
+        // This refreshes the token ~2 min before expiry (at ~13 min of 15 min)
+        // preventing token expiry issues in Create Ticket, Chat WS, SSE.
+        TokenRefreshService.instance.startProactiveRefresh(
+          tokenLifetimeSeconds: loginResponse.expiresIn,
         );
 
         // Save user data (including profile picture if available)

@@ -3,13 +3,13 @@ import 'user_model.dart';
 // ==================== REQUEST MODELS ====================
 
 class LoginRequest {
-  final String email;
+  final String identifier;
   final String password;
 
-  LoginRequest({required this.email, required this.password});
+  LoginRequest({required this.identifier, required this.password});
 
   Map<String, dynamic> toJson() {
-    return {'email': email, 'password': password};
+    return {'identifier': identifier, 'password': password};
   }
 }
 

@@ -1,9 +1,8 @@
-import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/storage_keys.dart';
-import '../constants/api_endpoints.dart';
 import '../errors/exceptions.dart';
+import '../services/token_refresh_service.dart';
 
 /// API Interceptor with automatic token refresh.
 ///
@@ -12,12 +11,13 @@ import '../errors/exceptions.dart';
 /// 2. Try to get a new access token using the refresh token
 /// 3. Retry the original request with the new token
 /// 4. If refresh fails, clear tokens and throw UnauthorizedException
+///
+/// Special handling for FormData:
+/// - FormData (file uploads) cannot be retried because the stream is consumed
+/// - After refreshing the token, returns a special error asking user to retry
 class ApiInterceptor extends Interceptor {
   final _secureStorage = const FlutterSecureStorage();
-
-  /// Mutex to prevent multiple simultaneous refresh calls
-  static bool _isRefreshing = false;
-  static Completer<String?>? _refreshCompleter;
+  final _tokenService = TokenRefreshService.instance;
 
   @override
   Future<void> onRequest(
@@ -82,7 +82,7 @@ class ApiInterceptor extends Interceptor {
           if (path.contains('/auth/login') ||
               path.contains('/auth/refresh') ||
               path.contains('/auth/logout')) {
-            await _clearTokens();
+            await _tokenService.clearTokens();
             return handler.reject(
               DioException(
                 requestOptions: err.requestOptions,
@@ -93,10 +93,28 @@ class ApiInterceptor extends Interceptor {
             );
           }
 
-          // Try to refresh the token
-          final newToken = await _tryRefreshToken();
+          // Try to refresh the token using the centralized service
+          final newToken = await _tokenService.refreshToken();
 
           if (newToken != null) {
+            // Token refreshed — restart the proactive timer
+            _tokenService.startProactiveRefresh();
+
+            // Check if the original request has FormData
+            // FormData streams are consumed and CANNOT be retried
+            if (err.requestOptions.data is FormData) {
+              // Token is refreshed but we can't retry the upload
+              // Return a special error so the caller knows to retry
+              return handler.reject(
+                DioException(
+                  requestOptions: err.requestOptions,
+                  error: SessionRefreshedException(
+                    'Session refreshed. Please try again.',
+                  ),
+                ),
+              );
+            }
+
             // Retry the original request with new token
             try {
               final retryResponse = await _retryRequest(
@@ -117,7 +135,7 @@ class ApiInterceptor extends Interceptor {
             }
           } else {
             // Refresh failed — clear tokens and reject
-            await _clearTokens();
+            await _tokenService.clearTokens();
             return handler.reject(
               DioException(
                 requestOptions: err.requestOptions,
@@ -183,81 +201,15 @@ class ApiInterceptor extends Interceptor {
     return handler.next(err);
   }
 
-  /// Try to refresh the access token using the refresh token.
-  /// Uses a mutex so that multiple concurrent 401s only trigger one refresh.
-  Future<String?> _tryRefreshToken() async {
-    // If already refreshing, wait for the result
-    if (_isRefreshing && _refreshCompleter != null) {
-      return _refreshCompleter!.future;
-    }
-
-    _isRefreshing = true;
-    _refreshCompleter = Completer<String?>();
-
-    try {
-      final refreshToken = await _secureStorage.read(
-        key: StorageKeys.refreshToken,
-      );
-
-      if (refreshToken == null || refreshToken.isEmpty) {
-        _refreshCompleter!.complete(null);
-        return null;
-      }
-
-      // Use a fresh Dio instance WITHOUT interceptors to avoid infinite loop
-      final dio = Dio(
-        BaseOptions(
-          baseUrl: ApiEndpoints.authBaseUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        ),
-      );
-
-      final response = await dio.post(
-        ApiEndpoints.authRefresh,
-        data: {'refresh_token': refreshToken},
-      );
-
-      final responseData = response.data as Map<String, dynamic>;
-      final data = responseData['data'] as Map<String, dynamic>?;
-      final newAccessToken = data?['access_token'] as String?;
-
-      if (newAccessToken != null) {
-        // Save the new access token
-        await _secureStorage.write(
-          key: StorageKeys.accessToken,
-          value: newAccessToken,
-        );
-
-        _refreshCompleter!.complete(newAccessToken);
-        return newAccessToken;
-      } else {
-        _refreshCompleter!.complete(null);
-        return null;
-      }
-    } catch (e) {
-      // Refresh failed — token is truly expired
-      _refreshCompleter!.complete(null);
-      return null;
-    } finally {
-      _isRefreshing = false;
-      _refreshCompleter = null;
-    }
-  }
-
-  /// Retry the original request with a new access token
+  /// Retry the original request with a new access token.
+  /// Uses the full URI from the original request to avoid path duplication.
   Future<Response> _retryRequest(
     RequestOptions requestOptions,
     String newToken,
   ) async {
-    // Use a fresh Dio instance to avoid interceptor loop
+    // Use a fresh Dio instance without interceptors to avoid loop
     final dio = Dio(
       BaseOptions(
-        baseUrl: requestOptions.baseUrl,
         connectTimeout: requestOptions.connectTimeout,
         receiveTimeout: requestOptions.receiveTimeout,
       ),
@@ -268,16 +220,12 @@ class ApiInterceptor extends Interceptor {
       headers: {...requestOptions.headers, 'Authorization': 'Bearer $newToken'},
     );
 
+    // Use the full URI to avoid base URL + path duplication
     return dio.request(
-      requestOptions.path,
+      requestOptions.uri.toString(),
       data: requestOptions.data,
       queryParameters: requestOptions.queryParameters,
       options: options,
     );
-  }
-
-  Future<void> _clearTokens() async {
-    await _secureStorage.delete(key: StorageKeys.accessToken);
-    await _secureStorage.delete(key: StorageKeys.refreshToken);
   }
 }

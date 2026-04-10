@@ -100,6 +100,8 @@ class Ticket {
   final UserInfo? assigneeInfo;
   final TicketCategory? category;
   final TicketStatus? status;
+  final DateTime? dueDate;
+  final bool isOverdue;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -117,6 +119,8 @@ class Ticket {
     this.assigneeInfo,
     this.category,
     this.status,
+    this.dueDate,
+    this.isOverdue = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -146,6 +150,10 @@ class Ticket {
       status: json['status'] != null
           ? TicketStatus.fromJson(json['status'] as Map<String, dynamic>)
           : null,
+      dueDate: json['due_date'] != null
+          ? DateTime.parse(json['due_date'] as String)
+          : null,
+      isOverdue: json['is_overdue'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,
@@ -166,6 +174,8 @@ class Ticket {
       'attachment': attachment,
       'created_by': createdBy,
       'assigned_to': assignedTo,
+      if (dueDate != null) 'due_date': dueDate!.toIso8601String(),
+      'is_overdue': isOverdue,
     };
   }
 
@@ -183,6 +193,8 @@ class Ticket {
     UserInfo? assigneeInfo,
     TicketCategory? category,
     TicketStatus? status,
+    DateTime? dueDate,
+    bool? isOverdue,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -200,6 +212,8 @@ class Ticket {
       assigneeInfo: assigneeInfo ?? this.assigneeInfo,
       category: category ?? this.category,
       status: status ?? this.status,
+      dueDate: dueDate ?? this.dueDate,
+      isOverdue: isOverdue ?? this.isOverdue,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -262,17 +276,22 @@ class TicketListResponse {
   });
 
   factory TicketListResponse.fromJson(Map<String, dynamic> json) {
+    // Support both 'pagination' (API contract) and 'meta' (legacy) keys
+    final pagination = json['pagination'] as Map<String, dynamic>? ??
+        json['meta'] as Map<String, dynamic>?;
     return TicketListResponse(
       tickets:
           (json['data'] as List<dynamic>?)
               ?.map((e) => Ticket.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      total: json['meta']?['total_items'] as int? ?? 0,
-      page: json['meta']?['current_page'] as int? ?? 1,
-      limit: json['meta']?['limit'] as int? ?? 10,
-      hasNext: json['meta']?['has_next'] as bool? ?? false,
-      hasPrev: json['meta']?['has_prev'] as bool? ?? false,
+      total: pagination?['total'] as int? ??
+          pagination?['total_items'] as int? ?? 0,
+      page: pagination?['page'] as int? ??
+          pagination?['current_page'] as int? ?? 1,
+      limit: pagination?['limit'] as int? ?? 10,
+      hasNext: pagination?['has_next'] as bool? ?? false,
+      hasPrev: pagination?['has_prev'] as bool? ?? false,
     );
   }
 

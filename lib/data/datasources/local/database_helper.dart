@@ -10,7 +10,7 @@ class DatabaseHelper {
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
 
-  static const int _version = 2;
+  static const int _version = 3;
   static const String _dbName = 'ticketing_cache.db';
 
   /// Get or create the database instance
@@ -50,6 +50,8 @@ class DatabaseHelper {
         assignee_info TEXT,
         category_json TEXT,
         status_json TEXT,
+        due_date TEXT,
+        is_overdue INTEGER NOT NULL DEFAULT 0,
         created_at TEXT,
         updated_at TEXT
       )
@@ -138,6 +140,15 @@ class DatabaseHelper {
       ''');
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_ticket_ratings_ticket_id ON ticket_ratings(ticket_id)',
+      );
+    }
+    if (oldVersion < 3) {
+      // Add SLA fields to tickets table
+      await db.execute(
+        'ALTER TABLE tickets ADD COLUMN due_date TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE tickets ADD COLUMN is_overdue INTEGER NOT NULL DEFAULT 0',
       );
     }
   }

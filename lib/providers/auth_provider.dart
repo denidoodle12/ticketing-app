@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import '../features/auth/models/user_model.dart';
 import '../features/auth/repositories/auth_repository.dart';
+import '../core/services/token_refresh_service.dart';
+import '../core/services/background_notification_service.dart';
+
 
 /// Auth state enum
 enum AuthState { initial, loading, authenticated, unauthenticated, error }
@@ -39,6 +42,9 @@ class AuthProvider extends ChangeNotifier {
       if (isLoggedIn) {
         _currentUser = await _authRepository.getCurrentUser();
         _setState(AuthState.authenticated);
+        // Start proactive token refresh for returning users
+        TokenRefreshService.instance.startProactiveRefresh();
+        setupSessionExpiredHandler();
       } else {
         _setState(AuthState.unauthenticated);
       }
@@ -58,6 +64,7 @@ class AuthProvider extends ChangeNotifier {
       if (result.isSuccess) {
         _currentUser = result.data;
         _setState(AuthState.authenticated);
+        setupSessionExpiredHandler();
         return true;
       } else {
         final errorMsg = result.failure!.message;
@@ -102,6 +109,11 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _authRepository.logout();
       _currentUser = null;
+      // Stop proactive token refresh
+      TokenRefreshService.instance.stopProactiveRefresh();
+      TokenRefreshService.instance.onSessionExpired = null;
+      // Stop background SSE service
+      await BackgroundNotificationService.instance.stopService();
       // Clear local cache on logout
       _onLogoutCallback?.call();
       _setState(AuthState.unauthenticated);
@@ -109,6 +121,30 @@ class AuthProvider extends ChangeNotifier {
       _setError('Failed to logout');
       _setState(AuthState.error);
     }
+  }
+
+  /// Force logout when refresh token is expired (auto-redirect to login).
+  /// Unlike regular logout(), this skips the server API call because
+  /// tokens are already invalid on the server side.
+  Future<void> forceLogout() async {
+    _currentUser = null;
+    // Stop all token-related services
+    TokenRefreshService.instance.stopProactiveRefresh();
+    TokenRefreshService.instance.onSessionExpired = null;
+    await TokenRefreshService.instance.clearTokens();
+    // Stop background SSE service
+    await BackgroundNotificationService.instance.stopService();
+    // Clear local cache
+    _onLogoutCallback?.call();
+    _setState(AuthState.unauthenticated);
+  }
+
+  /// Setup handler for session expired events from TokenRefreshService.
+  /// Call this after login or checkAuthStatus.
+  void setupSessionExpiredHandler() {
+    TokenRefreshService.instance.onSessionExpired = () {
+      forceLogout();
+    };
   }
 
   /// Change password

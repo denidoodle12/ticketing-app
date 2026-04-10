@@ -174,6 +174,8 @@ void _onStart(ServiceInstance service) async {
           // Persist the new token so reconnects use the fresh one
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('sse_access_token', newToken);
+          // Sync token back to main isolate so FlutterSecureStorage stays updated
+          service.invoke('tokenSynced', {'token': newToken});
           return newToken;
         }
       }
@@ -244,6 +246,9 @@ void _onStart(ServiceInstance service) async {
                 }
               },
               onError: (_) {
+                // SSE error — schedule reconnect with current token
+                // (which may have been updated by main app's proactive refresh)
+                // If token is expired, connectSSE()'s 401 handler will refresh
                 _scheduleReconnect(
                   reconnectTimer,
                   reconnectAttempts,
@@ -256,6 +261,10 @@ void _onStart(ServiceInstance service) async {
                 );
               },
               onDone: () {
+                // SSE stream closed by server — schedule reconnect
+                // The proactive timer in main app pushes fresh tokens via updateToken,
+                // so the local accessToken variable should already be up-to-date.
+                // Only connectSSE()'s 401 handler refreshes as a last resort.
                 _scheduleReconnect(
                   reconnectTimer,
                   reconnectAttempts,
@@ -270,7 +279,7 @@ void _onStart(ServiceInstance service) async {
               cancelOnError: false,
             );
       } else if (response.statusCode == 401) {
-        // Token expired — try to refresh
+        // Token expired — try to refresh (last resort, only if proactive timer didn't push a new token)
         final newToken = await refreshAccessToken();
         if (newToken != null) {
           // Successfully refreshed — reconnect with new token

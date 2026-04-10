@@ -14,6 +14,7 @@ import '../../../core/themes/text_styles.dart';
 import '../../../core/network/chat_websocket_service.dart';
 import '../../../core/constants/api_config.dart';
 import '../../../core/utils/toast_helper.dart';
+import '../../../core/services/token_refresh_service.dart';
 import '../../../data/datasources/local/local_storage.dart';
 import '../../../providers/ticket_provider.dart';
 import '../models/ticket_model.dart';
@@ -322,9 +323,20 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     _connectWebSocket();
   }
 
-  /// Get a fresh token from secure storage for WS reconnection
-  /// Used as the onTokenRefreshNeeded callback in ChatWebSocketService
+  /// Get a fresh token for WS reconnection by actually refreshing it.
+  /// Uses TokenRefreshService to call /auth/refresh endpoint.
+  /// This ensures the WebSocket reconnects with a valid, non-expired token.
   Future<String?> _getRefreshedToken() async {
+    // Try to refresh the token via the centralized service
+    final newToken = await TokenRefreshService.instance.refreshToken();
+    if (newToken != null) {
+      _cachedToken = newToken;
+      // Restart proactive refresh timer after successful refresh
+      TokenRefreshService.instance.startProactiveRefresh();
+      return newToken;
+    }
+
+    // Refresh failed — fall back to stored token (may still work if recently refreshed by another component)
     if (!mounted) return _cachedToken;
     final localStorage = context.read<LocalStorage>();
     final token = await localStorage.getAccessToken();

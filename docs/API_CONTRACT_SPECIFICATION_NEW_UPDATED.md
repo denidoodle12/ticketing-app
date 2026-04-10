@@ -61,6 +61,40 @@
 
 ---
 
+## V3.0 Multi-Tenant Changes ✨ NEW
+
+> [!IMPORTANT]
+>
+> **Multi-Tenant Architecture** — Full tenant isolation implemented.
+
+**Breaking Changes:**
+
+- **Email & Username Global Unique** — Email/username must be unique across ALL tenants, not just per-tenant
+- **`tenant_id` in JWT** — All JWT tokens now include `tenant_id` claim (0 for super_admin, >0 for tenant users)
+- **Tenant validation on registration** — `tenant_id` in register request is validated against tenants table
+- **Customer self-registration via subdomain** — Customers can register without JWT using `X-Tenant-Slug` header (set by gateway from subdomain)
+
+**New Features:**
+
+- **Tenant Management** (`/tenants/*`) — Full CRUD for tenant organizations (super_admin only)
+- **Subdomain Tenant Resolution** — Gateway reads subdomain → sets `X-Tenant-Slug` → ms-auth resolves to `tenant_id`
+- **Admin expanded access** — Admin (level 5) can now manage: SLA configs, system configs, ticket categories, ticket statuses, roles, permissions, permission groups
+- **Internal tenant slug endpoint** — `GET /internal/tenants/slug/:slug` for inter-service tenant resolution
+
+**Role Access Matrix (Updated):**
+
+| Operation | Customer | Agent | Admin | Super Admin |
+|---|---|---|---|---|
+| Manage tenants | ❌ | ❌ | ❌ | ✅ |
+| Update SLA configs | ❌ | ❌ | ✅ | ✅ |
+| Manage ticket categories | ❌ | ❌ | ✅ | ✅ |
+| Manage ticket statuses | ❌ | ❌ | ✅ | ✅ |
+| Manage roles/permissions | ❌ | ❌ | ✅ | ✅ |
+| Change users' roles | ❌ | ❌ | ❌ | ✅ |
+| Delete tickets (permanent) | ❌ | ❌ | ❌ | ✅ |
+
+---
+
 # Authentication Service (ms-auth)
 
 ## 1. Login User ⚠️ UPDATED (Refresh Token)
@@ -162,10 +196,18 @@
   "role": "admin",
   "role_id": 2,
   "role_level": 5,
+  "tenant_id": 4,
   "exp": 1702036500,
   "iat": 1702035600
 }
 ```
+
+> [!NOTE]
+>
+> `tenant_id` in JWT:
+> - **0** = Super Admin (global, no tenant)
+> - **> 0** = Regular user belonging to that tenant
+> - All downstream services use this claim to enforce tenant data isolation
 
 ---
 
@@ -259,72 +301,111 @@ Authorization: Bearer <access_token>
 
 ---
 
-## 2. Register User ⚠️ CHANGED
+## 2. Register User ⚠️ UPDATED (Multi-Tenant)
 
-| Method | Endpoint         | Access            |
-| ------ | ---------------- | ----------------- |
-| `POST` | `/auth/register` | Admin/Super Admin |
+| Method | Endpoint         | Access |
+| ------ | ---------------- | ------ |
+| `POST` | `/auth/register` | Public (Customer via subdomain) OR JWT (Admin/Super Admin creates users) |
+
+This endpoint supports **two modes**:
+
+### Mode 1: Admin/Super Admin creates a user (requires JWT)
 
 **Headers:**
-
 ```
 Authorization: Bearer <jwt_token>
+Content-Type: application/json
 ```
 
 **Request:**
-
 ```json
 {
-  "email": "string (required, email format)",
-  "username": "string (required, min 3 chars, max 50 chars)",
+  "email": "string (required, globally unique)",
+  "username": "string (required, globally unique, min 3 chars)",
   "password": "string (required, min 8 chars)",
   "name": "string (required)",
   "last_name": "string (optional)",
-  "role": "string (optional, any custom role name that exists in database)"
+  "role": "string (optional, defaults to 'customer')",
+  "tenant_id": "integer (required when super_admin creates tenant user)"
 }
 ```
 
-> [!NOTE]
->
-> - **Role Field:** Can be any role name that exists in the database (e.g., "customer", "admin", "dev", "manager")
-> - **Default:** If not provided, defaults to "customer"
-> - **Super Admin:** Cannot be created via this endpoint (use `/auth/super` instead)
-> - **Validation:** Role name will be validated against the database roles table
+**Tenant ID Resolution Priority (when JWT provided):**
+
+1. **`tenant_id` in body** — explicit assignment (super_admin only)
+2. **JWT `tenant_id`** — inherits from the admin's own tenant
+3. **`X-Tenant-Slug` header** — resolved from gateway subdomain
 
 **Authorization Rules:**
 
-| Requester Role | Can Create                                        |
-| -------------- | ------------------------------------------------- |
-| Admin (lvl 5)  | Any role with level < 5 (Customer)                |
-| Super Admin    | Any role with level < 10 (all except Super Admin) |
-| Customer/Agent | ❌ Cannot create                                  |
+| Requester Role | Can Create | Notes |
+| -------------- | ---------- | ----- |
+| Admin (lvl 5) | Roles with level < 5 (Customer, Agent) | Within their own tenant |
+| Super Admin | Roles with level < 10 (all except Super Admin) | Must specify `tenant_id` |
+| Customer/Agent | ❌ Cannot create | — |
 
-**Success Response (201):**
+### Mode 2: Customer self-registration via subdomain (no JWT)
 
+**Headers:**
+```
+Content-Type: application/json
+X-Tenant-Slug: <tenant-slug>   ← Set automatically by gateway from subdomain
+                                  OR manually in Postman for testing
+```
+
+**Request (no `role` or `tenant_id` needed):**
 ```json
 {
-  "message": "user registered successfully by admin",
+  "email": "string (required, globally unique)",
+  "username": "string (required, globally unique)",
+  "password": "string (required, min 8 chars)",
+  "name": "string (required)"
+}
+```
+
+**How it works:**
+```
+customer visits https://amba-indonesia.platform.com/register
+    → gateway reads subdomain: "amba-indonesia"
+    → sets header: X-Tenant-Slug: amba-indonesia
+    → ms-auth calls /internal/tenants/slug/amba-indonesia
+    → resolves tenant_id = 4
+    → user registered with tenant_id = 4, role = customer
+```
+
+**Success Response (201):**
+```json
+{
+  "message": "user registered successfully",
   "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "user": {
       "id": 5,
-      "email": "customer1@test.com",
-      "username": "customer1",
-      "name": "Customer One",
-      "last_name": "User",
-      "role": "customer"
+      "email": "customer@gmail.com",
+      "username": "budi_customer",
+      "name": "Budi",
+      "role": "customer",
+      "tenant_id": 4
     }
   }
 }
 ```
 
-**Errors:**
-| Code | Error |
-|------|-------|
-| 401 | Authorization header required / Invalid token |
-| 403 | Insufficient permissions |
-| 400 | Validation failed |
-| 500 | Email already exists |
+> [!IMPORTANT]
+>
+> **Global Uniqueness:** Email and username must be unique across ALL tenants in the system.
+> The same email cannot be registered in two different tenants.
+
+**Error Responses:**
+
+| Code | Error | When |
+|------|-------|------|
+| 400 | `invalid_tenant` — tenant not found for domain | Slug does not match any tenant |
+| 400 | `tenant not found or inactive` | `tenant_id` in body does not exist |
+| 409 | `email already exists` | Email is taken globally |
+| 409 | `username already exists` | Username is taken globally |
+| 401 | Authorization required | Non-public mode without JWT |
+| 403 | Insufficient permissions | Role level too low to create that role |
 
 ---
 
@@ -1164,10 +1245,12 @@ Authorization: Bearer <jwt_token>
 
 # Role Management (RBAC) ✨ NEW
 
-> [!NOTE] > **Access Control:**
+> [!NOTE]
 >
-> - **Admin & Super Admin** can **VIEW** roles and permissions
-> - **Only Super Admin** can **CREATE, UPDATE, DELETE** roles and permissions
+> **Access Control (Updated v3.0):**
+>
+> - **Admin & Super Admin** can **VIEW, CREATE, UPDATE, DELETE** roles and permissions
+> - **Only Super Admin** can manage tenants and change user roles/status
 
 ## 13. List All Roles
 
@@ -1219,7 +1302,7 @@ Authorization: Bearer <jwt_token>
 
 | Method | Endpoint | Access           |
 | ------ | -------- | ---------------- |
-| `POST` | `/roles` | Super Admin Only |
+| `POST` | `/roles` | Admin/Super Admin |
 
 **Request:**
 
@@ -1262,7 +1345,7 @@ Authorization: Bearer <jwt_token>
 
 | Method | Endpoint     | Access           |
 | ------ | ------------ | ---------------- |
-| `PUT`  | `/roles/:id` | Super Admin Only |
+| `PUT`  | `/roles/:id` | Admin/Super Admin |
 
 **Success Response (200):**
 
@@ -1328,7 +1411,7 @@ Authorization: Bearer <jwt_token>
 
 | Method   | Endpoint     | Access           |
 | -------- | ------------ | ---------------- |
-| `DELETE` | `/roles/:id` | Super Admin Only |
+| `DELETE` | `/roles/:id` | Admin/Super Admin |
 
 **Success Response (200):**
 
@@ -1396,7 +1479,7 @@ Authorization: Bearer <jwt_token>
 
 | Method | Endpoint                 | Access           |
 | ------ | ------------------------ | ---------------- |
-| `POST` | `/roles/:id/permissions` | Super Admin Only |
+| `POST` | `/roles/:id/permissions` | Admin/Super Admin |
 
 **Request:**
 
@@ -1449,7 +1532,7 @@ Authorization: Bearer <jwt_token>
 
 | Method   | Endpoint                 | Access           |
 | -------- | ------------------------ | ---------------- |
-| `DELETE` | `/roles/:id/permissions` | Super Admin Only |
+| `DELETE` | `/roles/:id/permissions` | Admin/Super Admin |
 
 **Request:**
 
@@ -1521,7 +1604,7 @@ Authorization: Bearer <jwt_token>
 
 | Method | Endpoint       | Access           |
 | ------ | -------------- | ---------------- |
-| `POST` | `/permissions` | Super Admin Only |
+| `POST` | `/permissions` | Admin/Super Admin |
 
 **Request:**
 
@@ -1613,7 +1696,7 @@ Authorization: Bearer <jwt_token>
 
 | Method | Endpoint           | Access           |
 | ------ | ------------------ | ---------------- |
-| `PUT`  | `/permissions/:id` | Super Admin Only |
+| `PUT`  | `/permissions/:id` | Admin/Super Admin |
 
 **Request:**
 
@@ -1699,7 +1782,7 @@ Authorization: Bearer <jwt_token>
 
 | Method   | Endpoint           | Access           |
 | -------- | ------------------ | ---------------- |
-| `DELETE` | `/permissions/:id` | Super Admin Only |
+| `DELETE` | `/permissions/:id` | Admin/Super Admin |
 
 **Description:** Delete a permission with **assignment protection**. Will fail if permission is assigned to any roles.
 
@@ -1738,7 +1821,7 @@ Authorization: Bearer <jwt_token>
 
 | Method   | Endpoint                 | Access           |
 | -------- | ------------------------ | ---------------- |
-| `DELETE` | `/permissions/:id/force` | Super Admin Only |
+| `DELETE` | `/permissions/:id/force` | Admin/Super Admin |
 
 **Description:** Force delete a permission with **cascade removal** - automatically removes all role assignments.
 
@@ -1891,7 +1974,7 @@ Authorization: Bearer <jwt_token>
 
 | Method | Endpoint             | Access           |
 | ------ | -------------------- | ---------------- |
-| `POST` | `/ticket-categories` | Super Admin Only |
+| `POST` | `/ticket-categories` | Admin/Super Admin |
 
 **Request:**
 
@@ -1964,7 +2047,7 @@ Authorization: Bearer <jwt_token>
 
 | Method | Endpoint                 | Access           |
 | ------ | ------------------------ | ---------------- |
-| `PUT`  | `/ticket-categories/:id` | Super Admin Only |
+| `PUT`  | `/ticket-categories/:id` | Admin/Super Admin |
 
 **Request:**
 
@@ -2034,7 +2117,7 @@ Authorization: Bearer <jwt_token>
 
 | Method   | Endpoint                 | Access           |
 | -------- | ------------------------ | ---------------- |
-| `DELETE` | `/ticket-categories/:id` | Super Admin Only |
+| `DELETE` | `/ticket-categories/:id` | Admin/Super Admin |
 
 **Success Response (200):**
 
@@ -2312,7 +2395,7 @@ Open → In Progress → Pending → Resolved → Closed
 
 | Method | Endpoint                           | Access           |
 | ------ | ---------------------------------- | ---------------- |
-| `PUT`  | `/ticket-statuses/:id/transitions` | Super Admin Only |
+| `PUT`  | `/ticket-statuses/:id/transitions` | Admin/Super Admin |
 
 **Description:** Set allowed transitions for a status. Replaces all existing transitions.
 
@@ -2386,7 +2469,7 @@ Open → In Progress → Pending → Resolved → Closed
 
 | Method   | Endpoint                           | Access           |
 | -------- | ---------------------------------- | ---------------- |
-| `DELETE` | `/ticket-statuses/:id/transitions` | Super Admin Only |
+| `DELETE` | `/ticket-statuses/:id/transitions` | Admin/Super Admin |
 
 **Description:** Delete specific transitions from a status.
 
@@ -2451,7 +2534,7 @@ Open → In Progress → Pending → Resolved → Closed
 
 | Method | Endpoint           | Access           |
 | ------ | ------------------ | ---------------- |
-| `POST` | `/ticket-statuses` | Super Admin Only |
+| `POST` | `/ticket-statuses` | Admin/Super Admin |
 
 **Request:**
 
@@ -2500,7 +2583,7 @@ Open → In Progress → Pending → Resolved → Closed
 
 | Method | Endpoint               | Access           |
 | ------ | ---------------------- | ---------------- |
-| `PUT`  | `/ticket-statuses/:id` | Super Admin Only |
+| `PUT`  | `/ticket-statuses/:id` | Admin/Super Admin |
 
 **Request:**
 
@@ -2552,7 +2635,7 @@ Open → In Progress → Pending → Resolved → Closed
 
 | Method   | Endpoint               | Access           |
 | -------- | ---------------------- | ---------------- |
-| `DELETE` | `/ticket-statuses/:id` | Super Admin Only |
+| `DELETE` | `/ticket-statuses/:id` | Admin/Super Admin |
 
 **Description:** Soft delete a ticket status by setting `is_active = false`. The status will no longer appear in dropdowns but remains in database.
 
@@ -2584,7 +2667,7 @@ Open → In Progress → Pending → Resolved → Closed
 
 | Method   | Endpoint                     | Access           |
 | -------- | ---------------------------- | ---------------- |
-| `DELETE` | `/ticket-statuses/:id/force` | Super Admin Only |
+| `DELETE` | `/ticket-statuses/:id/force` | Admin/Super Admin |
 
 **Description:** Permanently delete a ticket status with cascade removal of all associated transitions.
 
@@ -3098,6 +3181,77 @@ GET /tickets/status/1?page=1&limit=20
 
 ---
 
+## Agent Self-Assign & My Work 🆕
+
+> [!NOTE]
+>
+> - Agent can **self-assign** unassigned tickets (except tickets they created)
+> - Self-assign is **race-condition safe** — if 2 agents click simultaneously, only 1 wins
+> - Agents can re-assign their tickets to other agents via `PUT /tickets/:id`
+
+### 47e. Self-Assign Ticket
+
+| Method | Endpoint               | Access                  |
+| ------ | ---------------------- | ----------------------- |
+| `POST` | `/tickets/:id/assign`  | Agent/Admin/Super Admin |
+
+**Description:** Agent claims an unassigned ticket. Uses atomic database update — safe against race conditions.
+
+**Request:** No body required.
+
+**Success Response (200):**
+
+```json
+{
+  "message": "ticket assigned to you successfully",
+  "data": { ... }
+}
+```
+
+**Error Responses:**
+
+| Code | Error | Condition |
+|------|-------|-----------|
+| 400 | `cannot assign a closed ticket` | Ticket is resolved/closed |
+| 403 | `you cannot assign tickets you created` | Agent created the ticket |
+| 404 | `ticket not found` | Invalid ticket ID |
+| 409 | `ticket has already been assigned to another agent` | Race condition — another agent was faster |
+
+**Side Effects (async):**
+
+| Action | Target | Detail |
+|--------|--------|--------|
+| Audit Log | ms-sla | `LogTicketAssigned(ticketID, agentID, nil)` — `nil` assignedBy = self-assigned |
+| Push Notification | Ticket creator | Type: `ticket_assigned` — "Ticket #N is being handled" |
+| Dashboard Stats | ms-ticket | `IncrementUserStatus` for agent as assignee |
+
+---
+
+### 47f. Get My Work
+
+| Method | Endpoint            | Access                  |
+| ------ | ------------------- | ----------------------- |
+| `GET`  | `/tickets/my-work`  | Agent/Admin/Super Admin |
+
+**Description:** Get tickets assigned to the current authenticated agent. Supports same filters and pagination as ticket list.
+
+**Query Parameters:** `page`, `limit`, `status_id`, `priority`, `category_id`, `search`
+
+**Success Response (200):**
+
+```json
+{
+  "message": "my work retrieved successfully",
+  "data": [ ... ],
+  "pagination": {
+    "total": 5,
+    "page": 1,
+    "limit": 10
+  }
+}
+```
+
+---
 ## Ticket Rating ⭐ NEW
 
 > [!NOTE]
@@ -3160,11 +3314,22 @@ GET /tickets/status/1?page=1&limit=20
 
 ### 47b. Get Ticket Rating
 
-| Method | Endpoint              | Access              |
-| ------ | --------------------- | ------------------- |
-| `GET`  | `/tickets/:id/rating` | Authenticated Users |
+| Method | Endpoint              | Access                                       |
+| ------ | --------------------- | -------------------------------------------- |
+| `GET`  | `/tickets/:id/rating` | Ticket Creator / Assigned Agent / Admin+     |
 
 **Description:** Get the rating for a specific ticket.
+
+> [!IMPORTANT]
+>
+> **Access Control:**
+>
+> | User | Access |
+> |------|--------|
+> | Ticket creator (`created_by`) | ✅ |
+> | Assigned agent (`assigned_to`) | ✅ |
+> | Admin / Super Admin (level ≥ 5) | ✅ |
+> | Other users | ❌ 403 Forbidden |
 
 **Success Response (200):**
 
@@ -3183,17 +3348,31 @@ GET /tickets/status/1?page=1&limit=20
 }
 ```
 
-**Error Response (404):** `this ticket has not been rated yet`
+**Error Responses:**
+
+| Code | Error | Condition |
+|------|-------|-----------|
+| 403 | `you can only view ratings for your own tickets` | Not creator/assigned/admin |
+| 404 | `this ticket has not been rated yet` | No rating exists |
 
 ---
 
 ### 47c. Get Agent Ratings
 
-| Method | Endpoint              | Access                  |
-| ------ | --------------------- | ----------------------- |
-| `GET`  | `/agents/:id/ratings` | Agent/Admin/Super Admin |
+| Method | Endpoint              | Access                              |
+| ------ | --------------------- | ----------------------------------- |
+| `GET`  | `/agents/:id/ratings` | Own agent (self) / Admin+ |
 
 **Description:** Get all ratings for a specific agent with average summary and breakdown.
+
+> [!WARNING]
+>
+> **Agent can only view their own ratings.** To view another agent's ratings, admin role (level ≥ 5) is required.
+>
+> | User | View own ratings | View other agent's ratings |
+> |------|---|---|
+> | Agent (level < 5) | ✅ | ❌ 403 |
+> | Admin / Super Admin | ✅ | ✅ |
 
 **Query Parameters:** `page` (default: 1), `limit` (default: 10, max: 100)
 
@@ -3234,6 +3413,26 @@ GET /tickets/status/1?page=1&limit=20
   }
 }
 ```
+
+**Error Responses:**
+
+| Code | Error | Condition |
+|------|-------|-----------|
+| 403 | `you can only view your own ratings` | Agent viewing another agent |
+
+---
+
+### 47d. Get My Ratings (Shortcut) ✨ NEW
+
+| Method | Endpoint               | Access                  |
+| ------ | ---------------------- | ----------------------- |
+| `GET`  | `/agents/me/ratings`   | Agent/Admin/Super Admin |
+
+**Description:** Shortcut to get the current authenticated agent's ratings. Automatically resolves `agent_id` from JWT token — no need to know your own ID.
+
+**Query Parameters:** `page` (default: 1), `limit` (default: 10, max: 100)
+
+**Response:** Same as `GET /agents/:id/ratings`
 
 ---
 
@@ -5082,6 +5281,17 @@ File Excel berisi **2 sheet**:
 - ✨ Filter tickets by `is_overdue` status
 - 🔧 Ticket response includes SLA fields
 
+## Version 3.0 (2026-04-01) - Multi-Tenant Edition
+
+- ✨ Multi-tenant architecture with full row-level data isolation
+- ✨ JWT now includes `tenant_id` claim
+- ✨ Global email & username uniqueness across all tenants
+- ✨ Tenant management endpoints (`/tenants/*`) — super_admin only
+- ✨ Customer self-registration via subdomain slug resolution (`X-Tenant-Slug` header)
+- ✨ Internal endpoint `GET /internal/tenants/slug/:slug` for inter-service tenant resolution
+- ⚠️ Admin (level 5) can now manage: SLA configs, system configs, ticket categories, ticket statuses, roles, permissions, permission groups
+- 🔒 Super Admin only: tenant creation, user role change, user status change, ticket permanent delete
+
 ## Version 2.0 (2025-12-08) - RBAC Edition
 
 - ✨ JWT tokens include `role` claim
@@ -5183,28 +5393,22 @@ File Excel berisi **2 sheet**:
 
 ## Create SLA Config
 
-| Method | Endpoint       | Access      |
-| ------ | -------------- | ----------- |
-| `POST` | `/sla-configs` | Super Admin |
+> [!NOTE]
+>
+> SLA configs are **pre-seeded** with 4 fixed priorities (low, medium, high, critical).
+> Creating new SLA configs is disabled to maintain data integrity. Use `PUT` to update values.
 
-**Request:**
-
-```json
-{
-  "priority": "urgent",
-  "response_time_min": 10,
-  "resolve_time_min": 120,
-  "warning_time_min": 5
-}
-```
+| Method | Endpoint       | Access |
+| ------ | -------------- | ------ |
+| `POST` | `/sla-configs` | ~~Disabled~~ |
 
 ---
 
 ## Update SLA Config
 
-| Method | Endpoint           | Access      |
-| ------ | ------------------ | ----------- |
-| `PUT`  | `/sla-configs/:id` | Super Admin |
+| Method | Endpoint           | Access            |
+| ------ | ------------------ | ----------------- |
+| `PUT`  | `/sla-configs/:id` | Admin/Super Admin |
 
 **Request:**
 
@@ -5221,9 +5425,14 @@ File Excel berisi **2 sheet**:
 
 ## Delete SLA Config
 
-| Method   | Endpoint           | Access      |
-| -------- | ------------------ | ----------- |
-| `DELETE` | `/sla-configs/:id` | Super Admin |
+> [!NOTE]
+>
+> Deleting SLA configs is **disabled** to preserve data integrity. SLA configs are pre-seeded system data.
+
+| Method   | Endpoint           | Access |
+| -------- | ------------------ | ------ |
+| `DELETE` | `/sla-configs/:id` | ~~Disabled~~ |
+
 
 ---
 

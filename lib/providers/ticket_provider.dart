@@ -478,6 +478,11 @@ class TicketProvider extends ChangeNotifier {
     } on ValidationException catch (e) {
       _errorMessage = e.message;
       _createTicketState = TicketState.error;
+    } on SessionRefreshedException catch (e) {
+      // Token was refreshed but FormData upload couldn't be retried
+      // Show a friendly message so user knows to just try again
+      _errorMessage = e.message;
+      _createTicketState = TicketState.error;
     } catch (e) {
       _errorMessage = 'Failed to create ticket';
       _createTicketState = TicketState.error;

@@ -20,7 +20,9 @@ class AppConstants {
   static const int minPasswordLength = 8;
   static const int maxNameLength = 100;
   static const int maxPhoneNumberLength = 20;
-  static const int maxProfilePictureSizeMB = 2; // 2MB
+  static const int maxProfilePictureSizeMB = 2; // 2MB (API contract limit)
+  static const int maxAttachmentSizeMB = 5; // 5MB (API contract limit for ticket attachments)
+  static const int maxChatAttachmentSizeMB = 5; // 5MB (API contract limit for chat attachments)
 
   // Allowed roles for this app (end-user app)
   static const String allowedRole = 'user';
