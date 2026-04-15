@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -89,190 +90,43 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = authProvider.currentUser;
     final greeting = _getGreeting();
     final firstName = user?.name ?? 'User';
+    final profilePictureUrl = user?.profilePicture != null
+        ? '${ApiConfig.baseUrl}${user!.profilePicture}'
+        : null;
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    // Heights for SliverAppBar
+    // Collapsed: status bar + search bar + padding
+    const collapsedSearchBarHeight = 52.0;
+    const collapsedVerticalPadding = 12.0;
+    const curvedBottomHeight = 24.0;
+    final collapsedHeight =
+        topPadding + collapsedSearchBarHeight + collapsedVerticalPadding * 2 + curvedBottomHeight;
+    // Expanded: full header with avatar, greeting, title, search, curved bottom
+    // topPad(16) + avatar row(68) + spacer(24) + title(64) + spacer(20) + search(52) + spacer(24) + curve(24)
+    final expandedHeight = topPadding + 16 + 68 + 24 + 64 + 20 + 52 + 24 + 24;
 
     return Scaffold(
       backgroundColor: AppColors.white,
       body: RefreshIndicator(
         onRefresh: _loadData,
+        edgeOffset: collapsedHeight,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            SliverToBoxAdapter(
-              child: _buildGradientHeader(firstName, greeting),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _HomeHeaderDelegate(
+                firstName: firstName,
+                greeting: greeting,
+                profilePictureUrl: profilePictureUrl,
+                topPadding: topPadding,
+                expandedHeight: expandedHeight.toDouble(),
+                collapsedHeight: collapsedHeight,
+                onSearchTap: () => context.push('/search'),
+              ),
             ),
             SliverToBoxAdapter(child: _buildContent(ticketProvider)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGradientHeader(String firstName, String greeting) {
-    final user = context.watch<AuthProvider>().currentUser;
-    final profilePictureUrl = user?.profilePicture != null
-        ? '${ApiConfig.baseUrl}${user!.profilePicture}'
-        : null;
-
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary600, AppColors.primary500],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // Header Row
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
-                children: [
-                  // Avatar
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.white.withAlpha(76),
-                        width: 3,
-                      ),
-                    ),
-                    child: ClipOval(
-                      child: profilePictureUrl != null
-                          ? CachedNetworkImage(
-                              imageUrl: profilePictureUrl,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) =>
-                                  _buildAvatarPlaceholder(firstName),
-                              errorWidget: (_, __, ___) =>
-                                  _buildAvatarPlaceholder(firstName),
-                            )
-                          : _buildAvatarPlaceholder(firstName),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  // Greeting
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Hi, $firstName',
-                          style: AppTextStyles.h5.copyWith(
-                            color: AppColors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          greeting,
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.white.withAlpha(204),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Title
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Find your IT\nticketing here',
-                  style: AppTextStyles.h2.copyWith(
-                    color: AppColors.white,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _buildSearchBar(),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Curved bottom
-            Container(
-              height: 24,
-              decoration: const BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAvatarPlaceholder(String firstName) {
-    return Container(
-      color: AppColors.white.withAlpha(51),
-      child: Center(
-        child: Text(
-          firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
-          style: AppTextStyles.h5.copyWith(
-            color: AppColors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return GestureDetector(
-      onTap: () => context.push('/search'),
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadow.withAlpha(20),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(left: 18, right: 10),
-              child: Icon(Icons.search, color: AppColors.grey400, size: 22),
-            ),
-            Expanded(
-              child: Text(
-                'Search tickets...',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.grey400,
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -443,3 +297,260 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+// ===========================================================================
+// SliverPersistentHeaderDelegate — controls the collapsing header behavior
+// ===========================================================================
+
+class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final String firstName;
+  final String greeting;
+  final String? profilePictureUrl;
+  final double topPadding;
+  final double expandedHeight;
+  final double collapsedHeight;
+  final VoidCallback onSearchTap;
+
+  _HomeHeaderDelegate({
+    required this.firstName,
+    required this.greeting,
+    required this.profilePictureUrl,
+    required this.topPadding,
+    required this.expandedHeight,
+    required this.collapsedHeight,
+    required this.onSearchTap,
+  });
+
+  @override
+  double get maxExtent => expandedHeight;
+
+  @override
+  double get minExtent => collapsedHeight;
+
+  @override
+  bool shouldRebuild(covariant _HomeHeaderDelegate oldDelegate) {
+    return firstName != oldDelegate.firstName ||
+        greeting != oldDelegate.greeting ||
+        profilePictureUrl != oldDelegate.profilePictureUrl;
+  }
+
+  // Positions (relative to topPadding)
+  // Expanded positions
+  double get _avatarRowTop => 16.0;
+  double get _titleTop => _avatarRowTop + 68 + 24; // after avatar row + spacer
+  double get _searchExpandedTop =>
+      _titleTop + 64 + 20; // after title + spacer
+  // Collapsed position
+  double get _searchCollapsedTop => 12.0;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    // 0.0 = fully expanded, 1.0 = fully collapsed
+    final double t =
+        (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
+
+    // Eased curves for smoother feel
+    final avatarFade = Curves.easeOut.transform((t * 2.5).clamp(0.0, 1.0));
+    final titleFade = Curves.easeOut.transform(((t - 0.1) * 2.5).clamp(0.0, 1.0));
+    final searchT = Curves.easeInOut.transform(t);
+
+    // Parallax offsets — elements slide UP faster than scroll
+    final avatarSlide = avatarFade * 30.0;
+    final titleSlide = titleFade * 20.0;
+
+    // Search bar: interpolate between expanded and collapsed Y position
+    final searchTop = topPadding +
+        _lerpDouble(_searchExpandedTop, _searchCollapsedTop, searchT);
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary600, AppColors.primary500],
+        ),
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // ═══════════════════════════════════════════════════
+          // AVATAR ROW — slides up fast with parallax + fades
+          // ═══════════════════════════════════════════════════
+          if (avatarFade < 1.0)
+            Positioned(
+              top: topPadding + _avatarRowTop - avatarSlide,
+              left: 20,
+              right: 20,
+              child: Opacity(
+                opacity: (1.0 - avatarFade).clamp(0.0, 1.0),
+                child: _buildAvatarRow(),
+              ),
+            ),
+
+          // ═══════════════════════════════════════════════════
+          // TITLE — staggered slide-up, fades slightly later
+          // ═══════════════════════════════════════════════════
+          if (titleFade < 1.0)
+            Positioned(
+              top: topPadding + _titleTop - titleSlide,
+              left: 20,
+              right: 20,
+              child: Opacity(
+                opacity: (1.0 - titleFade).clamp(0.0, 1.0),
+                child: Text(
+                  'Find your IT\nticketing here',
+                  style: AppTextStyles.h2.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ),
+
+          // ═══════════════════════════════════════════════════
+          // SEARCH BAR — single instance, position interpolated
+          // ═══════════════════════════════════════════════════
+          Positioned(
+            top: searchTop,
+            left: 20,
+            right: 20,
+            child: _buildSearchBar(),
+          ),
+
+          // ═══════════════════════════════════════════════════
+          // CURVED BOTTOM — always at bottom of header
+          // ═══════════════════════════════════════════════════
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              height: 24,
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Linear interpolation helper
+  double _lerpDouble(double a, double b, double t) => a + (b - a) * t;
+
+  Widget _buildAvatarRow() {
+    return Row(
+      children: [
+        // Avatar
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.white.withAlpha(76),
+              width: 3,
+            ),
+          ),
+          child: ClipOval(
+            child: profilePictureUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: profilePictureUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => _buildAvatarPlaceholder(),
+                    errorWidget: (_, __, ___) => _buildAvatarPlaceholder(),
+                  )
+                : _buildAvatarPlaceholder(),
+          ),
+        ),
+        const SizedBox(width: 14),
+        // Greeting
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hi, $firstName',
+                style: AppTextStyles.h5.copyWith(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                greeting,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.white.withAlpha(204),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAvatarPlaceholder() {
+    return Container(
+      color: AppColors.white.withAlpha(51),
+      child: Center(
+        child: Text(
+          firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
+          style: AppTextStyles.h5.copyWith(
+            color: AppColors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return GestureDetector(
+      onTap: onSearchTap,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow.withAlpha(20),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 18, right: 10),
+              child: Icon(Icons.search, color: AppColors.grey400, size: 22),
+            ),
+            Expanded(
+              child: Text(
+                'Search tickets...',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.grey400,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
