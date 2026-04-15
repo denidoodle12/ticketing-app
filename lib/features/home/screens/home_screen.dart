@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -101,7 +100,10 @@ class _HomeScreenState extends State<HomeScreen> {
     const collapsedVerticalPadding = 12.0;
     const curvedBottomHeight = 24.0;
     final collapsedHeight =
-        topPadding + collapsedSearchBarHeight + collapsedVerticalPadding * 2 + curvedBottomHeight;
+        topPadding +
+        collapsedSearchBarHeight +
+        collapsedVerticalPadding * 2 +
+        curvedBottomHeight;
     // Expanded: full header with avatar, greeting, title, search, curved bottom
     // topPad(16) + avatar row(68) + spacer(24) + title(64) + spacer(20) + search(52) + spacer(24) + curve(24)
     final expandedHeight = topPadding + 16 + 68 + 24 + 64 + 20 + 52 + 24 + 24;
@@ -338,8 +340,7 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   // Expanded positions
   double get _avatarRowTop => 16.0;
   double get _titleTop => _avatarRowTop + 68 + 24; // after avatar row + spacer
-  double get _searchExpandedTop =>
-      _titleTop + 64 + 20; // after title + spacer
+  double get _searchExpandedTop => _titleTop + 64 + 20; // after title + spacer
   // Collapsed position
   double get _searchCollapsedTop => 12.0;
 
@@ -350,12 +351,13 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     // 0.0 = fully expanded, 1.0 = fully collapsed
-    final double t =
-        (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
+    final double t = (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
 
     // Eased curves for smoother feel
     final avatarFade = Curves.easeOut.transform((t * 2.5).clamp(0.0, 1.0));
-    final titleFade = Curves.easeOut.transform(((t - 0.1) * 2.5).clamp(0.0, 1.0));
+    final titleFade = Curves.easeOut.transform(
+      ((t - 0.1) * 2.5).clamp(0.0, 1.0),
+    );
     final searchT = Curves.easeInOut.transform(t);
 
     // Parallax offsets — elements slide UP faster than scroll
@@ -363,7 +365,8 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     final titleSlide = titleFade * 20.0;
 
     // Search bar: interpolate between expanded and collapsed Y position
-    final searchTop = topPadding +
+    final searchTop =
+        topPadding +
         _lerpDouble(_searchExpandedTop, _searchCollapsedTop, searchT);
 
     return Container(
@@ -457,10 +460,7 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
           height: 52,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.white.withAlpha(76),
-              width: 3,
-            ),
+            border: Border.all(color: AppColors.white.withAlpha(76), width: 3),
           ),
           child: ClipOval(
             child: profilePictureUrl != null
@@ -553,4 +553,3 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     );
   }
 }
-
