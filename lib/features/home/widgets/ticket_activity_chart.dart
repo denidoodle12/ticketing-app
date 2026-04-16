@@ -478,7 +478,6 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
     for (final item in items) {
       if (item.created > maxCreated) maxCreated = item.created;
     }
-    // Ensure at least 1 to avoid division by zero
     if (maxCreated == 0) maxCreated = 1;
 
     final isMonthly = _selectedPeriod == 'monthly';
@@ -491,11 +490,9 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
       String fullDate = '';
 
       if (isMonthly) {
-        // Monthly: label as W1, W2, W3, etc.
         dateNum = 'W${index + 1}';
-        fullDate = item.label; // e.g., "Week 1 (Feb 3-9)"
+        fullDate = item.label;
       } else {
-        // Weekly: show date number + day name
         try {
           final dt = DateTime.parse(item.date);
           dateNum = dt.day.toString();
@@ -520,8 +517,21 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
       );
     }).toList();
 
+    // Layout constants
+    const double gridHeight = 130.0;
+    const double topOverflow = 8.0;
+    const double barAreaHeight = gridHeight + topOverflow;
+    final double xLabelHeight = isMonthly ? 20.0 : 34.0;
+
+    // Nice Y-axis ticks
+    final yTicks = _calculateYTicks(maxCreated);
+    final yMax = yTicks.last;
+
+    // Dynamic Y-axis width based on longest label
+    final maxLabel = _formatYLabel(yMax);
+    final double yAxisWidth = maxLabel.length <= 2 ? 22.0 : (maxLabel.length <= 3 ? 28.0 : 34.0);
+
     return GestureDetector(
-      // Tap outside bars to dismiss tooltip
       onTap: () {
         if (_selectedBarIndex != null) {
           setState(() => _selectedBarIndex = null);
@@ -532,26 +542,73 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
         builder: (context, constraints) {
           final totalWidth = constraints.maxWidth;
           return SizedBox(
-            height: 220,
+            height: barAreaHeight + xLabelHeight + 16,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Bar chart row
+                // Main chart layout: Y-axis + (grid lines + bars) + X labels
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: barData.map((bar) {
-                    return Expanded(
-                      child: _buildSingleBar(
-                        bar: bar,
-                        maxValue: maxCreated,
-                        isMonthly: isMonthly,
-                        isSelected: _selectedBarIndex == bar.index,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Y-Axis Labels ──
+                    Padding(
+                      padding: const EdgeInsets.only(top: topOverflow),
+                      child: SizedBox(
+                        width: yAxisWidth,
+                        height: gridHeight,
+                        child: _buildYAxisLabels(yTicks, gridHeight),
                       ),
-                    );
-                  }).toList(),
+                    ),
+
+                    // ── Chart Area (grid + bars + x-labels) ──
+                    Expanded(
+                      child: Column(
+                        children: [
+                          // Bar area with grid behind
+                          SizedBox(
+                            height: barAreaHeight,
+                            child: Stack(
+                              children: [
+                                // Dotted grid lines (offset down by topOverflow)
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  top: topOverflow,
+                                  height: gridHeight,
+                                  child: CustomPaint(
+                                    painter: _GridLinesPainter(
+                                      tickCount: yTicks.length,
+                                    ),
+                                  ),
+                                ),
+                                // Bars row
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: barData.map((bar) {
+                                    return Expanded(
+                                      child: _buildSingleBar(
+                                        bar: bar,
+                                        maxValue: yMax,
+                                        isSelected:
+                                            _selectedBarIndex == bar.index,
+                                        barAreaHeight: barAreaHeight,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // ── X-Axis Labels ──
+                          _buildXAxisLabels(barData, isMonthly),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
 
-                // Tooltip overlay (positioned above the selected bar)
+                // Tooltip overlay
                 if (_selectedBarIndex != null &&
                     _selectedBarIndex! < barData.length)
                   _buildTooltipOverlay(
@@ -559,6 +616,7 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
                     barCount: barData.length,
                     isMonthly: isMonthly,
                     totalWidth: totalWidth,
+                    yAxisOffset: yAxisWidth,
                   ),
               ],
             ),
@@ -568,147 +626,218 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
     );
   }
 
-  /// Single bar column: count label → pill bar → date → day
+  /// Y-axis labels positioned so text center aligns with grid lines
+  Widget _buildYAxisLabels(List<int> ticks, double height) {
+    // Each tick is at y = height * i / (tickCount - 1), from top (max) to bottom (0)
+    // We use reversed ticks so index 0 = top = max value
+    final reversedTicks = ticks.reversed.toList();
+    return Stack(
+      clipBehavior: Clip.none,
+      children: List.generate(reversedTicks.length, (i) {
+        final y = height * i / (reversedTicks.length - 1);
+        return Positioned(
+          right: 4,
+          top: y - 5, // offset by half text height (~10px font)
+          child: Text(
+            _formatYLabel(reversedTicks[i]),
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.grey400,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              height: 1,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  /// X-axis labels row
+  Widget _buildXAxisLabels(List<_BarData> barData, bool isMonthly) {
+    return Row(
+      children: barData.map((bar) {
+        final hasData = bar.created > 0;
+        final isSelected = _selectedBarIndex == bar.index;
+        return Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                bar.dateNum,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: isSelected
+                      ? AppColors.primary600
+                      : (hasData
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary),
+                  fontWeight: (hasData || isSelected)
+                      ? FontWeight.w700
+                      : FontWeight.normal,
+                  fontSize: 12,
+                ),
+              ),
+              if (!isMonthly)
+                Text(
+                  bar.dayLabel.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.caption.copyWith(
+                    color: isSelected
+                        ? AppColors.primary500
+                        : AppColors.textSecondary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  /// Calculate nice Y-axis tick values
+  List<int> _calculateYTicks(int maxValue) {
+    if (maxValue <= 4) {
+      return List.generate(maxValue + 1, (i) => i);
+    }
+
+    // Choose a "nice" step that gives 4-6 ticks
+    final niceSteps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000];
+    int step = 1;
+    for (final s in niceSteps) {
+      if ((maxValue / s).ceil() <= 6) {
+        step = s;
+        break;
+      }
+    }
+    // Fallback for very large values
+    if ((maxValue / step).ceil() > 6) {
+      step = (maxValue / 5).ceil();
+      // Round step to a nice number
+      final magnitude = _pow10((step.toString().length - 1).clamp(0, 10));
+      step = ((step / magnitude).ceil() * magnitude).toInt();
+    }
+
+    final ticks = <int>[0];
+    int tick = step;
+    while (tick < maxValue) {
+      ticks.add(tick);
+      tick += step;
+    }
+    ticks.add(tick);
+    return ticks;
+  }
+
+  /// Format Y-axis label: abbreviate large numbers
+  String _formatYLabel(int value) {
+    if (value >= 10000) {
+      final k = value / 1000;
+      return k == k.truncateToDouble() ? '${k.toInt()}K' : '${k.toStringAsFixed(1)}K';
+    } else if (value >= 1000) {
+      final k = value / 1000;
+      return k == k.truncateToDouble() ? '${k.toInt()}K' : '${k.toStringAsFixed(1)}K';
+    }
+    return value.toString();
+  }
+
+  int _pow10(int exp) {
+    int result = 1;
+    for (int i = 0; i < exp; i++) {
+      result *= 10;
+    }
+    return result;
+  }
+
+  /// Single bar pill (no count label, no x-label — handled separately)
   Widget _buildSingleBar({
     required _BarData bar,
     required int maxValue,
-    required bool isMonthly,
     required bool isSelected,
+    required double barAreaHeight,
   }) {
     final hasData = bar.created > 0;
     final fillRatio = hasData ? bar.created / maxValue : 0.0;
+    const barWidth = 16.0;
+    final fillHeight = barAreaHeight * fillRatio;
 
     return GestureDetector(
       onTap: () {
         setState(() {
-          // Toggle: tap same bar to dismiss, tap different to switch
           _selectedBarIndex = _selectedBarIndex == bar.index ? null : bar.index;
         });
       },
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: isMonthly ? 1.5 : 4),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            // Count label (only show if there's data)
-            SizedBox(
-              height: 20,
-              child: hasData
-                  ? Text(
-                      bar.created.toString(),
-                      style: AppTextStyles.caption.copyWith(
-                        color: isSelected
-                            ? AppColors.primary600
-                            : AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 4),
-
-            // Pill bar with background track
-            SizedBox(
-              height: 120,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final barHeight = constraints.maxHeight;
-                  final fillHeight = barHeight * fillRatio;
-                  final barWidth = isMonthly ? 10.0 : 16.0;
-
-                  return Stack(
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      // Background track (full height, light color)
-                      Container(
-                        width: barWidth,
-                        height: barHeight,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.primary100
-                              : AppColors.secondary200,
-                          borderRadius: BorderRadius.circular(barWidth / 2),
-                        ),
-                      ),
-                      // Filled bar (from bottom)
-                      if (hasData)
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: isSelected ? barWidth + 2 : barWidth,
-                          height: fillHeight < barWidth ? barWidth : fillHeight,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: isSelected
-                                  ? const [
-                                      AppColors.primary500,
-                                      AppColors.primary400,
-                                    ]
-                                  : const [
-                                      AppColors.primary600,
-                                      AppColors.primary500,
-                                    ],
-                            ),
-                            borderRadius: BorderRadius.circular(
-                              (barWidth + 2) / 2,
-                            ),
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                      blurRadius: 8,
-                                      spreadRadius: 1,
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Date number
-            Text(
-              bar.dateNum,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: isSelected
-                    ? AppColors.primary600
-                    : (hasData
-                          ? AppColors.textPrimary
-                          : AppColors.textSecondary),
-                fontWeight: (hasData || isSelected)
-                    ? FontWeight.w700
-                    : FontWeight.normal,
-                fontSize: 12,
-              ),
-            ),
-
-            // Day label (only for weekly)
-            if (!isMonthly)
-              Text(
-                bar.dayLabel.toUpperCase(),
-                style: AppTextStyles.caption.copyWith(
-                  color: isSelected
-                      ? AppColors.primary500
-                      : AppColors.textSecondary,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.3,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: SizedBox(
+            height: barAreaHeight,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                // Background track (flat bottom, rounded top)
+                Container(
+                  width: barWidth,
+                  height: barAreaHeight,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary100
+                        : AppColors.secondary200,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(barWidth / 2),
+                      topRight: Radius.circular(barWidth / 2),
+                    ),
+                  ),
                 ),
-              ),
-          ],
+                // Filled bar
+                if (hasData)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    width: isSelected ? barWidth + 2 : barWidth,
+                    height: fillHeight < barWidth ? barWidth : fillHeight,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: isSelected
+                            ? const [
+                                AppColors.primary500,
+                                AppColors.primary400,
+                              ]
+                            : const [
+                                AppColors.primary600,
+                                AppColors.primary500,
+                              ],
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular((barWidth + 2) / 2),
+                        topRight: Radius.circular((barWidth + 2) / 2),
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.3,
+                                ),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
+
 
   // ─── Tooltip Overlay ────────────────────────────────────────────
 
@@ -717,13 +846,14 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
     required int barCount,
     required bool isMonthly,
     required double totalWidth,
+    double yAxisOffset = 0,
   }) {
-    // Calculate horizontal position based on bar index
-    // Each bar occupies 1/barCount of the width
+    // Calculate horizontal position — bars start after Y-axis
+    final chartWidth = totalWidth - yAxisOffset;
     final barFraction = (bar.index + 0.5) / barCount;
 
     final tooltipWidth = isMonthly ? 170.0 : 160.0;
-    final barCenterX = totalWidth * barFraction;
+    final barCenterX = yAxisOffset + chartWidth * barFraction;
 
     // Clamp tooltip so it doesn't overflow edges
     double tooltipLeft = barCenterX - tooltipWidth / 2;
@@ -904,6 +1034,50 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
     const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     return days[(weekday - 1) % 7];
   }
+}
+
+/// Dotted horizontal grid lines painter for bar chart
+class _GridLinesPainter extends CustomPainter {
+  final int tickCount;
+
+  const _GridLinesPainter({required this.tickCount});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (tickCount < 2) return;
+
+    final paint = Paint()
+      ..color = const Color(0xFFE8ECF0)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < tickCount; i++) {
+      final y = size.height * i / (tickCount - 1);
+      _drawDottedLine(canvas, Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  void _drawDottedLine(Canvas canvas, Offset start, Offset end, Paint paint) {
+    const dashWidth = 3.0;
+    const dashSpace = 4.0;
+    final totalLength = (end - start).distance;
+    final direction = (end - start) / totalLength;
+    double drawn = 0;
+
+    while (drawn < totalLength) {
+      final dashEnd = (drawn + dashWidth).clamp(0.0, totalLength);
+      canvas.drawLine(
+        start + direction * drawn,
+        start + direction * dashEnd,
+        paint,
+      );
+      drawn += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GridLinesPainter oldDelegate) =>
+      tickCount != oldDelegate.tickCount;
 }
 
 /// Arrow painter for tooltip pointer

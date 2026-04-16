@@ -62,37 +62,37 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard>
   TicketStatsData get _stats => TicketStatsData.fromMap(widget.statusCounts);
 
   List<_ChartItem> get _chartItems => [
-        _ChartItem(
-          label: 'Open',
-          count: _stats.openCount,
-          color: AppColors.statusOpen,
-          gradientColors: [const Color(0xFF1E40AF), AppColors.primary500],
-        ),
-        _ChartItem(
-          label: 'In Progress',
-          count: _stats.inProgressCount,
-          color: const Color(0xFF8B5CF6),
-          gradientColors: [const Color(0xFF7C3AED), const Color(0xFFA78BFA)],
-        ),
-        _ChartItem(
-          label: 'Pending',
-          count: _stats.pendingCount,
-          color: AppColors.statusInProgress,
-          gradientColors: [const Color(0xFFD97706), const Color(0xFFFBBF24)],
-        ),
-        _ChartItem(
-          label: 'Resolved',
-          count: _stats.resolvedCount,
-          color: AppColors.statusResolved,
-          gradientColors: [const Color(0xFF059669), const Color(0xFF34D399)],
-        ),
-        _ChartItem(
-          label: 'Closed',
-          count: _stats.closedCount,
-          color: AppColors.statusClosed,
-          gradientColors: [const Color(0xFF475569), const Color(0xFF94A3B8)],
-        ),
-      ];
+    _ChartItem(
+      label: 'Open',
+      count: _stats.openCount,
+      color: AppColors.statusOpen,
+      gradientColors: [const Color(0xFF1E40AF), AppColors.primary500],
+    ),
+    _ChartItem(
+      label: 'In Progress',
+      count: _stats.inProgressCount,
+      color: const Color(0xFF8B5CF6),
+      gradientColors: [const Color(0xFF7C3AED), const Color(0xFFA78BFA)],
+    ),
+    _ChartItem(
+      label: 'Pending',
+      count: _stats.pendingCount,
+      color: AppColors.statusInProgress,
+      gradientColors: [const Color(0xFFD97706), const Color(0xFFFBBF24)],
+    ),
+    _ChartItem(
+      label: 'Resolved',
+      count: _stats.resolvedCount,
+      color: AppColors.statusResolved,
+      gradientColors: [const Color(0xFF059669), const Color(0xFF34D399)],
+    ),
+    _ChartItem(
+      label: 'Closed',
+      count: _stats.closedCount,
+      color: AppColors.statusClosed,
+      gradientColors: [const Color(0xFF475569), const Color(0xFF94A3B8)],
+    ),
+  ];
 
   int get _totalCount => _stats.totalTickets;
 
@@ -194,8 +194,9 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard>
         .toList();
 
     // Calculate segment angles for hit detection
-    const gapAngle = 0.10; // wider gap for modern look
-    final totalGap = gapAngle * segments.length;
+    const gapAngle = 0.12;
+    final effectiveGap = segments.length <= 1 ? 0.0 : gapAngle;
+    final totalGap = effectiveGap * segments.length;
     final availableAngle = 2 * pi - totalGap;
     final total = segments.fold<double>(0, (sum, s) => sum + s.value);
 
@@ -210,7 +211,7 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard>
               activeItems,
               total,
               availableAngle,
-              gapAngle,
+              effectiveGap,
             );
           },
           child: SizedBox(
@@ -458,7 +459,7 @@ class _RoundedDonutPainter extends CustomPainter {
   _RoundedDonutPainter({
     required this.segments,
     this.strokeWidth = 18,
-    this.gapAngle = 0.10,
+    this.gapAngle = 0.12,
     this.animationProgress = 1.0,
     this.selectedIndex,
   });
@@ -468,23 +469,37 @@ class _RoundedDonutPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final baseRadius = (min(size.width, size.height) - strokeWidth - 6) / 2;
 
+    // Only draw segments that have data
+    final activeSegments = <int>[];
+    for (int i = 0; i < segments.length; i++) {
+      if (segments[i].value > 0) activeSegments.add(i);
+    }
+    if (activeSegments.isEmpty) return;
+
     final total = segments.fold<double>(0, (sum, s) => sum + s.value);
     if (total == 0) return;
 
-    final totalGap = gapAngle * segments.length;
-    final availableAngle = 2 * pi - totalGap;
+    // Gap between segments — only between active ones
+    final gapCount = activeSegments.length;
+    final effectiveGap = gapCount <= 1 ? 0.0 : gapAngle;
+    final totalGapAngle = effectiveGap * gapCount;
+    final availableAngle = 2 * pi - totalGapAngle;
+
+    // Pre-calculate sweep angles for active segments
+    final sweeps = <int, double>{};
+    for (final idx in activeSegments) {
+      sweeps[idx] = (segments[idx].value / total) * availableAngle;
+    }
 
     // Start from top (-90 degrees)
     double startAngle = -pi / 2;
 
-    // Draw each segment
-    for (int idx = 0; idx < segments.length; idx++) {
+    for (final idx in activeSegments) {
       final segment = segments[idx];
-      final fullSweep = (segment.value / total) * availableAngle;
+      final fullSweep = sweeps[idx]!;
       final sweepAngle = fullSweep * animationProgress;
       final isSelected = selectedIndex == idx;
 
-      // Selected segment gets thicker with slight outward push
       final currentStroke = isSelected ? strokeWidth + 4 : strokeWidth;
       final currentRadius = isSelected ? baseRadius + 2 : baseRadius;
 
@@ -501,7 +516,7 @@ class _RoundedDonutPainter extends CustomPainter {
         );
       }
 
-      startAngle += fullSweep + gapAngle;
+      startAngle += fullSweep + effectiveGap;
     }
   }
 
@@ -517,10 +532,6 @@ class _RoundedDonutPainter extends CustomPainter {
   ) {
     final halfStroke = currentStroke / 2;
     final capAngle = halfStroke / radius;
-
-    // Inset arc so StrokeCap.round stays within segment boundaries
-    final arcStart = startAngle + capAngle;
-    final arcSweep = sweepAngle - 2 * capAngle;
     final rect = Rect.fromCircle(center: center, radius: radius);
 
     final paint = Paint()
@@ -530,30 +541,43 @@ class _RoundedDonutPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
 
-    if (arcSweep <= 0) {
-      // Segment too small — draw with original sweep
-      canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+    double arcStart;
+    double arcSweep;
+
+    if (sweepAngle > 2 * capAngle + 0.02) {
+      // Normal segment: inset so round caps stay within boundary
+      arcStart = startAngle + capAngle;
+      arcSweep = sweepAngle - 2 * capAngle;
     } else {
-      canvas.drawArc(rect, arcStart, arcSweep, false, paint);
+      // Small segment: draw a tiny rounded pill centered in the allocation
+      // The round caps will extend capAngle on each side, making it visible
+      arcSweep = 0.01;
+      arcStart = startAngle + (sweepAngle - arcSweep) / 2;
     }
 
-    // Glow effect for selected segment
+    canvas.drawArc(rect, arcStart, arcSweep, false, paint);
+
     if (isSelected) {
-      final glowPaint = Paint()
-        ..color = segment.color.withValues(alpha: 0.15)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = currentStroke + 8
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
-        ..isAntiAlias = true;
-      canvas.drawArc(
-        rect,
-        arcSweep <= 0 ? startAngle : arcStart,
-        arcSweep <= 0 ? sweepAngle : arcSweep,
-        false,
-        glowPaint,
-      );
+      _drawGlow(canvas, rect, arcStart, arcSweep, currentStroke, segment);
     }
+  }
+
+  void _drawGlow(
+    Canvas canvas,
+    Rect rect,
+    double start,
+    double sweep,
+    double currentStroke,
+    _DonutSegment segment,
+  ) {
+    final glowPaint = Paint()
+      ..color = segment.color.withValues(alpha: 0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = currentStroke + 8
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
+      ..isAntiAlias = true;
+    canvas.drawArc(rect, start, sweep, false, glowPaint);
   }
 
   @override
