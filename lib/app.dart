@@ -21,6 +21,8 @@ import 'providers/auth_provider.dart';
 import 'providers/ticket_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/notification_provider.dart';
+import 'features/knowledge/repositories/knowledge_repository.dart';
+import 'features/knowledge/providers/knowledge_provider.dart';
 import 'features/profile/datasources/profile_remote_datasource.dart';
 import 'features/profile/repositories/profile_repository.dart';
 import 'routes/app_routes.dart';
@@ -102,6 +104,18 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<NotificationProvider>(
           create: (context) =>
               NotificationProvider(context.read<NotificationRepository>()),
+        ),
+
+        // Provide KnowledgeRepository
+        Provider<KnowledgeRepository>(
+          create: (_) => KnowledgeRepositoryImpl(),
+        ),
+
+        // Provide KnowledgeProvider
+        ChangeNotifierProvider<KnowledgeProvider>(
+          create: (context) => KnowledgeProvider(
+            repository: context.read<KnowledgeRepository>(),
+          ),
         ),
       ],
       child: ToastificationWrapper(

@@ -15,6 +15,10 @@ import '../features/tickets/screens/ticket_detail_screen.dart';
 import '../features/tickets/models/ticket_model.dart';
 import '../features/search/screens/search_screen.dart';
 import '../features/profile/screens/edit_profile_screen.dart';
+import '../features/knowledge/screens/knowledge_screen.dart';
+import '../features/knowledge/screens/knowledge_article_detail_screen.dart';
+import '../features/knowledge/providers/knowledge_provider.dart';
+import 'package:provider/provider.dart';
 
 class AppRoutes {
   // Route names
@@ -32,6 +36,8 @@ class AppRoutes {
   static const String createTicket = '/tickets/create';
   static const String ticketDetail = '/tickets/detail';
   static const String editProfile = '/profile/edit';
+  static const String knowledge = '/knowledge';
+  static const String knowledgeArticleDetail = '/knowledge/article';
 
   // Navigator key for global access
   static final GlobalKey<NavigatorState> navigatorKey =
@@ -134,6 +140,22 @@ class AppRoutes {
         path: editProfile,
         name: 'editProfile',
         builder: (context, state) => const EditProfileScreen(),
+      ),
+      GoRoute(
+        path: knowledge,
+        name: 'knowledge',
+        builder: (context, state) => const KnowledgeScreen(),
+      ),
+      GoRoute(
+        path: knowledgeArticleDetail,
+        name: 'knowledgeArticleDetail',
+        builder: (context, state) {
+          final articleId = state.extra as int;
+          return ChangeNotifierProvider.value(
+            value: context.read<KnowledgeProvider>(),
+            child: KnowledgeArticleDetailScreen(articleId: articleId),
+          );
+        },
       ),
     ],
   );

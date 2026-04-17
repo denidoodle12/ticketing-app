@@ -65,4 +65,12 @@ class ApiEndpoints {
 
   // Ticket Rating
   static String ticketRating(int ticketId) => '/tickets/$ticketId/rating';
+
+  // Knowledge Base Endpoints (ms-knowledge)
+  // Categories
+  static const String knowledgeCategories = '/knowledge-categories';
+
+  // Articles
+  static const String knowledgeArticles = '/knowledge';
+  static String knowledgeArticleById(int id) => '/knowledge/$id';
 }
