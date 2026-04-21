@@ -4,12 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/api_config.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../providers/profile_provider.dart';
+import '../../../providers/notification_provider.dart';
 import '../../../shared/widgets/section_label.dart';
 import '../../../shared/widgets/form_card.dart';
 import '../../tickets/widgets/ticket_card.dart';
@@ -93,6 +95,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ? '${ApiConfig.baseUrl}${user!.profilePicture}'
         : null;
     final topPadding = MediaQuery.of(context).padding.top;
+    final unreadCount =
+        context.watch<NotificationProvider>().unreadCount;
 
     // Heights for SliverAppBar
     // Collapsed: status bar + search bar + padding
@@ -126,6 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 expandedHeight: expandedHeight.toDouble(),
                 collapsedHeight: collapsedHeight,
                 onSearchTap: () => context.push('/search'),
+                unreadCount: unreadCount,
+                onNotificationTap: () => context.push('/notifications'),
               ),
             ),
             SliverToBoxAdapter(child: _buildContent(ticketProvider)),
@@ -312,6 +318,8 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double expandedHeight;
   final double collapsedHeight;
   final VoidCallback onSearchTap;
+  final int unreadCount;
+  final VoidCallback onNotificationTap;
 
   _HomeHeaderDelegate({
     required this.firstName,
@@ -321,6 +329,8 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.expandedHeight,
     required this.collapsedHeight,
     required this.onSearchTap,
+    required this.unreadCount,
+    required this.onNotificationTap,
   });
 
   @override
@@ -333,7 +343,8 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _HomeHeaderDelegate oldDelegate) {
     return firstName != oldDelegate.firstName ||
         greeting != oldDelegate.greeting ||
-        profilePictureUrl != oldDelegate.profilePictureUrl;
+        profilePictureUrl != oldDelegate.profilePictureUrl ||
+        unreadCount != oldDelegate.unreadCount;
   }
 
   // Positions (relative to topPadding)
@@ -495,6 +506,59 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
                   color: AppColors.white.withAlpha(204),
                 ),
               ),
+            ],
+          ),
+        ),
+        // Notification bell button
+        GestureDetector(
+          onTap: onNotificationTap,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.white.withAlpha(30),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SvgPicture.asset(
+                  'assets/icons/ic_notification_no_filled.svg',
+                  width: 22,
+                  height: 22,
+                  colorFilter: const ColorFilter.mode(
+                    AppColors.white,
+                    BlendMode.srcIn,
+                  ),
+                  fit: BoxFit.scaleDown,
+                ),
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  top: -4,
+                  right: -4,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        height: 1,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

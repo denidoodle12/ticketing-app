@@ -263,8 +263,10 @@ class MainScreenState extends State<MainScreen> {
                       _buildNavItem(
                         index: 2,
                         label: 'Knowledge',
-                        iconPath: 'assets/icons/ic_notification_no_filled.svg',
-                        activeIconPath: 'assets/icons/ic_notification_filled.svg',
+                        iconPath: '',
+                        activeIconPath: '',
+                        materialIcon: Icons.menu_book_outlined,
+                        materialActiveIcon: Icons.menu_book,
                       ),
                       _buildNavItem(
                         index: 3,
@@ -297,6 +299,8 @@ class MainScreenState extends State<MainScreen> {
     required String iconPath,
     required String activeIconPath,
     bool useOriginalActiveColor = false,
+    IconData? materialIcon,
+    IconData? materialActiveIcon,
   }) {
     final isSelected = _currentIndex == index;
     final isPressed = _pressedIndex == index;
@@ -312,15 +316,24 @@ class MainScreenState extends State<MainScreen> {
             duration: const Duration(milliseconds: 200),
             switchInCurve: Curves.easeIn,
             switchOutCurve: Curves.easeOut,
-            child: SvgPicture.asset(
-              isSelected ? activeIconPath : iconPath,
-              key: ValueKey(isSelected),
-              width: 24,
-              height: 24,
-              colorFilter: applyColorFilter
-                  ? ColorFilter.mode(color, BlendMode.srcIn)
-                  : null,
-            ),
+            child: materialIcon != null
+                ? Icon(
+                    isSelected
+                        ? (materialActiveIcon ?? materialIcon)
+                        : materialIcon,
+                    key: ValueKey(isSelected),
+                    size: 24,
+                    color: color,
+                  )
+                : SvgPicture.asset(
+                    isSelected ? activeIconPath : iconPath,
+                    key: ValueKey(isSelected),
+                    width: 24,
+                    height: 24,
+                    colorFilter: applyColorFilter
+                        ? ColorFilter.mode(color, BlendMode.srcIn)
+                        : null,
+                  ),
           ),
           const SizedBox(height: 4),
           Text(
