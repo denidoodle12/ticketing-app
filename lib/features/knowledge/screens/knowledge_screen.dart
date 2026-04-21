@@ -5,7 +5,10 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../shared/widgets/section_label.dart';
 import '../providers/knowledge_provider.dart';
+import '../models/knowledge_article_model.dart';
 import '../widgets/knowledge_category_card.dart';
+import 'knowledge_search_screen.dart';
+import 'knowledge_category_screen.dart';
 
 class KnowledgeScreen extends StatefulWidget {
   const KnowledgeScreen({super.key});
@@ -15,8 +18,6 @@ class KnowledgeScreen extends StatefulWidget {
 }
 
 class _KnowledgeScreenState extends State<KnowledgeScreen> {
-  final TextEditingController _searchController = TextEditingController();
-
   @override
   void initState() {
     super.initState();
@@ -26,80 +27,31 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   }
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
-
     return Scaffold(
       backgroundColor: AppColors.white,
-      body: Column(
-        children: [
-          // ─── Header ──────────────────────────────────────────
-          _buildHeader(topPadding),
-          // ─── Content ─────────────────────────────────────────
-          Expanded(
-            child: Consumer<KnowledgeProvider>(
-              builder: (context, provider, _) {
-                return RefreshIndicator(
-                  onRefresh: provider.refresh,
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    children: [
-                      const SizedBox(height: 24),
-                      // Greeting
-                      _buildGreeting(),
-                      const SizedBox(height: 20),
-                      // Search bar
-                      _buildSearchBar(provider),
-                      const SizedBox(height: 28),
-                      // Categories
-                      _buildCategoriesSection(provider),
-                      const SizedBox(height: 28),
-                      // Recent articles
-                      _buildRecentArticlesSection(provider),
-                      const SizedBox(height: 100),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Header ────────────────────────────────────────────────────
-
-  Widget _buildHeader(double topPadding) {
-    return Container(
-      padding: EdgeInsets.only(
-        top: topPadding + 16,
-        left: 20,
-        right: 20,
-        bottom: 20,
-      ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary600, AppColors.primary500],
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-      ),
-      child: Text(
-        'Knowledge Hub',
-        style: AppTextStyles.h4.copyWith(
-          color: AppColors.white,
-          fontWeight: FontWeight.bold,
+      body: SafeArea(
+        child: Consumer<KnowledgeProvider>(
+          builder: (context, provider, _) {
+            return RefreshIndicator(
+              onRefresh: provider.refresh,
+              color: AppColors.primary600,
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                children: [
+                  const SizedBox(height: 20),
+                  _buildGreeting(),
+                  const SizedBox(height: 16),
+                  _buildSearchBar(),
+                  const SizedBox(height: 24),
+                  _buildCategoriesSection(provider),
+                  const SizedBox(height: 24),
+                  _buildRecentArticlesSection(provider),
+                  const SizedBox(height: 100),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -113,7 +65,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       children: [
         Text(
           'How can we help?',
-          style: AppTextStyles.h3.copyWith(
+          style: AppTextStyles.h4.copyWith(
             color: AppColors.primaryDark,
             fontWeight: FontWeight.bold,
           ),
@@ -129,59 +81,49 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     );
   }
 
-  // ─── Search Bar (same style as Home) ───────────────────────────
+  // ─── Search Bar (GestureDetector — same as Home) ───────────────
 
-  Widget _buildSearchBar(KnowledgeProvider provider) {
-    return Container(
-      height: 52,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow.withAlpha(20),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+  Widget _buildSearchBar() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChangeNotifierProvider.value(
+              value: context.read<KnowledgeProvider>(),
+              child: const KnowledgeSearchScreen(),
+            ),
           ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        onChanged: provider.searchArticles,
-        decoration: InputDecoration(
-          hintText: 'Search articles...',
-          hintStyle: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.grey400,
-          ),
-          prefixIcon: const Padding(
-            padding: EdgeInsets.only(left: 18, right: 10),
-            child: Icon(Icons.search, color: AppColors.grey400, size: 22),
-          ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 50,
-            minHeight: 22,
-          ),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(
-                    Icons.close,
-                    color: AppColors.grey400,
-                    size: 20,
-                  ),
-                  onPressed: () {
-                    _searchController.clear();
-                    provider.clearSearch();
-                  },
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 14,
-          ),
+        );
+      },
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow.withAlpha(20),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        style: AppTextStyles.bodyMedium.copyWith(
-          color: AppColors.textPrimary,
+        child: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 18, right: 10),
+              child: Icon(Icons.search, color: AppColors.grey400, size: 22),
+            ),
+            Expanded(
+              child: Text(
+                'Search articles...',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.grey400,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -202,11 +144,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     }
 
     final categories = provider.categories;
-    if (categories.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (categories.isEmpty) return const SizedBox.shrink();
 
-    // Show max 4 categories in grid, rest behind "See all"
     final displayCategories = categories.take(4).toList();
     final hasMore = categories.length > 4;
 
@@ -231,7 +170,6 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        // 2x2 Grid
         GridView.builder(
           padding: EdgeInsets.zero,
           shrinkWrap: true,
@@ -240,21 +178,19 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.4,
+            childAspectRatio: 1.5,
           ),
           itemCount: displayCategories.length,
           itemBuilder: (context, index) {
             final category = displayCategories[index];
             final style = CategoryStyle.forCategory(category.name, index);
+            final count = provider.articleCountPerCategory[category.id] ?? 0;
             return KnowledgeCategoryCard(
               category: category,
-              articleCount: 0, // API doesn't return count per category
+              articleCount: count,
               iconColor: style.color,
               icon: style.icon,
-              onTap: () {
-                provider.filterByCategory(category.id);
-                _navigateToArticleList(category);
-              },
+              onTap: () => _navigateToCategoryScreen(category),
             );
           },
         ),
@@ -270,132 +206,136 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       children: [
         const SectionLabel(label: 'Recent Articles'),
         const SizedBox(height: 12),
-        if (provider.isArticlesLoading && provider.articles.isEmpty)
+        if (provider.isRecentArticlesLoading && provider.recentArticles.isEmpty)
           _buildArticlesShimmer()
-        else if (provider.articlesError != null && provider.articles.isEmpty)
+        else if (provider.recentArticlesError != null &&
+            provider.recentArticles.isEmpty)
           _buildErrorCard(
             'Failed to load articles',
-            onRetry: provider.loadArticles,
+            onRetry: provider.loadRecentArticles,
           )
-        else if (provider.articles.isEmpty)
+        else if (provider.recentArticles.isEmpty)
           _buildEmptyState()
         else
-          ...provider.articles.take(5).map(
+          ...provider.recentArticles.map(
             (article) => _buildArticleCard(article),
           ),
       ],
     );
   }
 
-  // ─── Article Card ──────────────────────────────────────────────
+  // ─── Article Card (TicketCard-style) ───────────────────────────
 
-  Widget _buildArticleCard(article) {
+  Widget _buildArticleCard(KnowledgeArticle article) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.transparent,
         child: InkWell(
           onTap: () => _navigateToArticleDetail(article),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.shadow.withAlpha(15),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Category tag
-                      if (article.category != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary100,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            article.category!.name,
-                            style: AppTextStyles.labelSmall.copyWith(
-                              color: AppColors.primaryDark,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      // Title
-                      Text(
+                // Row 1: Title and Category badge
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
                         article.title,
                         style: AppTextStyles.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
-                      // Meta row
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.access_time,
-                            size: 13,
-                            color: AppColors.grey400,
+                    ),
+                    if (article.category != null) ...[
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary50,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          article.category!.name,
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.primaryDark,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${article.readTimeMinutes} min read',
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.grey400,
-                              fontSize: 11,
-                            ),
-                          ),
-                          if (article.tags.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 3,
-                              height: 3,
-                              decoration: BoxDecoration(
-                                color: AppColors.grey400,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                article.tags.take(2).join(', '),
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.grey400,
-                                  fontSize: 11,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ],
+                        ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right,
-                  color: AppColors.grey400,
-                  size: 20,
+                const SizedBox(height: 8),
+
+                // Row 2: Content preview
+                Text(
+                  article.content,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+
+                // Row 3: Meta info
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.access_time_rounded,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${article.readTimeMinutes} min read',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    if (article.tags.isNotEmpty) ...[
+                      const SizedBox(width: 12),
+                      const Icon(
+                        Icons.label_outline,
+                        size: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          article.tags.take(2).join(', '),
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -416,30 +356,28 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 1.4,
+        childAspectRatio: 1.5,
       ),
       itemCount: 4,
-      itemBuilder: (context, index) {
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.secondary100,
-            borderRadius: BorderRadius.circular(16),
-          ),
-        );
-      },
+      itemBuilder: (_, __) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.secondary100,
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 
   Widget _buildArticlesShimmer() {
     return Column(
-      children: List.generate(3, (index) {
+      children: List.generate(3, (_) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Container(
-            height: 88,
+            height: 100,
             decoration: BoxDecoration(
               color: AppColors.secondary100,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
         );
@@ -454,15 +392,13 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.error100,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
           Text(
             message,
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.error700,
-            ),
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.error700),
           ),
           if (onRetry != null) ...[
             const SizedBox(height: 12),
@@ -482,39 +418,48 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        children: [
-          Icon(Icons.article_outlined, size: 48, color: AppColors.grey400),
-          const SizedBox(height: 12),
-          Text(
-            'No articles found',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 80),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 32),
+            Icon(
+              Icons.article_outlined,
+              size: 64,
+              color: AppColors.textSecondary.withAlpha(100),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Try adjusting your search or filter',
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.grey400,
+            const SizedBox(height: 16),
+            Text(
+              'No articles yet',
+              style: AppTextStyles.bodyLarge.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   // ─── Navigation ────────────────────────────────────────────────
 
-  void _navigateToArticleDetail(article) {
+  void _navigateToArticleDetail(KnowledgeArticle article) {
     context.push('/knowledge/article', extra: article.id);
   }
 
-  void _navigateToArticleList(category) {
-    // For now, scroll-to or filter articles on same screen
-    // Future: dedicated category article list screen
+  void _navigateToCategoryScreen(category) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChangeNotifierProvider.value(
+          value: context.read<KnowledgeProvider>(),
+          child: KnowledgeCategoryScreen(category: category),
+        ),
+      ),
+    );
   }
 
   void _showAllCategories(KnowledgeProvider provider) {
@@ -535,7 +480,6 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           ),
           child: Column(
             children: [
-              // Handle bar
               Container(
                 margin: const EdgeInsets.symmetric(vertical: 12),
                 width: 40,
@@ -545,7 +489,6 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              // Title
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -571,7 +514,6 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                 ),
               ),
               const Divider(height: 1),
-              // Category list
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.all(20),
@@ -582,6 +524,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                       category.name,
                       index,
                     );
+                    final count =
+                        provider.articleCountPerCategory[category.id] ?? 0;
                     return ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 4,
@@ -602,13 +546,19 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      subtitle: Text(
+                        '$count articles',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(
                         Icons.chevron_right,
                         color: AppColors.grey400,
                       ),
                       onTap: () {
                         Navigator.pop(ctx);
-                        provider.filterByCategory(category.id);
+                        _navigateToCategoryScreen(category);
                       },
                     );
                   },

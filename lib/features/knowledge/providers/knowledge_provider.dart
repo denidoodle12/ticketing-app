@@ -19,7 +19,19 @@ class KnowledgeProvider extends ChangeNotifier {
   String? _categoriesError;
   String? get categoriesError => _categoriesError;
 
-  // ─── Articles ────────────────────────────────────────────────────
+  // ─── Article Count Per Category ──────────────────────────────────
+  Map<int, int> _articleCountPerCategory = {};
+  Map<int, int> get articleCountPerCategory => _articleCountPerCategory;
+
+  // ─── Recent Articles (Home screen section) ───────────────────────
+  List<KnowledgeArticle> _recentArticles = [];
+  List<KnowledgeArticle> get recentArticles => _recentArticles;
+  bool _isRecentArticlesLoading = false;
+  bool get isRecentArticlesLoading => _isRecentArticlesLoading;
+  String? _recentArticlesError;
+  String? get recentArticlesError => _recentArticlesError;
+
+  // ─── Articles (category detail / search) ────────────────────────
   List<KnowledgeArticle> _articles = [];
   List<KnowledgeArticle> get articles => _articles;
   bool _isArticlesLoading = false;
@@ -61,6 +73,8 @@ class KnowledgeProvider extends ChangeNotifier {
 
     try {
       _categories = await _repository.getCategories();
+      // After loading categories, fetch article counts
+      await _loadArticleCountsForCategories();
     } catch (e) {
       _categoriesError = e.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -69,11 +83,52 @@ class KnowledgeProvider extends ChangeNotifier {
     }
   }
 
-  /// Load articles (first page)
-  Future<void> loadArticles({
-    int? categoryId,
-    String? search,
-  }) async {
+  /// Fetch article count for each category using pagination total
+  Future<void> _loadArticleCountsForCategories() async {
+    final counts = <int, int>{};
+    // Run all requests in parallel
+    await Future.wait(
+      _categories.map((category) async {
+        try {
+          final response = await _repository.getArticles(
+            categoryId: category.id,
+            page: 1,
+            limit: 1, // We only need the total count from pagination
+          );
+          counts[category.id] = response.total;
+        } catch (_) {
+          counts[category.id] = 0;
+        }
+      }),
+    );
+    _articleCountPerCategory = counts;
+  }
+
+  /// Load 5 most recently updated articles (for home section)
+  Future<void> loadRecentArticles() async {
+    if (_isRecentArticlesLoading) return;
+    _isRecentArticlesLoading = true;
+    _recentArticlesError = null;
+    notifyListeners();
+
+    try {
+      final response = await _repository.getArticles(
+        sortBy: 'updated_at',
+        order: 'DESC',
+        page: 1,
+        limit: 5,
+      );
+      _recentArticles = response.articles;
+    } catch (e) {
+      _recentArticlesError = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _isRecentArticlesLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Load articles for a specific category (first page)
+  Future<void> loadArticles({int? categoryId, String? search}) async {
     if (_isArticlesLoading) return;
     _isArticlesLoading = true;
     _articlesError = null;
@@ -86,7 +141,7 @@ class KnowledgeProvider extends ChangeNotifier {
       final response = await _repository.getArticles(
         categoryId: _selectedCategoryId,
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
-        sortBy: 'created_at',
+        sortBy: 'updated_at',
         order: 'DESC',
         page: 1,
         limit: 10,
@@ -112,7 +167,7 @@ class KnowledgeProvider extends ChangeNotifier {
       final response = await _repository.getArticles(
         categoryId: _selectedCategoryId,
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
-        sortBy: 'created_at',
+        sortBy: 'updated_at',
         order: 'DESC',
         page: nextPage,
         limit: 10,
@@ -161,17 +216,17 @@ class KnowledgeProvider extends ChangeNotifier {
     loadArticles(categoryId: _selectedCategoryId);
   }
 
-  /// Filter by category
+  /// Filter by category (used internally — navigates to category screen instead)
   void filterByCategory(int? categoryId) {
     _selectedCategoryId = categoryId;
     loadArticles(categoryId: categoryId);
   }
 
-  /// Load initial data (categories + recent articles)
+  /// Load initial data (categories + recent articles in parallel)
   Future<void> loadInitialData() async {
     await Future.wait([
       loadCategories(),
-      loadArticles(),
+      loadRecentArticles(),
     ]);
   }
 

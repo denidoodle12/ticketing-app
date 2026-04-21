@@ -35,40 +35,28 @@ class _KnowledgeArticleDetailScreenState
         elevation: 0,
         scrolledUnderElevation: 0.5,
         surfaceTintColor: AppColors.white,
-        leading: IconButton(
-          icon: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.secondary100,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.arrow_back_ios_new,
-              size: 16,
-              color: AppColors.textPrimary,
+        toolbarHeight: 68,
+        automaticallyImplyLeading: false,
+        leadingWidth: 76,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Center(
+            child: _buildActionButton(
+              icon: Icons.arrow_back,
+              onTap: () => Navigator.pop(context),
             ),
           ),
-          onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          IconButton(
-            icon: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.secondary100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.share_outlined,
-                size: 18,
-                color: AppColors.textPrimary,
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: _buildActionButton(
+                icon: Icons.share_outlined,
+                onTap: () => _shareArticle(),
               ),
             ),
-            onPressed: () => _shareArticle(),
           ),
-          const SizedBox(width: 8),
         ],
       ),
       body: Consumer<KnowledgeProvider>(
@@ -470,5 +458,35 @@ class _KnowledgeArticleDetailScreenState
         ),
       );
     }
+  }
+
+  /// Reusable action button — matches ticket detail screen style
+  Widget _buildActionButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadow.withAlpha(20),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Icon(icon, color: AppColors.primaryDark, size: 22),
+        ),
+      ),
+    );
   }
 }

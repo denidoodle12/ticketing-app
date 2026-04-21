@@ -4,8 +4,8 @@ import '../../../core/themes/text_styles.dart';
 import '../models/knowledge_category_model.dart';
 
 /// Category card for the 2x2 grid on Knowledge Hub screen.
-/// Each card has a color-coded icon circle, category name, and article count.
-class KnowledgeCategoryCard extends StatelessWidget {
+/// Has animated press feedback and shows real article count.
+class KnowledgeCategoryCard extends StatefulWidget {
   final KnowledgeCategory category;
   final int articleCount;
   final Color iconColor;
@@ -22,56 +22,73 @@ class KnowledgeCategoryCard extends StatelessWidget {
   });
 
   @override
+  State<KnowledgeCategoryCard> createState() => _KnowledgeCategoryCardState();
+}
+
+class _KnowledgeCategoryCardState extends State<KnowledgeCategoryCard> {
+  bool _isPressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap?.call();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.93 : 1.0,
+        duration: Duration(milliseconds: _isPressed ? 80 : 300),
+        curve: _isPressed ? Curves.easeOut : Curves.elasticOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            color: _isPressed
+                ? widget.iconColor.withAlpha(12)
+                : AppColors.white,
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: AppColors.shadow.withAlpha(15),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: AppColors.shadow.withAlpha(_isPressed ? 8 : 15),
+                blurRadius: _isPressed ? 4 : 8,
+                offset: Offset(0, _isPressed ? 1 : 2),
               ),
             ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               // Icon circle
               Container(
-                width: 44,
-                height: 44,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: iconColor.withAlpha(25),
-                  borderRadius: BorderRadius.circular(12),
+                  color: widget.iconColor.withAlpha(_isPressed ? 40 : 25),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: iconColor, size: 22),
+                child: Icon(widget.icon, color: widget.iconColor, size: 18),
               ),
-              const SizedBox(height: 12),
+              const Spacer(),
               // Category name
               Text(
-                category.name,
-                style: AppTextStyles.bodyMedium.copyWith(
+                widget.category.name,
+                style: AppTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               // Article count
               Text(
-                '$articleCount articles',
+                '${widget.articleCount} articles',
                 style: AppTextStyles.caption.copyWith(
                   color: AppColors.textSecondary,
+                  fontSize: 10,
                 ),
               ),
             ],
@@ -110,6 +127,21 @@ class CategoryStyle {
     }
     if (nameLower.contains('network') || nameLower.contains('vpn')) {
       return CategoryStyle(Icons.wifi_outlined, AppColors.accent500);
+    }
+    if (nameLower.contains('test')) {
+      return CategoryStyle(Icons.science_outlined, AppColors.accent700);
+    }
+    if (nameLower.contains('update') || nameLower.contains('release')) {
+      return const CategoryStyle(
+        Icons.system_update_outlined,
+        Color(0xFF059669),
+      );
+    }
+    if (nameLower.contains('non') || nameLower.contains('inactive')) {
+      return const CategoryStyle(
+        Icons.folder_off_outlined,
+        Color(0xFF6B7280),
+      );
     }
 
     // Fallback colors by index

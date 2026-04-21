@@ -17,7 +17,7 @@ import '../../../providers/notification_provider.dart';
 import '../../../routes/app_routes.dart';
 import '../../home/screens/home_screen.dart';
 import '../../tickets/screens/tickets_screen.dart';
-import '../../notifications/screens/notification_screen.dart';
+import '../../knowledge/screens/knowledge_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -153,10 +153,6 @@ class MainScreenState extends State<MainScreen> {
     if (index == 1) {
       _ticketsKey.currentState?.onTabSelected();
     }
-    // Refresh notifications when switching to notifications tab
-    if (index == 2) {
-      context.read<NotificationProvider>().refresh();
-    }
     setState(() {
       _currentIndex = index;
     });
@@ -166,7 +162,7 @@ class MainScreenState extends State<MainScreen> {
   List<Widget> get _screens => [
     const HomeScreen(),
     _TicketsScreenWrapper(key: _ticketsKey),
-    const NotificationScreen(),
+    const KnowledgeScreen(),
     const ProfileScreen(),
   ];
 
@@ -264,7 +260,12 @@ class MainScreenState extends State<MainScreen> {
                         useOriginalActiveColor: true,
                       ),
                       const Expanded(child: SizedBox()),
-                      _buildNotificationNavItem(),
+                      _buildNavItem(
+                        index: 2,
+                        label: 'Knowledge',
+                        iconPath: 'assets/icons/ic_notification_no_filled.svg',
+                        activeIconPath: 'assets/icons/ic_notification_filled.svg',
+                      ),
                       _buildNavItem(
                         index: 3,
                         label: 'Profile',
@@ -285,102 +286,6 @@ class MainScreenState extends State<MainScreen> {
               child: Center(child: _buildCenterButton()),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  /// Build notification nav item with badge
-  Widget _buildNotificationNavItem() {
-    final isSelected = _currentIndex == 2;
-    final isPressed = _pressedIndex == 2;
-    final color = isSelected ? AppColors.primaryDark : AppColors.textSecondary;
-
-    Widget content = Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            switchInCurve: Curves.easeIn,
-            switchOutCurve: Curves.easeOut,
-            child: Consumer<NotificationProvider>(
-              key: ValueKey(isSelected),
-              builder: (context, provider, _) {
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    SvgPicture.asset(
-                      isSelected
-                          ? 'assets/icons/ic_notification_filled.svg'
-                          : 'assets/icons/ic_notification_no_filled.svg',
-                      width: 24,
-                      height: 24,
-                      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-                    ),
-                    if (provider.unreadCount > 0)
-                      Positioned(
-                        right: -8,
-                        top: -4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.error500,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
-                          child: Text(
-                            provider.unreadCount > 99
-                                ? '99+'
-                                : provider.unreadCount.toString(),
-                            style: AppTextStyles.labelSmall.copyWith(
-                              color: AppColors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Notification',
-            style: AppTextStyles.labelSmall.copyWith(
-              color: color,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-    );
-
-    return Expanded(
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressedIndex = 2),
-        onTapUp: (_) {
-          setState(() => _pressedIndex = -1);
-          _onTabTapped(2);
-        },
-        onTapCancel: () => setState(() => _pressedIndex = -1),
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedScale(
-          scale: isPressed ? 0.85 : 1.0,
-          duration: Duration(milliseconds: isPressed ? 100 : 500),
-          curve: isPressed ? Curves.easeOut : Curves.elasticOut,
-          child: content,
         ),
       ),
     );
