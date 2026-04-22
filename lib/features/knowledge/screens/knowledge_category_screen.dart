@@ -174,15 +174,42 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Row 1: Title
-              Text(
-                article.title,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              // Row 1: Title and Category badge
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      article.title,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (article.category != null) ...[
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary50,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        article.category!.name,
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 8),
 
@@ -232,12 +259,6 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
                       ),
                     ),
                   ],
-                  const Spacer(),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 16,
-                    color: AppColors.grey400,
-                  ),
                 ],
               ),
             ],
