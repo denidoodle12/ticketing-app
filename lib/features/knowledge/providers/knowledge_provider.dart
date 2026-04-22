@@ -60,6 +60,10 @@ class KnowledgeProvider extends ChangeNotifier {
   int? _selectedCategoryId;
   int? get selectedCategoryId => _selectedCategoryId;
 
+  // ─── Initial Load Tracking ────────────────────────────────────
+  bool _hasLoadedInitialData = false;
+  bool get hasLoadedInitialData => _hasLoadedInitialData;
+
   // ═══════════════════════════════════════════════════════════════════
   // Actions
   // ═══════════════════════════════════════════════════════════════════
@@ -226,6 +230,7 @@ class KnowledgeProvider extends ChangeNotifier {
 
   /// Load initial data (categories + recent articles in parallel)
   Future<void> loadInitialData() async {
+    _hasLoadedInitialData = true;
     await Future.wait([
       loadCategories(),
       loadRecentArticles(),

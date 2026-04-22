@@ -310,7 +310,7 @@ class TicketProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load recent tickets for home screen (limited to 3)
+  /// Load recent tickets for home screen (limited to 5)
   Future<void> loadRecentTickets() async {
     if (_recentTicketsState == TicketState.loading) return;
 
@@ -318,7 +318,7 @@ class TicketProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _ticketRepository.getTickets(page: 1, limit: 3);
+      final response = await _ticketRepository.getTickets(page: 1, limit: 5);
 
       _recentTickets = response.tickets;
       _recentTicketsState = TicketState.loaded;

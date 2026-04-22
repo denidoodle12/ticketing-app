@@ -134,7 +134,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   // ─── Categories Section ────────────────────────────────────────
 
   Widget _buildCategoriesSection(KnowledgeProvider provider) {
-    if (provider.isCategoriesLoading) {
+    if (!provider.hasLoadedInitialData || provider.isCategoriesLoading) {
       return _buildCategoriesShimmer();
     }
 
@@ -208,7 +208,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       children: [
         const SectionLabel(label: 'Recent Articles'),
         const SizedBox(height: 12),
-        if (provider.isRecentArticlesLoading && provider.recentArticles.isEmpty)
+        if (!provider.hasLoadedInitialData ||
+            (provider.isRecentArticlesLoading && provider.recentArticles.isEmpty))
           _buildArticlesShimmer()
         else if (provider.recentArticlesError != null &&
             provider.recentArticles.isEmpty)
