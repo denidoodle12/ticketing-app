@@ -134,7 +134,9 @@ class KnowledgeProvider extends ChangeNotifier {
     _articlesError = null;
     _currentPage = 1;
     _selectedCategoryId = categoryId;
-    if (search != null) _searchQuery = search;
+    _searchQuery = search ?? '';
+    _articles = [];
+    _totalArticles = 0;
     notifyListeners();
 
     try {

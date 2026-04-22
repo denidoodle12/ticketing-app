@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_html/flutter_html.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../providers/knowledge_provider.dart';
@@ -162,147 +164,239 @@ class _KnowledgeArticleDetailScreenState
   }
 
 
-  // ─── Content (Simple Markdown-like Rendering) ──────────────────
+  // ─── Content (HTML Rendering for WYSIWYG editor content) ────────
 
   Widget _buildContent(String content) {
-    final lines = content.split('\n');
-    final widgets = <Widget>[];
+    final htmlContent = _prepareHtmlContent(content);
 
+    return Html(
+      data: htmlContent,
+      onLinkTap: (url, _, __) async {
+        if (url != null) {
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        }
+      },
+      style: {
+        'body': Style(
+          margin: Margins.zero,
+          padding: HtmlPaddings.zero,
+          fontSize: FontSize(14),
+          lineHeight: LineHeight(1.7),
+          color: const Color(0xFF334155),
+        ),
+        'p': Style(
+          margin: Margins.only(bottom: 12),
+          fontSize: FontSize(14),
+          lineHeight: LineHeight(1.7),
+          color: const Color(0xFF334155),
+        ),
+        'h1': Style(
+          fontSize: FontSize(22),
+          fontWeight: FontWeight.bold,
+          color: AppColors.primaryDark,
+          margin: Margins.only(top: 16, bottom: 8),
+        ),
+        'h2': Style(
+          fontSize: FontSize(20),
+          fontWeight: FontWeight.bold,
+          color: AppColors.primaryDark,
+          margin: Margins.only(top: 14, bottom: 8),
+        ),
+        'h3': Style(
+          fontSize: FontSize(18),
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+          margin: Margins.only(top: 12, bottom: 6),
+        ),
+        'h4': Style(
+          fontSize: FontSize(16),
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+          margin: Margins.only(top: 10, bottom: 6),
+        ),
+        'strong': Style(
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+        ),
+        'b': Style(
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+        ),
+        'em': Style(
+          fontStyle: FontStyle.italic,
+        ),
+        'i': Style(
+          fontStyle: FontStyle.italic,
+        ),
+        'u': Style(
+          textDecoration: TextDecoration.underline,
+        ),
+        's': Style(
+          textDecoration: TextDecoration.lineThrough,
+          color: AppColors.grey500,
+        ),
+        'del': Style(
+          textDecoration: TextDecoration.lineThrough,
+          color: AppColors.grey500,
+        ),
+        'a': Style(
+          color: AppColors.primary500,
+          textDecoration: TextDecoration.underline,
+        ),
+        'ul': Style(
+          margin: Margins.only(bottom: 8),
+          padding: HtmlPaddings.only(left: 8),
+        ),
+        'ol': Style(
+          margin: Margins.only(bottom: 8),
+          padding: HtmlPaddings.only(left: 8),
+        ),
+        'li': Style(
+          fontSize: FontSize(14),
+          lineHeight: LineHeight(1.6),
+          color: const Color(0xFF334155),
+          margin: Margins.only(bottom: 4),
+        ),
+        'hr': Style(
+          margin: Margins.symmetric(vertical: 16),
+          border: Border(
+            bottom: BorderSide(color: AppColors.secondary200, width: 1),
+          ),
+        ),
+        'blockquote': Style(
+          margin: Margins.only(left: 0, bottom: 12),
+          padding: HtmlPaddings.only(left: 12),
+          border: Border(
+            left: BorderSide(color: AppColors.primary400, width: 3),
+          ),
+          color: AppColors.textSecondary,
+          fontStyle: FontStyle.italic,
+        ),
+      },
+    );
+  }
+
+  /// Converts content to HTML for rendering.
+  /// Content from admin can be pure HTML, pure Markdown, or a hybrid.
+  /// We always process Markdown patterns so nothing is left unrendered.
+  String _prepareHtmlContent(String content) {
+    String html = content;
+
+    // ── 1. Blockquotes (> text) — must be done before <p> wrapping ──
+    html = html.replaceAllMapped(
+      RegExp(r'^>\s*(.+)$', multiLine: true),
+      (m) => '<blockquote>${m.group(1)}</blockquote>',
+    );
+
+    // ── 2. Headings (### → h3, ## → h2, # → h1) — order matters ──
+    html = html.replaceAllMapped(
+      RegExp(r'^### (.+)$', multiLine: true),
+      (m) => '<h3>${m.group(1)}</h3>',
+    );
+    html = html.replaceAllMapped(
+      RegExp(r'^## (.+)$', multiLine: true),
+      (m) => '<h2>${m.group(1)}</h2>',
+    );
+    html = html.replaceAllMapped(
+      RegExp(r'^# (.+)$', multiLine: true),
+      (m) => '<h1>${m.group(1)}</h1>',
+    );
+
+    // ── 3. Horizontal rule (--- or more) ──
+    html = html.replaceAllMapped(
+      RegExp(r'^-{3,}$', multiLine: true),
+      (m) => '<hr>',
+    );
+
+    // ── 4. Inline formatting ──
+
+    // Bold + Italic  ***text*** or ___text___
+    html = html.replaceAllMapped(
+      RegExp(r'\*\*\*(.+?)\*\*\*'),
+      (m) => '<strong><em>${m.group(1)}</em></strong>',
+    );
+
+    // Bold **text**
+    html = html.replaceAllMapped(
+      RegExp(r'\*\*(.+?)\*\*'),
+      (m) => '<strong>${m.group(1)}</strong>',
+    );
+
+    // Bold __text__
+    html = html.replaceAllMapped(
+      RegExp(r'__(.+?)__'),
+      (m) => '<strong>${m.group(1)}</strong>',
+    );
+
+    // Italic *text* (but not inside HTML tags)
+    html = html.replaceAllMapped(
+      RegExp(r'(?<![<\w])\*(.+?)\*(?![>\w])'),
+      (m) => '<em>${m.group(1)}</em>',
+    );
+
+    // Italic _text_
+    html = html.replaceAllMapped(
+      RegExp(r'(?<!\w)_(.+?)_(?!\w)'),
+      (m) => '<em>${m.group(1)}</em>',
+    );
+
+    // Strikethrough ~~text~~
+    html = html.replaceAllMapped(
+      RegExp(r'~~(.+?)~~'),
+      (m) => '<del>${m.group(1)}</del>',
+    );
+
+    // ── 5. Links [text](url) ──
+    html = html.replaceAllMapped(
+      RegExp(r'\[(.+?)\]\((.+?)\)'),
+      (m) => '<a href="${m.group(2)}">${m.group(1)}</a>',
+    );
+
+    // ── 6. Unordered list items (- item or * item at start of line) ──
+    html = html.replaceAllMapped(
+      RegExp(r'^[\-\*]\s+(.+)$', multiLine: true),
+      (m) => '<li>${m.group(1)}</li>',
+    );
+    // Wrap consecutive <li> in <ul>
+    html = html.replaceAllMapped(
+      RegExp(r'((?:<li>.+?<\/li>\s*)+)'),
+      (m) => '<ul>${m.group(1)}</ul>',
+    );
+
+    // ── 7. Ordered list items (1. item) ──
+    html = html.replaceAllMapped(
+      RegExp(r'^\d+\.\s+(.+)$', multiLine: true),
+      (m) => '<oli>${m.group(1)}</oli>',
+    );
+    html = html.replaceAllMapped(
+      RegExp(r'((?:<oli>.+?<\/oli>\s*)+)'),
+      (m) {
+        final items = m.group(1)!
+            .replaceAll('<oli>', '<li>')
+            .replaceAll('</oli>', '</li>');
+        return '<ol>$items</ol>';
+      },
+    );
+
+    // ── 8. Wrap plain-text lines in <p> (skip lines already HTML) ──
+    final lines = html.split('\n');
+    final buffer = StringBuffer();
     for (final line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) {
-        widgets.add(const SizedBox(height: 8));
-        continue;
-      }
-
-      // Heading detection
-      if (trimmed.startsWith('## ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 8),
-            child: Text(
-              trimmed.substring(3),
-              style: AppTextStyles.h5.copyWith(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        );
-      } else if (trimmed.startsWith('### ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 6),
-            child: Text(
-              trimmed.substring(4),
-              style: AppTextStyles.h6.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        );
-      }
-      // Numbered list
-      else if (RegExp(r'^\d+\.\s').hasMatch(trimmed)) {
-        final match = RegExp(r'^(\d+)\.\s(.+)').firstMatch(trimmed);
-        if (match != null) {
-          widgets.add(_buildNumberedItem(match.group(1)!, match.group(2)!));
-        }
-      }
-      // Bullet list
-      else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        widgets.add(_buildBulletItem(trimmed.substring(2)));
-      }
-      // Normal paragraph
-      else {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              trimmed,
-              style: AppTextStyles.bodyLarge.copyWith(
-                color: const Color(0xFF334155),
-                height: 1.7,
-              ),
-            ),
-          ),
-        );
+        buffer.writeln();
+      } else if (RegExp(r'^<[a-zA-Z/]').hasMatch(trimmed)) {
+        // Already an HTML element
+        buffer.writeln(trimmed);
+      } else {
+        buffer.writeln('<p>$trimmed</p>');
       }
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets,
-    );
-  }
-
-  Widget _buildNumberedItem(String number, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              color: AppColors.primary100,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Center(
-              child: Text(
-                number,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.primaryDark,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              text,
-              style: AppTextStyles.bodyLarge.copyWith(
-                color: const Color(0xFF334155),
-                height: 1.6,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBulletItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            margin: const EdgeInsets.only(right: 12, top: 8),
-            decoration: BoxDecoration(
-              color: AppColors.primaryDark,
-              shape: BoxShape.circle,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              text,
-              style: AppTextStyles.bodyLarge.copyWith(
-                color: const Color(0xFF334155),
-                height: 1.6,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return buffer.toString();
   }
 
   // ─── Tags Section ──────────────────────────────────────────────
@@ -324,17 +418,17 @@ class _KnowledgeArticleDetailScreenState
           runSpacing: 8,
           children: tags.map((tag) {
             return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: AppColors.primary50,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primary100),
               ),
               child: Text(
                 tag,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.primaryDark,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 12,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.primary600,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             );
