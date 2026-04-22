@@ -9,6 +9,7 @@ import '../models/knowledge_article_model.dart';
 import '../widgets/knowledge_category_card.dart';
 import 'knowledge_search_screen.dart';
 import 'knowledge_category_screen.dart';
+import '../utils/content_utils.dart';
 
 class KnowledgeScreen extends StatefulWidget {
   const KnowledgeScreen({super.key});
@@ -31,6 +32,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     return Scaffold(
       backgroundColor: AppColors.white,
       body: SafeArea(
+        bottom: false,
         child: Consumer<KnowledgeProvider>(
           builder: (context, provider, _) {
             return RefreshIndicator(
@@ -39,7 +41,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 32),
                   _buildGreeting(),
                   const SizedBox(height: 16),
                   _buildSearchBar(),
@@ -66,7 +68,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         Text(
           'How can we help?',
           style: AppTextStyles.h4.copyWith(
-            color: AppColors.primaryDark,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -291,7 +293,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
 
                 // Row 2: Content preview
                 Text(
-                  article.content,
+                  ContentUtils.stripToPlainText(article.content),
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textSecondary,
                     height: 1.4,

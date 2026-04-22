@@ -89,7 +89,7 @@ class _KnowledgeArticleDetailScreenState
                 Text(
                   article.title,
                   style: AppTextStyles.h3.copyWith(
-                    color: AppColors.primaryDark,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.bold,
                     height: 1.3,
                   ),
@@ -100,7 +100,7 @@ class _KnowledgeArticleDetailScreenState
                 const SizedBox(height: 24),
                 // Divider
                 Divider(color: AppColors.secondary200, height: 1),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
                 // Content (rendered markdown-like)
                 _buildContent(article.content),
                 const SizedBox(height: 24),
@@ -196,13 +196,13 @@ class _KnowledgeArticleDetailScreenState
         'h1': Style(
           fontSize: FontSize(22),
           fontWeight: FontWeight.bold,
-          color: AppColors.primaryDark,
+          color: AppColors.textPrimary,
           margin: Margins.only(top: 16, bottom: 8),
         ),
         'h2': Style(
           fontSize: FontSize(20),
           fontWeight: FontWeight.bold,
-          color: AppColors.primaryDark,
+          color: AppColors.textPrimary,
           margin: Margins.only(top: 14, bottom: 8),
         ),
         'h3': Style(

@@ -6,6 +6,7 @@ import '../../../core/themes/text_styles.dart';
 import '../models/knowledge_category_model.dart';
 import '../models/knowledge_article_model.dart';
 import '../providers/knowledge_provider.dart';
+import '../utils/content_utils.dart';
 
 /// Screen showing all articles for a specific category
 class KnowledgeCategoryScreen extends StatefulWidget {
@@ -134,7 +135,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
       color: AppColors.primary600,
       child: ListView.separated(
         controller: _scrollController,
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         itemCount: provider.articles.length + (provider.hasMoreArticles ? 1 : 0),
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
@@ -215,7 +216,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
 
               // Row 2: Content preview
               Text(
-                article.content,
+                ContentUtils.stripToPlainText(article.content),
                 style: AppTextStyles.bodySmall.copyWith(
                   color: AppColors.textSecondary,
                   height: 1.4,

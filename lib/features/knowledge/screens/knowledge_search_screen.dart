@@ -6,6 +6,7 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/knowledge_article_model.dart';
+import '../utils/content_utils.dart';
 
 /// Knowledge search screen — matches the existing SearchScreen design
 class KnowledgeSearchScreen extends StatefulWidget {
@@ -490,7 +491,9 @@ class _KnowledgeSearchScreenState extends State<KnowledgeSearchScreen> {
 
               // Row 2: Content preview
               Text(
-                article.content,
+                article.content.isNotEmpty
+                    ? ContentUtils.stripToPlainText(article.content)
+                    : 'No content available',
                 style: AppTextStyles.bodySmall.copyWith(
                   color: AppColors.textSecondary,
                   height: 1.4,
