@@ -305,13 +305,13 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                 Row(
                   children: [
                     const Icon(
-                      Icons.access_time_rounded,
+                      Icons.calendar_today_outlined,
                       size: 14,
                       color: AppColors.textSecondary,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${article.readTimeMinutes} min read',
+                      'Updated ${_formatDate(article.updatedAt ?? article.createdAt ?? DateTime.now())}',
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -569,5 +569,13 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         );
       },
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 }

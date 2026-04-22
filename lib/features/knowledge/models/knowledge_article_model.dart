@@ -57,12 +57,6 @@ class KnowledgeArticle {
           : null,
     );
   }
-
-  /// Estimated reading time in minutes
-  int get readTimeMinutes {
-    final wordCount = content.split(RegExp(r'\s+')).length;
-    return (wordCount / 200).ceil().clamp(1, 60);
-  }
 }
 
 /// Response wrapper for paginated article list

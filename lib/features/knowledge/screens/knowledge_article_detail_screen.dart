@@ -145,40 +145,14 @@ class _KnowledgeArticleDetailScreenState
 
     return Row(
       children: [
-        // Author icon
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: AppColors.primary100,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(
-            Icons.person_outline,
-            size: 16,
-            color: AppColors.primaryDark,
-          ),
+        const Icon(
+          Icons.calendar_today_outlined,
+          size: 14,
+          color: AppColors.textSecondary,
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         Text(
-          'Admin',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        _buildDot(),
-        Text(
-          dateStr,
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-        _buildDot(),
-        Icon(Icons.access_time, size: 13, color: AppColors.grey400),
-        const SizedBox(width: 3),
-        Text(
-          '${article.readTimeMinutes} min read',
+          'Updated $dateStr',
           style: AppTextStyles.bodySmall.copyWith(
             color: AppColors.textSecondary,
           ),
@@ -187,19 +161,6 @@ class _KnowledgeArticleDetailScreenState
     );
   }
 
-  Widget _buildDot() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Container(
-        width: 3,
-        height: 3,
-        decoration: const BoxDecoration(
-          color: AppColors.grey400,
-          shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
 
   // ─── Content (Simple Markdown-like Rendering) ──────────────────
 
