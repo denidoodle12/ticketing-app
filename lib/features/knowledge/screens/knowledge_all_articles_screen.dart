@@ -3,35 +3,29 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
-import '../models/knowledge_category_model.dart';
 import '../models/knowledge_article_model.dart';
 import '../providers/knowledge_provider.dart';
 import '../utils/content_utils.dart';
 
-/// Screen showing all articles for a specific category
-class KnowledgeCategoryScreen extends StatefulWidget {
-  final KnowledgeCategory category;
-
-  const KnowledgeCategoryScreen({super.key, required this.category});
+/// Screen that shows ALL knowledge articles (no category filter).
+/// Triggered from the "See all" link in the Recent Articles section.
+class KnowledgeAllArticlesScreen extends StatefulWidget {
+  const KnowledgeAllArticlesScreen({super.key});
 
   @override
-  State<KnowledgeCategoryScreen> createState() =>
-      _KnowledgeCategoryScreenState();
+  State<KnowledgeAllArticlesScreen> createState() =>
+      _KnowledgeAllArticlesScreenState();
 }
 
-class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
+class _KnowledgeAllArticlesScreenState
+    extends State<KnowledgeAllArticlesScreen> {
   final ScrollController _scrollController = ScrollController();
-
-  // ─── Tag filter state ──────────────────────────────────────────
-  String? _selectedTag; // null = show all
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<KnowledgeProvider>().loadArticles(
-        categoryId: widget.category.id,
-      );
+      context.read<KnowledgeProvider>().loadArticles();
     });
     _scrollController.addListener(_onScroll);
   }
@@ -55,9 +49,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
       backgroundColor: AppColors.white,
       appBar: _buildAppBar(),
       body: Consumer<KnowledgeProvider>(
-        builder: (context, provider, _) {
-          return _buildContent(provider);
-        },
+        builder: (context, provider, _) => _buildContent(provider),
       ),
     );
   }
@@ -72,16 +64,11 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
       leadingWidth: 76,
       leading: Padding(
         padding: const EdgeInsets.only(left: 16),
-        child: Center(
-          child: _buildActionButton(
-            icon: Icons.arrow_back,
-            onTap: () => Navigator.pop(context),
-          ),
-        ),
+        child: Center(child: _buildBackButton()),
       ),
       centerTitle: true,
       title: Text(
-        widget.category.name,
+        'All Articles',
         style: AppTextStyles.h5.copyWith(
           color: AppColors.textPrimary,
           fontWeight: FontWeight.bold,
@@ -90,15 +77,11 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
     );
   }
 
-  /// Reusable action button — matches ticket detail screen style
-  Widget _buildActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildBackButton() {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: () => Navigator.pop(context),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           width: 44,
@@ -114,7 +97,11 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
               ),
             ],
           ),
-          child: Icon(icon, color: AppColors.primaryDark, size: 22),
+          child: const Icon(
+            Icons.arrow_back,
+            color: AppColors.primaryDark,
+            size: 22,
+          ),
         ),
       ),
     );
@@ -133,136 +120,26 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
       return _buildEmptyState();
     }
 
-    // Collect unique tags from all loaded articles
-    final allTags = provider.articles
-        .expand((a) => a.tags)
-        .toSet()
-        .toList()
-      ..sort();
-
-    // Apply client-side tag filter
-    final displayArticles = _selectedTag == null
-        ? provider.articles
-        : provider.articles
-            .where((a) => a.tags.contains(_selectedTag))
-            .toList();
-
     return RefreshIndicator(
-      onRefresh: () {
-        setState(() => _selectedTag = null);
-        return provider.loadArticles(categoryId: widget.category.id);
-      },
+      onRefresh: () => provider.loadArticles(),
       color: AppColors.primary600,
-      child: CustomScrollView(
+      child: ListView.separated(
         controller: _scrollController,
-        slivers: [
-          // ── Tag filter chip bar ──────────────────────────────────
-          if (allTags.isNotEmpty)
-            SliverToBoxAdapter(
-              child: _buildTagFilterBar(allTags),
-            ),
-
-          // ── Articles list ────────────────────────────────────────
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  // Load-more spinner at the end (only when no tag filter active)
-                  if (index == displayArticles.length) {
-                    if (_selectedTag != null || !provider.hasMoreArticles) {
-                      return const SizedBox.shrink();
-                    }
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    );
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildArticleCard(displayArticles[index]),
-                  );
-                },
-                childCount: displayArticles.length +
-                    (_selectedTag == null && provider.hasMoreArticles ? 1 : 0),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Tag Filter Chip Bar ────────────────────────────────────────
-
-  Widget _buildTagFilterBar(List<String> tags) {
-    return Container(
-      height: 48,
-      margin: const EdgeInsets.only(top: 12),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        children: [
-          // "All" chip
-          _buildTagChip(label: 'All', isSelected: _selectedTag == null,
-              onTap: () => setState(() => _selectedTag = null)),
-          const SizedBox(width: 8),
-          // Per-tag chips
-          ...tags.map((tag) {
-            final isSelected = _selectedTag == tag;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _buildTagChip(
-                label: tag,
-                isSelected: isSelected,
-                onTap: () => setState(
-                  () => _selectedTag = isSelected ? null : tag,
-                ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        itemCount:
+            provider.articles.length + (provider.hasMoreArticles ? 1 : 0),
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          if (index == provider.articles.length) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
             );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTagChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryDark : AppColors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primaryDark : AppColors.grey200,
-            width: 1.5,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primaryDark.withAlpha(40),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.labelSmall.copyWith(
-            color: isSelected ? AppColors.white : AppColors.textSecondary,
-            fontWeight:
-                isSelected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
+          }
+          return _buildArticleCard(provider.articles[index]);
+        },
       ),
     );
   }
@@ -289,7 +166,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Row 1: Title and Category badge
+              // Row 1: Title + Category badge
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -420,7 +297,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'There are no articles in "${widget.category.name}" yet.',
+              'There are no published articles available.',
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -454,8 +331,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () =>
-                  provider.loadArticles(categoryId: widget.category.id),
+              onPressed: () => provider.loadArticles(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryDark,
                 foregroundColor: AppColors.white,
@@ -474,7 +350,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
   String _formatDate(DateTime date) {
     final months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }

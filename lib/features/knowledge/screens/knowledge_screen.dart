@@ -9,6 +9,7 @@ import '../models/knowledge_article_model.dart';
 import '../widgets/knowledge_category_card.dart';
 import 'knowledge_search_screen.dart';
 import 'knowledge_category_screen.dart';
+import 'knowledge_all_articles_screen.dart';
 import '../utils/content_utils.dart';
 
 class KnowledgeScreen extends StatefulWidget {
@@ -206,7 +207,22 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel(label: 'Recent Articles'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SectionLabel(label: 'Recent Articles'),
+            GestureDetector(
+              onTap: () => _navigateToAllArticles(),
+              child: Text(
+                'See all →',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         if (!provider.hasLoadedInitialData ||
             (provider.isRecentArticlesLoading && provider.recentArticles.isEmpty))
@@ -460,6 +476,18 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         builder: (_) => ChangeNotifierProvider.value(
           value: context.read<KnowledgeProvider>(),
           child: KnowledgeCategoryScreen(category: category),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToAllArticles() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChangeNotifierProvider.value(
+          value: context.read<KnowledgeProvider>(),
+          child: const KnowledgeAllArticlesScreen(),
         ),
       ),
     );

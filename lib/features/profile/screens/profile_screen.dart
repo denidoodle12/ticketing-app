@@ -162,30 +162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
 
-          const SizedBox(height: 20),
 
-          // ── Support Section ──
-          _buildSectionHeader('Support'),
-          const SizedBox(height: 8),
-          _buildSectionCard(
-            children: [
-              _buildMenuItem(
-                icon: Icons.help_outline,
-                title: 'FAQs',
-                subtitle: 'Frequently asked questions',
-                onTap: () => _showAboutDialog(context),
-              ),
-              const Divider(height: 1, indent: 40),
-              _buildMenuItem(
-                icon: Icons.headset_mic_outlined,
-                title: 'Contact Support',
-                subtitle: 'Get help from our team',
-                onTap: () {
-                  // TODO: Open contact support
-                },
-              ),
-            ],
-          ),
 
           const SizedBox(height: 24),
 
@@ -286,58 +263,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showAboutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.primary50,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.info_outline,
-                color: AppColors.primary500,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('About'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Enterprise Ticketing System', style: AppTextStyles.h6),
-            const SizedBox(height: 8),
-            Text(
-              'Version ${AppInfo.version}',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'A mobile application for managing support tickets and communicating with agents.',
-              style: AppTextStyles.bodyMedium,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
