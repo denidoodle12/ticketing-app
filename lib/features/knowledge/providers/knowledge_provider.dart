@@ -68,6 +68,10 @@ class KnowledgeProvider extends ChangeNotifier {
   List<String> _allCategoryTags = [];
   List<String> get allCategoryTags => _allCategoryTags;
 
+  // All unique tags from an unfiltered global load (used by All Articles filter sheet)
+  List<String> _allArticlesTags = [];
+  List<String> get allArticlesTags => _allArticlesTags;
+
   // ─── Initial Load Tracking ────────────────────────────────────
   bool _hasLoadedInitialData = false;
   bool get hasLoadedInitialData => _hasLoadedInitialData;
@@ -168,11 +172,19 @@ class KnowledgeProvider extends ChangeNotifier {
       // Only refresh the full tag list when loading without a tag filter
       // so the bottom sheet always shows all available tags for this category
       if (tag == null) {
-        _allCategoryTags = _articles
+        final freshTags = _articles
             .expand((a) => a.tags)
             .toSet()
             .toList()
           ..sort();
+
+        if (categoryId != null) {
+          // Category-scoped load → update category tags list only
+          _allCategoryTags = freshTags;
+        } else {
+          // Global load (no category) → update global tags list
+          _allArticlesTags = freshTags;
+        }
       }
     } catch (e) {
       _articlesError = e.toString().replaceFirst('Exception: ', '');
