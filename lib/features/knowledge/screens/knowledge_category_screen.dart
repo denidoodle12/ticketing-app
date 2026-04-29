@@ -22,8 +22,8 @@ class KnowledgeCategoryScreen extends StatefulWidget {
 class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
   final ScrollController _scrollController = ScrollController();
 
-  // ─── Tag filter state ──────────────────────────────────────────
-  String? _selectedTag; // null = show all
+  // ─── Tag filter state (server-side via ?tag= param) ────────────
+  String? _selectedTag; // null = no filter
 
   @override
   void initState() {
@@ -49,6 +49,41 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
     }
   }
 
+  /// Apply tag filter — calls API server-side
+  Future<void> _applyTagFilter(String? tag) async {
+    setState(() => _selectedTag = tag);
+    await context.read<KnowledgeProvider>().loadArticles(
+      categoryId: widget.category.id,
+      tag: tag,
+    );
+  }
+
+  /// Reset filter and reload
+  Future<void> _resetFilter() async {
+    setState(() => _selectedTag = null);
+    await context.read<KnowledgeProvider>().loadArticles(
+      categoryId: widget.category.id,
+    );
+  }
+
+  /// Show tag filter bottom sheet (same style as search screen filter)
+  void _showTagFilterBottomSheet() {
+    final provider = context.read<KnowledgeProvider>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _TagFilterBottomSheet(
+        // Always use the full tag list collected during the unfiltered load
+        availableTags: provider.allCategoryTags,
+        selectedTag: _selectedTag,
+        onApply: (tag) => _applyTagFilter(tag),
+        onReset: _resetFilter,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -63,6 +98,8 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
   }
 
   PreferredSizeWidget _buildAppBar() {
+    final hasFilter = _selectedTag != null;
+
     return AppBar(
       backgroundColor: AppColors.white,
       elevation: 0,
@@ -87,6 +124,60 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
           fontWeight: FontWeight.bold,
         ),
       ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: Center(
+            child: GestureDetector(
+              onTap: _showTagFilterBottomSheet,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(
+                  color: hasFilter ? AppColors.primaryDark : AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.shadow.withAlpha(20),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.tune_rounded,
+                      size: 18,
+                      color: hasFilter ? AppColors.white : AppColors.primaryDark,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Filter',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: hasFilter ? AppColors.white : AppColors.primaryDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (hasFilter) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: AppColors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -133,136 +224,30 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
       return _buildEmptyState();
     }
 
-    // Collect unique tags from all loaded articles
-    final allTags = provider.articles
-        .expand((a) => a.tags)
-        .toSet()
-        .toList()
-      ..sort();
-
-    // Apply client-side tag filter
-    final displayArticles = _selectedTag == null
-        ? provider.articles
-        : provider.articles
-            .where((a) => a.tags.contains(_selectedTag))
-            .toList();
-
     return RefreshIndicator(
-      onRefresh: () {
+      onRefresh: () async {
         setState(() => _selectedTag = null);
-        return provider.loadArticles(categoryId: widget.category.id);
+        await provider.loadArticles(categoryId: widget.category.id);
       },
       color: AppColors.primary600,
-      child: CustomScrollView(
+      child: ListView.builder(
         controller: _scrollController,
-        slivers: [
-          // ── Tag filter chip bar ──────────────────────────────────
-          if (allTags.isNotEmpty)
-            SliverToBoxAdapter(
-              child: _buildTagFilterBar(allTags),
-            ),
-
-          // ── Articles list ────────────────────────────────────────
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  // Load-more spinner at the end (only when no tag filter active)
-                  if (index == displayArticles.length) {
-                    if (_selectedTag != null || !provider.hasMoreArticles) {
-                      return const SizedBox.shrink();
-                    }
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    );
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildArticleCard(displayArticles[index]),
-                  );
-                },
-                childCount: displayArticles.length +
-                    (_selectedTag == null && provider.hasMoreArticles ? 1 : 0),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Tag Filter Chip Bar ────────────────────────────────────────
-
-  Widget _buildTagFilterBar(List<String> tags) {
-    return Container(
-      height: 48,
-      margin: const EdgeInsets.only(top: 12),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        children: [
-          // "All" chip
-          _buildTagChip(label: 'All', isSelected: _selectedTag == null,
-              onTap: () => setState(() => _selectedTag = null)),
-          const SizedBox(width: 8),
-          // Per-tag chips
-          ...tags.map((tag) {
-            final isSelected = _selectedTag == tag;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _buildTagChip(
-                label: tag,
-                isSelected: isSelected,
-                onTap: () => setState(
-                  () => _selectedTag = isSelected ? null : tag,
-                ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        itemCount: provider.articles.length + (provider.hasMoreArticles ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == provider.articles.length) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
             );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTagChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryDark : AppColors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primaryDark : AppColors.grey200,
-            width: 1.5,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primaryDark.withAlpha(40),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.labelSmall.copyWith(
-            color: isSelected ? AppColors.white : AppColors.textSecondary,
-            fontWeight:
-                isSelected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
+          }
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildArticleCard(provider.articles[index]),
+          );
+        },
       ),
     );
   }
@@ -399,6 +384,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
   }
 
   Widget _buildEmptyState() {
+    final isFiltered = _selectedTag != null;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -412,7 +398,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No articles yet',
+              isFiltered ? 'No articles found' : 'No articles yet',
               style: AppTextStyles.h5.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.bold,
@@ -420,12 +406,28 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'There are no articles in "${widget.category.name}" yet.',
+              isFiltered
+                  ? 'No articles found with tag "$_selectedTag".\nTry clearing the filter.'
+                  : 'There are no articles in "${widget.category.name}" yet.',
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
+            if (isFiltered) ...[
+              const SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: _resetFilter,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryDark,
+                  side: BorderSide(color: AppColors.primaryDark, width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Clear Filter'),
+              ),
+            ],
           ],
         ),
       ),
@@ -477,5 +479,193 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+}
+
+// ─── Tag Filter Bottom Sheet ───────────────────────────────────────────────
+
+class _TagFilterBottomSheet extends StatefulWidget {
+  final List<String> availableTags;
+  final String? selectedTag;
+  final Future<void> Function(String? tag) onApply;
+  final Future<void> Function() onReset;
+
+  const _TagFilterBottomSheet({
+    required this.availableTags,
+    required this.selectedTag,
+    required this.onApply,
+    required this.onReset,
+  });
+
+  @override
+  State<_TagFilterBottomSheet> createState() => _TagFilterBottomSheetState();
+}
+
+class _TagFilterBottomSheetState extends State<_TagFilterBottomSheet> {
+  String? _tempSelectedTag;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempSelectedTag = widget.selectedTag;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 8,
+        bottom: 20 + bottomPadding,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle bar
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.grey300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Header row: "Filter Articles" + Reset
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Filter Articles',
+                style: AppTextStyles.h5.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              // Always show Reset (matching search/ticket filter UX)
+              GestureDetector(
+                onTap: () {
+                  setState(() => _tempSelectedTag = null);
+                },
+                child: Text(
+                  'Reset',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.primary600,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Tags section
+          Text(
+            'Tags',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          if (widget.availableTags.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No tags available for this category yet.',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.availableTags.map((tag) {
+                final isSelected = _tempSelectedTag == tag;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _tempSelectedTag = isSelected ? null : tag;
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.primaryDark
+                          : AppColors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.primaryDark
+                            : AppColors.grey200,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Text(
+                      tag,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: isSelected
+                            ? AppColors.white
+                            : AppColors.textPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+
+          const SizedBox(height: 28),
+
+          // Apply button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await widget.onApply(_tempSelectedTag);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryDark,
+                foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                'Apply Filters',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -52,6 +52,7 @@ class KnowledgeRemoteDatasource {
   Future<KnowledgeArticleListResponse> getArticles({
     int? categoryId,
     String? search,
+    String? tag,
     String? sortBy,
     String? order,
     int page = 1,
@@ -64,6 +65,7 @@ class KnowledgeRemoteDatasource {
       };
       if (categoryId != null) queryParams['category_id'] = categoryId;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (tag != null && tag.isNotEmpty) queryParams['tag'] = tag;
       if (sortBy != null) queryParams['sort_by'] = sortBy;
       if (order != null) queryParams['order'] = order;
 

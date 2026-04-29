@@ -857,100 +857,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     }
   }
 
-  void _showMoreOptions() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Handle bar
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.grey300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            // Title
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Text(
-                'More Options',
-                style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
-              ),
-            ),
-            // Refresh option
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryDark.withAlpha(26),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.refresh, color: AppColors.primaryDark),
-              ),
-              title: Text(
-                'Refresh',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              subtitle: Text(
-                'Reload ticket data',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _loadTicketDetail();
-              },
-            ),
-            // Share option
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryDark.withAlpha(26),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.share_outlined, color: AppColors.primaryDark),
-              ),
-              title: Text(
-                'Share Ticket',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              subtitle: Text(
-                'Share ticket to other apps',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Implement share
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDetailsTab = _currentTabIndex == 0;
@@ -962,10 +868,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       body: SafeArea(
         child: Consumer<TicketProvider>(
           builder: (context, provider, child) {
-            return NestedScrollView(
-              controller: _nestedScrollController,
-              headerSliverBuilder: (context, innerBoxIsScrolled) {
-                return [
+            return RefreshIndicator(
+              onRefresh: _loadTicketDetail,
+              color: AppColors.primary600,
+              child: NestedScrollView(
+                controller: _nestedScrollController,
+                headerSliverBuilder: (context, innerBoxIsScrolled) {
+                  return [
                   // Collapsible header — ticket info only visible on Details tab
                   SliverAppBar(
                     pinned: true,
@@ -995,17 +904,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                       ),
                     ),
                     centerTitle: true,
-                    actions: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: Center(
-                          child: _buildActionButton(
-                            icon: Icons.more_vert,
-                            onTap: _showMoreOptions,
-                          ),
-                        ),
-                      ),
-                    ],
                     // Smooth white sliver overlay — content fades into white bg
                     flexibleSpace: isDetailsTab
                         ? LayoutBuilder(
@@ -1088,6 +986,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                         ),
                       ],
                     ),
+              ),
             );
           },
         ),

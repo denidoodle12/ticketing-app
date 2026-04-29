@@ -11,6 +11,7 @@ abstract class KnowledgeRepository {
   Future<KnowledgeArticleListResponse> getArticles({
     int? categoryId,
     String? search,
+    String? tag,
     String? sortBy,
     String? order,
     int page,
@@ -37,6 +38,7 @@ class KnowledgeRepositoryImpl implements KnowledgeRepository {
   Future<KnowledgeArticleListResponse> getArticles({
     int? categoryId,
     String? search,
+    String? tag,
     String? sortBy,
     String? order,
     int page = 1,
@@ -45,6 +47,7 @@ class KnowledgeRepositoryImpl implements KnowledgeRepository {
     return await _remoteDatasource.getArticles(
       categoryId: categoryId,
       search: search,
+      tag: tag,
       sortBy: sortBy,
       order: order,
       page: page,

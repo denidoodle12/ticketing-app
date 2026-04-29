@@ -49,17 +49,6 @@ class _KnowledgeArticleDetailScreenState
             ),
           ),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: _buildActionButton(
-                icon: Icons.share_outlined,
-                onTap: () => _shareArticle(),
-              ),
-            ),
-          ),
-        ],
       ),
       body: Consumer<KnowledgeProvider>(
         builder: (context, provider, _) {
@@ -500,19 +489,6 @@ class _KnowledgeArticleDetailScreenState
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
-  }
-
-  void _shareArticle() {
-    final article = context.read<KnowledgeProvider>().selectedArticle;
-    if (article != null) {
-      Clipboard.setData(ClipboardData(text: article.title));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Article title copied to clipboard'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
   /// Reusable action button — matches ticket detail screen style

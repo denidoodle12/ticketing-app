@@ -60,6 +60,14 @@ class KnowledgeProvider extends ChangeNotifier {
   int? _selectedCategoryId;
   int? get selectedCategoryId => _selectedCategoryId;
 
+  // ─── Selected Tag Filter ─────────────────────────────────────────
+  String? _selectedTag;
+  String? get selectedTag => _selectedTag;
+
+  // All unique tags from an unfiltered category load (used by filter sheet)
+  List<String> _allCategoryTags = [];
+  List<String> get allCategoryTags => _allCategoryTags;
+
   // ─── Initial Load Tracking ────────────────────────────────────
   bool _hasLoadedInitialData = false;
   bool get hasLoadedInitialData => _hasLoadedInitialData;
@@ -132,12 +140,13 @@ class KnowledgeProvider extends ChangeNotifier {
   }
 
   /// Load articles for a specific category (first page)
-  Future<void> loadArticles({int? categoryId, String? search}) async {
+  Future<void> loadArticles({int? categoryId, String? search, String? tag}) async {
     if (_isArticlesLoading) return;
     _isArticlesLoading = true;
     _articlesError = null;
     _currentPage = 1;
     _selectedCategoryId = categoryId;
+    _selectedTag = tag;
     _searchQuery = search ?? '';
     _articles = [];
     _totalArticles = 0;
@@ -147,6 +156,7 @@ class KnowledgeProvider extends ChangeNotifier {
       final response = await _repository.getArticles(
         categoryId: _selectedCategoryId,
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
+        tag: _selectedTag,
         sortBy: 'updated_at',
         order: 'DESC',
         page: 1,
@@ -154,6 +164,16 @@ class KnowledgeProvider extends ChangeNotifier {
       );
       _articles = response.articles;
       _totalArticles = response.total;
+
+      // Only refresh the full tag list when loading without a tag filter
+      // so the bottom sheet always shows all available tags for this category
+      if (tag == null) {
+        _allCategoryTags = _articles
+            .expand((a) => a.tags)
+            .toSet()
+            .toList()
+          ..sort();
+      }
     } catch (e) {
       _articlesError = e.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -173,6 +193,7 @@ class KnowledgeProvider extends ChangeNotifier {
       final response = await _repository.getArticles(
         categoryId: _selectedCategoryId,
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
+        tag: _selectedTag,
         sortBy: 'updated_at',
         order: 'DESC',
         page: nextPage,
