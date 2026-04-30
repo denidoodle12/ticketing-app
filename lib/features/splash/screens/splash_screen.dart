@@ -17,46 +17,62 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _fadeAnim;
+  late Animation<double> _scaleAnim;
+
   @override
   void initState() {
     super.initState();
+
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _fadeAnim = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeIn,
+    );
+
+    _scaleAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutBack),
+    );
+
+    _animController.forward();
     _initializeApp();
   }
 
-  Future<void> _initializeApp() async {
-    // Wait a frame to ensure context is ready
-    await Future.delayed(Duration.zero);
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
 
-    // Check if widget is still mounted
+  Future<void> _initializeApp() async {
+    await Future.delayed(Duration.zero);
     if (!mounted) return;
 
-    // Check onboarding completion status
     final prefs = await SharedPreferences.getInstance();
     final hasCompletedOnboarding =
         prefs.getBool(StorageKeys.hasCompletedOnboarding) ?? false;
 
-    // Check if widget is still mounted after async operation
     if (!mounted) return;
 
-    // Check auth status
     final authProvider = context.read<AuthProvider>();
     await authProvider.checkAuthStatus();
 
-    // Wait for splash duration
     await Future.delayed(
       const Duration(milliseconds: AppConstants.splashDurationMs),
     );
 
     if (!mounted) return;
 
-    // Navigate based on onboarding and auth status
-    if (!mounted) return;
-
     if (!hasCompletedOnboarding) {
       context.go(AppRoutes.onboarding);
     } else if (authProvider.isAuthenticated) {
-      // Check if first login - redirect to change password
       if (authProvider.isFirstLogin) {
         context.go(AppRoutes.changePassword, extra: true);
       } else {
@@ -70,79 +86,90 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.primary600,
       body: Stack(
         children: [
-          // Center Content - Logo with App Name (horizontal)
+          // Subtle radial glow in the center background
           Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // App Logo
-                Image.asset(
-                  AssetPaths.appLogo,
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.contain,
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.primary500.withAlpha(120),
+                    Colors.transparent,
+                  ],
                 ),
-                const SizedBox(width: 12),
-
-                // App Name
-                Text(
-                  AppConstants.appName,
-                  style: AppTextStyles.h1.copyWith(
-                    color: AppColors.primaryDark,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 32,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
 
-          // Bottom Section (Loading + Tagline + Powered By)
+          // Center content: logo + app name
+          Center(
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: ScaleTransition(
+                scale: _scaleAnim,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Circle logo (tixcora_color_c.png)
+                    Image.asset(
+                      AssetPaths.tixcoraColorCircle,
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // App name
+                    Text(
+                      AppConstants.appName,
+                      style: AppTextStyles.h1.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 36,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Bottom loading indicator
           Positioned(
             left: 0,
             right: 0,
-            bottom: 48,
-            child: Column(
-              children: [
-                // Loading Indicator
-                SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 4,
-                    strokeCap: StrokeCap.round,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primaryDark,
+            bottom: 52,
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      strokeCap: StrokeCap.round,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.white.withAlpha(180),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // Tagline
-                Text(
-                  AppConstants.appTagline,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.3,
+                  const SizedBox(height: 14),
+                  Text(
+                    AppConstants.appTagline,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.white.withAlpha(160),
+                      letterSpacing: 0.4,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 5),
-
-                // Powered By
-                Text(
-                  AppConstants.poweredBy,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],

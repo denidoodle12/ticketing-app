@@ -151,7 +151,6 @@ class _KnowledgeArticleDetailScreenState
     );
   }
 
-
   // ─── Content (HTML Rendering for WYSIWYG editor content) ────────
 
   Widget _buildContent(String content) {
@@ -209,19 +208,10 @@ class _KnowledgeArticleDetailScreenState
           fontWeight: FontWeight.bold,
           color: AppColors.textPrimary,
         ),
-        'b': Style(
-          fontWeight: FontWeight.bold,
-          color: AppColors.textPrimary,
-        ),
-        'em': Style(
-          fontStyle: FontStyle.italic,
-        ),
-        'i': Style(
-          fontStyle: FontStyle.italic,
-        ),
-        'u': Style(
-          textDecoration: TextDecoration.underline,
-        ),
+        'b': Style(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+        'em': Style(fontStyle: FontStyle.italic),
+        'i': Style(fontStyle: FontStyle.italic),
+        'u': Style(textDecoration: TextDecoration.underline),
         's': Style(
           textDecoration: TextDecoration.lineThrough,
           color: AppColors.grey500,
@@ -359,15 +349,13 @@ class _KnowledgeArticleDetailScreenState
       RegExp(r'^\d+\.\s+(.+)$', multiLine: true),
       (m) => '<oli>${m.group(1)}</oli>',
     );
-    html = html.replaceAllMapped(
-      RegExp(r'((?:<oli>.+?<\/oli>\s*)+)'),
-      (m) {
-        final items = m.group(1)!
-            .replaceAll('<oli>', '<li>')
-            .replaceAll('</oli>', '</li>');
-        return '<ol>$items</ol>';
-      },
-    );
+    html = html.replaceAllMapped(RegExp(r'((?:<oli>.+?<\/oli>\s*)+)'), (m) {
+      final items = m
+          .group(1)!
+          .replaceAll('<oli>', '<li>')
+          .replaceAll('</oli>', '</li>');
+      return '<ol>$items</ol>';
+    });
 
     // ── 8. Wrap plain-text lines in <p> (skip lines already HTML) ──
     final lines = html.split('\n');
@@ -484,8 +472,18 @@ class _KnowledgeArticleDetailScreenState
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }

@@ -1,6 +1,6 @@
 class AppConstants {
   // App Info
-  static const String appName = 'EnigTickets';
+  static const String appName = 'Tixcora';
   static const String appTagline = 'Secure Enterprise Ticketing';
   static const String poweredBy = 'Powered by EnigmaCamp';
   // Note: App version is now dynamic, use AppInfo.version instead

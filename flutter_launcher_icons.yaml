@@ -1,0 +1,14 @@
+flutter_launcher_icons:
+  android: true
+  ios: true
+  # Use the circle logo (blue bg + white logo) for both legacy and adaptive
+  image_path: "assets/images/logos/tixcora_color_c.png"
+  # Adaptive icon (Android 8+): navy bg + circle logo as foreground with padding
+  adaptive_icon_background: "#1E3A8A"
+  adaptive_icon_foreground: "assets/images/logos/tixcora_color_c.png"
+  # Padding 25% ensures the circle logo doesn't hit the adaptive mask edge
+  adaptive_icon_image_padding: 25
+  # iOS
+  remove_alpha_ios: true
+  background_color_ios: "#1E3A8A"
+  min_sdk_android: 21
