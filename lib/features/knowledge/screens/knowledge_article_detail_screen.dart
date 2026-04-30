@@ -159,10 +159,31 @@ class _KnowledgeArticleDetailScreenState
     return Html(
       data: htmlContent,
       onLinkTap: (url, _, __) async {
-        if (url != null) {
-          final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (url == null || url.trim().isEmpty) return;
+        try {
+          // Auto-fix URLs that have no scheme (e.g. "google.com" → "https://google.com")
+          String fixedUrl = url.trim();
+          if (!fixedUrl.startsWith('http://') &&
+              !fixedUrl.startsWith('https://') &&
+              !fixedUrl.startsWith('mailto:') &&
+              !fixedUrl.startsWith('tel:')) {
+            fixedUrl = 'https://$fixedUrl';
+          }
+          final uri = Uri.parse(fixedUrl);
+          // Directly launch without canLaunchUrl check:
+          // canLaunchUrl returns false on Android without <queries> in manifest
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } catch (_) {
+          // Fallback: try in-app browser if external fails
+          try {
+            String fixedUrl = url.trim();
+            if (!fixedUrl.startsWith('http')) fixedUrl = 'https://$fixedUrl';
+            await launchUrl(
+              Uri.parse(fixedUrl),
+              mode: LaunchMode.inAppBrowserView,
+            );
+          } catch (_) {
+            // silently ignore if all launch modes fail
           }
         }
       },
