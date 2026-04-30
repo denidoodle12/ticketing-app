@@ -24,6 +24,7 @@ class _KnowledgeSearchScreenState extends State<KnowledgeSearchScreen> {
   List<KnowledgeArticle> _results = [];
   bool _isSearching = false;
   bool _hasSearched = false;
+  String _lastQuery = ''; // guard duplicate calls
 
   @override
   void initState() {
@@ -50,11 +51,15 @@ class _KnowledgeSearchScreenState extends State<KnowledgeSearchScreen> {
         _results = [];
         _hasSearched = false;
         _isSearching = false;
+        _lastQuery = '';
       });
       return;
     }
 
-    setState(() => _isSearching = true);
+    // Show shimmer only if no results yet for this query
+    if (_lastQuery != query.trim()) {
+      setState(() => _isSearching = true);
+    }
 
     _debounceTimer = Timer(const Duration(milliseconds: 400), () {
       _performSearch(query);
@@ -62,15 +67,21 @@ class _KnowledgeSearchScreenState extends State<KnowledgeSearchScreen> {
   }
 
   Future<void> _performSearch(String query) async {
-    if (query.trim().isEmpty) return;
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
 
+    // Skip if same query already has results
+    if (trimmed == _lastQuery && _results.isNotEmpty) return;
+
+    // Show searching shimmer (but keep _results so no empty flash)
     setState(() => _isSearching = true);
 
     try {
       final provider = context.read<KnowledgeProvider>();
-      await provider.loadArticles(search: query.trim());
+      await provider.loadArticles(search: trimmed);
 
       if (mounted) {
+        _lastQuery = trimmed;
         setState(() {
           _results = provider.articles;
           _isSearching = false;
@@ -94,6 +105,7 @@ class _KnowledgeSearchScreenState extends State<KnowledgeSearchScreen> {
       _results = [];
       _hasSearched = false;
       _isSearching = false;
+      _lastQuery = '';
     });
     _focusNode.requestFocus();
   }
@@ -213,12 +225,8 @@ class _KnowledgeSearchScreenState extends State<KnowledgeSearchScreen> {
                   ),
                 ),
                 onChanged: _onSearchChanged,
-                onSubmitted: (value) {
-                  if (value.trim().isNotEmpty) {
-                    _performSearch(value);
-                  }
-                },
-                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _focusNode.unfocus(), // dismiss keyboard only
+                textInputAction: TextInputAction.done,
               ),
             ),
           ),

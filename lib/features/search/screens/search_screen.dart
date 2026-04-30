@@ -37,6 +37,7 @@ class _SearchScreenState extends State<SearchScreen> {
   List<String> _recentSearches = [];
   List<Ticket> _searchResults = [];
   int _totalResults = 0;
+  String _lastSearchedQuery = ''; // tracks last completed query to avoid duplicate calls
 
   // Single-select server-side filters
   int? _selectedStatusId;
@@ -101,13 +102,17 @@ class _SearchScreenState extends State<SearchScreen> {
         _screenState = SearchScreenState.initial;
         _searchResults = [];
         _totalResults = 0;
+        _lastSearchedQuery = '';
       });
       return;
     }
 
-    setState(() {
-      _screenState = SearchScreenState.searching;
-    });
+    // Only show searching state if no results yet for this query
+    if (_lastSearchedQuery != query.trim()) {
+      setState(() {
+        _screenState = SearchScreenState.searching;
+      });
+    }
 
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       _performSearch(query);
@@ -118,6 +123,11 @@ class _SearchScreenState extends State<SearchScreen> {
     final trimmedQuery = query.trim();
     if (trimmedQuery.isEmpty) return;
 
+    // Skip duplicate call if same query already completed
+    if (trimmedQuery == _lastSearchedQuery &&
+        _screenState == SearchScreenState.results) return;
+
+    // Show searching state but keep existing results visible (no flash to empty)
     setState(() {
       _screenState = SearchScreenState.searching;
     });
@@ -143,6 +153,7 @@ class _SearchScreenState extends State<SearchScreen> {
       );
 
       if (mounted) {
+        _lastSearchedQuery = trimmedQuery;
         setState(() {
           _searchResults = response.tickets;
           _totalResults = response.total;
@@ -388,12 +399,8 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                 ),
                 onChanged: _onSearchChanged,
-                onSubmitted: (value) {
-                  if (value.trim().isNotEmpty) {
-                    _performSearch(value);
-                  }
-                },
-                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _focusNode.unfocus(), // just dismiss keyboard
+                textInputAction: TextInputAction.done,
               ),
             ),
           ),
