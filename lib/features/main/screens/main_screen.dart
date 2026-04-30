@@ -82,7 +82,6 @@ class MainScreenState extends State<MainScreen> {
     }
   }
 
-
   Future<void> _initBackgroundService() async {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -111,7 +110,9 @@ class MainScreenState extends State<MainScreen> {
           // Listen for token synced from background SSE isolate (Gap 2 fix).
           // When SSE independently refreshes, it sends the new token back
           // so FlutterSecureStorage stays in sync with the background service.
-          BackgroundNotificationService.instance.on('tokenSynced').listen((data) async {
+          BackgroundNotificationService.instance.on('tokenSynced').listen((
+            data,
+          ) async {
             final syncedToken = data?['token'] as String?;
             if (syncedToken != null) {
               const secureStorage = FlutterSecureStorage();
@@ -177,12 +178,17 @@ class MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Read system bottom inset (gesture bar / navigation buttons height).
+    // This varies per device: 0 on full-gesture devices, ~24-48dp on button devices.
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final navBarHeight = 100.0 + bottomInset;
+
     return Scaffold(
       body: _screens[_currentIndex],
       extendBody: true,
       resizeToAvoidBottomInset: false,
       bottomNavigationBar: SizedBox(
-        height: 100,
+        height: navBarHeight,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -234,48 +240,51 @@ class MainScreenState extends State<MainScreen> {
               ),
             ),
 
-            // Nav items positioned at the bottom
+            // Nav items — height 80 fixed + bottom inset as padding
             Positioned(
               left: 0,
               right: 0,
-              bottom: 0,
-              height: 80,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildNavItem(
-                        index: 0,
-                        label: 'Home',
-                        iconPath: 'assets/icons/ic_home_no_filled.svg',
-                        activeIconPath: 'assets/icons/ic_home_filled.svg',
-                      ),
-                      _buildNavItem(
-                        index: 1,
-                        label: 'Tickets',
-                        iconPath: 'assets/icons/ic_tickets_nofilled.svg',
-                        activeIconPath: 'assets/icons/ic_tickets_filled.svg',
-                        useOriginalActiveColor: true,
-                      ),
-                      const Expanded(child: SizedBox()),
-                      _buildNavItem(
-                        index: 2,
-                        label: 'Knowledge',
-                        iconPath: '',
-                        activeIconPath: '',
-                        materialIcon: Icons.menu_book_outlined,
-                        materialActiveIcon: Icons.menu_book,
-                      ),
-                      _buildNavItem(
-                        index: 3,
-                        label: 'Profile',
-                        iconPath: 'assets/icons/ic_profile_no_filled.svg',
-                        activeIconPath: 'assets/icons/ic_profile_filled.svg',
-                      ),
-                    ],
-                  ),
+              top: 0,
+              // Do NOT set bottom: 0 — instead drive height explicitly
+              height: navBarHeight,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 8,
+                  right: 8,
+                  bottom: bottomInset, // push items above system bar
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(
+                      index: 0,
+                      label: 'Home',
+                      iconPath: 'assets/icons/ic_home_no_filled.svg',
+                      activeIconPath: 'assets/icons/ic_home_filled.svg',
+                    ),
+                    _buildNavItem(
+                      index: 1,
+                      label: 'Tickets',
+                      iconPath: 'assets/icons/ic_tickets_nofilled.svg',
+                      activeIconPath: 'assets/icons/ic_tickets_filled.svg',
+                      useOriginalActiveColor: true,
+                    ),
+                    const Expanded(child: SizedBox()),
+                    _buildNavItem(
+                      index: 2,
+                      label: 'Knowledge',
+                      iconPath: '',
+                      activeIconPath: '',
+                      materialIcon: Icons.menu_book_outlined,
+                      materialActiveIcon: Icons.menu_book,
+                    ),
+                    _buildNavItem(
+                      index: 3,
+                      label: 'Profile',
+                      iconPath: 'assets/icons/ic_profile_no_filled.svg',
+                      activeIconPath: 'assets/icons/ic_profile_filled.svg',
+                    ),
+                  ],
                 ),
               ),
             ),
