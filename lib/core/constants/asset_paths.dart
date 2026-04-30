@@ -1,6 +1,7 @@
 class AssetPaths {
   // Logos
-  static const String appLogo = 'assets/images/logos/app_logo.png';
+  static const String appLogo = 'assets/images/logos/app_logo.png'; // legacy, kept for reference
+  static const String tixcoraColor = 'assets/images/logos/ticxora_color.png';
   static const String tixcoraColorCircle = 'assets/images/logos/tixcora_color_c.png';
   static const String tixcoraWhite = 'assets/images/logos/tixcora_white.png';
 

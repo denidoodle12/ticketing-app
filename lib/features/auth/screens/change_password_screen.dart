@@ -191,25 +191,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   if (widget.isFirstLogin) ...[
                     const SizedBox(height: 8),
                     Center(
-                      child: Container(
+                      child: Image.asset(
+                        AssetPaths.tixcoraColor,
                         width: 80,
                         height: 80,
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.shadow.withAlpha(20),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Image.asset(
-                          AssetPaths.appLogo,
-                          fit: BoxFit.contain,
-                        ),
+                        fit: BoxFit.contain,
                       ),
                     ),
                     const SizedBox(height: 24),
