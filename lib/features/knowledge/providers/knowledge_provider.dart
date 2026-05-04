@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/knowledge_category_model.dart';
 import '../models/knowledge_article_model.dart';
+import '../models/ai_chat_model.dart';
 import '../repositories/knowledge_repository.dart';
 
 /// Provider for Knowledge Base state management
@@ -75,6 +76,17 @@ class KnowledgeProvider extends ChangeNotifier {
   // ─── Initial Load Tracking ────────────────────────────────────
   bool _hasLoadedInitialData = false;
   bool get hasLoadedInitialData => _hasLoadedInitialData;
+
+  // ─── AI Chat ──────────────────────────────────────────────────────
+  List<AiChatMessage> _chatMessages = [];
+  List<AiChatMessage> get chatMessages => _chatMessages;
+  bool _isAiResponding = false;
+  bool get isAiResponding => _isAiResponding;
+  String? _aiError;
+  String? get aiError => _aiError;
+
+  /// Whether the chat has any messages (used to show welcome vs chat view)
+  bool get hasChatHistory => _chatMessages.isNotEmpty;
 
   // ═══════════════════════════════════════════════════════════════════
   // Actions
@@ -277,9 +289,72 @@ class KnowledgeProvider extends ChangeNotifier {
     await loadInitialData();
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // AI Chat Actions
+  // ═══════════════════════════════════════════════════════════════════
+
+  /// Send a message to the AI Assistant
+  /// Pattern: append user msg → append loading placeholder → call API → replace
+  Future<void> sendMessage(String question) async {
+    if (_isAiResponding || question.trim().isEmpty) return;
+
+    _isAiResponding = true;
+    _aiError = null;
+
+    // 1. Append user message
+    _chatMessages = [..._chatMessages, AiChatMessage.user(question.trim())];
+    // 2. Append loading placeholder
+    _chatMessages = [..._chatMessages, AiChatMessage.loading()];
+    notifyListeners();
+
+    try {
+      final response = await _repository.askAi(question.trim());
+      // 3. Replace loading placeholder with actual response
+      _chatMessages = [
+        ..._chatMessages.sublist(0, _chatMessages.length - 1),
+        AiChatMessage.fromResponse(response),
+      ];
+    } catch (e) {
+      final errorMsg = e.toString().replaceFirst('Exception: ', '');
+      // 3. Replace loading placeholder with error
+      _chatMessages = [
+        ..._chatMessages.sublist(0, _chatMessages.length - 1),
+        AiChatMessage.error(errorMsg),
+      ];
+      _aiError = errorMsg;
+    } finally {
+      _isAiResponding = false;
+      notifyListeners();
+    }
+  }
+
+  /// Retry the last failed message
+  void retryLastMessage() {
+    if (_chatMessages.length < 2) return;
+    // Find the last user message (should be second-to-last)
+    final lastUserMsg = _chatMessages[_chatMessages.length - 2];
+    if (lastUserMsg.role != ChatRole.user) return;
+
+    // Remove the error message
+    _chatMessages = _chatMessages.sublist(0, _chatMessages.length - 1);
+    notifyListeners();
+
+    // Resend
+    sendMessage(lastUserMsg.content);
+  }
+
+  /// Clear chat history (reset to welcome state)
+  void clearChat() {
+    _chatMessages = [];
+    _aiError = null;
+    _isAiResponding = false;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _searchDebounce?.cancel();
     super.dispose();
   }
 }
+

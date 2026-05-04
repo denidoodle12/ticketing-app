@@ -1,6 +1,7 @@
 import '../datasources/knowledge_remote_datasource.dart';
 import '../models/knowledge_category_model.dart';
 import '../models/knowledge_article_model.dart';
+import '../models/ai_chat_model.dart';
 
 /// Repository for knowledge base operations
 abstract class KnowledgeRepository {
@@ -20,6 +21,9 @@ abstract class KnowledgeRepository {
 
   /// Get article by ID
   Future<KnowledgeArticle> getArticleById(int id);
+
+  /// Ask AI Assistant a question
+  Future<AiAskResponse> askAi(String question);
 }
 
 /// Implementation of KnowledgeRepository
@@ -59,4 +63,10 @@ class KnowledgeRepositoryImpl implements KnowledgeRepository {
   Future<KnowledgeArticle> getArticleById(int id) async {
     return await _remoteDatasource.getArticleById(id);
   }
+
+  @override
+  Future<AiAskResponse> askAi(String question) async {
+    return await _remoteDatasource.askAi(question);
+  }
 }
+

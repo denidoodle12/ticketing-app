@@ -17,6 +17,7 @@ import '../features/search/screens/search_screen.dart';
 import '../features/profile/screens/edit_profile_screen.dart';
 import '../features/knowledge/screens/knowledge_screen.dart';
 import '../features/knowledge/screens/knowledge_article_detail_screen.dart';
+import '../features/knowledge/screens/ai_chat_screen.dart';
 import '../features/knowledge/providers/knowledge_provider.dart';
 import '../features/notifications/screens/notification_screen.dart';
 import 'package:provider/provider.dart';
@@ -39,6 +40,7 @@ class AppRoutes {
   static const String editProfile = '/profile/edit';
   static const String knowledge = '/knowledge';
   static const String knowledgeArticleDetail = '/knowledge/article';
+  static const String aiChat = '/knowledge/ai-chat';
   static const String notifications = '/notifications';
 
   // Navigator key for global access
@@ -156,6 +158,16 @@ class AppRoutes {
           return ChangeNotifierProvider.value(
             value: context.read<KnowledgeProvider>(),
             child: KnowledgeArticleDetailScreen(articleId: articleId),
+          );
+        },
+      ),
+      GoRoute(
+        path: aiChat,
+        name: 'aiChat',
+        builder: (context, state) {
+          return ChangeNotifierProvider.value(
+            value: context.read<KnowledgeProvider>(),
+            child: const AiChatScreen(),
           );
         },
       ),

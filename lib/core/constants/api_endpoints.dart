@@ -73,4 +73,7 @@ class ApiEndpoints {
   // Articles
   static const String knowledgeArticles = '/knowledge';
   static String knowledgeArticleById(int id) => '/knowledge/$id';
+
+  // AI Assistant
+  static const String knowledgeAsk = '/knowledge/ask';
 }

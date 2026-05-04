@@ -5,6 +5,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_interceptor.dart';
 import '../models/knowledge_category_model.dart';
 import '../models/knowledge_article_model.dart';
+import '../models/ai_chat_model.dart';
 
 /// Remote datasource for Knowledge Base API calls
 class KnowledgeRemoteDatasource {
@@ -94,9 +95,36 @@ class KnowledgeRemoteDatasource {
     }
   }
 
+  /// Ask AI Assistant a question (POST /knowledge/ask)
+  /// Extended timeout because AI backend needs up to 115 seconds
+  Future<AiAskResponse> askAi(String question) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.knowledgeAsk,
+        data: {'question': question},
+        options: Options(
+          receiveTimeout: const Duration(seconds: 120),
+        ),
+      );
+      return AiAskResponse.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 503) {
+        throw Exception('AI Assistant is currently unavailable. Please try again later.');
+      }
+      if (e.response?.statusCode == 400) {
+        final msg = e.response?.data?['message'] ?? 'Invalid question';
+        throw Exception(msg);
+      }
+      throw _handleError(e);
+    }
+  }
+
   Exception _handleError(DioException e) {
     final message =
         e.response?.data?['message'] ?? e.message ?? 'Unknown error';
     return Exception(message);
   }
 }
+

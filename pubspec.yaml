@@ -89,5 +89,6 @@ flutter:
     - assets/images/logos/
     - assets/images/onboarding/
     - assets/images/illustrations/
+    - assets/images/chatbot/
     - assets/icons/
     - assets/icons/dashboard/

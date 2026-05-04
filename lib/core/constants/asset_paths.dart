@@ -5,6 +5,9 @@ class AssetPaths {
   static const String tixcoraColorCircle = 'assets/images/logos/tixcora_color_c.png';
   static const String tixcoraWhite = 'assets/images/logos/tixcora_white.png';
 
+  // Chatbot
+  static const String chatbot = 'assets/images/chatbot/chatbot.png';
+
   // Illustrations
   static const String noInternet =
       'assets/images/illustrations/no_internet.png';

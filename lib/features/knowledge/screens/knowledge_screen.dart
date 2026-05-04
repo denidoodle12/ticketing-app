@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/constants/asset_paths.dart';
 import '../../../shared/widgets/section_label.dart';
+import '../../../routes/app_routes.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/knowledge_article_model.dart';
 import '../widgets/knowledge_category_card.dart';
@@ -46,6 +48,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                   _buildGreeting(),
                   const SizedBox(height: 16),
                   _buildSearchBar(),
+                  const SizedBox(height: 20),
+                  _buildAiBanner(),
                   const SizedBox(height: 24),
                   _buildCategoriesSection(provider),
                   const SizedBox(height: 24),
@@ -124,6 +128,133 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.grey400,
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── AI Assistant Banner ──────────────────────────────────────
+
+  Widget _buildAiBanner() {
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.aiChat),
+      child: Container(
+        height: 140,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Color(0xFF3B5FE5),
+              Color(0xFF5B7BF5),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary500.withAlpha(40),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Subtle decorative circles
+            Positioned(
+              top: -20,
+              right: -20,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.white.withAlpha(15),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -30,
+              left: -15,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.white.withAlpha(10),
+                ),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 8, 18),
+              child: Row(
+                children: [
+                  // Left: text + button
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Tix AI Assistant',
+                          style: AppTextStyles.h5.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Try to ask anything',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.white.withAlpha(200),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Text(
+                            'Start Now',
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.primary600,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Right: chatbot image
+                  Image.asset(
+                    AssetPaths.chatbot,
+                    width: 110,
+                    height: 110,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppColors.white.withAlpha(30),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.smart_toy_outlined,
+                        color: AppColors.white,
+                        size: 40,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
