@@ -88,6 +88,41 @@ class KnowledgeProvider extends ChangeNotifier {
   /// Whether the chat has any messages (used to show welcome vs chat view)
   bool get hasChatHistory => _chatMessages.isNotEmpty;
 
+  /// Dynamic suggested questions generated from loaded categories & articles
+  List<String> get suggestedQuestions {
+    final questions = <String>[];
+
+    // Generate from categories
+    if (_categories.isNotEmpty) {
+      for (final cat in _categories.take(2)) {
+        questions.add('What articles are available about ${cat.name}?');
+      }
+    }
+
+    // Generate from recent articles
+    if (_recentArticles.isNotEmpty) {
+      for (final article in _recentArticles.take(2)) {
+        questions.add('Explain about "${article.title}"');
+      }
+    }
+
+    // Fallbacks if not enough dynamic questions
+    final fallbacks = [
+      'How to create a new ticket?',
+      'How to reset my password?',
+      'What ticket categories are available?',
+      'How to use the knowledge base?',
+    ];
+
+    // Fill up to 4 questions
+    for (final fb in fallbacks) {
+      if (questions.length >= 4) break;
+      if (!questions.contains(fb)) questions.add(fb);
+    }
+
+    return questions.take(4).toList();
+  }
+
   // ═══════════════════════════════════════════════════════════════════
   // Actions
   // ═══════════════════════════════════════════════════════════════════

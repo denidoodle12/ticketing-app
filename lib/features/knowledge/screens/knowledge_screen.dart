@@ -147,10 +147,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           gradient: const LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            colors: [
-              Color(0xFF3B5FE5),
-              Color(0xFF5B7BF5),
-            ],
+            colors: [AppColors.primary600, AppColors.primary500],
           ),
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
