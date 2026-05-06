@@ -23,8 +23,12 @@ class _AiChatScreenState extends State<AiChatScreen>
   static const int _maxChars = 500;
   static const String _onboardedKey = 'ai_chat_onboarded';
 
-  bool _isOnboarded = true; // Default true, will check async
+  bool _isOnboarded = true;
   bool _isCheckingOnboard = true;
+
+  // Track message count for smart auto-scroll
+  int _previousMessageCount = 0;
+  bool _shouldForceScroll = false;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -82,6 +86,14 @@ class _AiChatScreenState extends State<AiChatScreen>
     super.dispose();
   }
 
+  /// Check if user is near the bottom of the chat list (within 150px)
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) return true;
+    final position = _scrollController.position;
+    return position.maxScrollExtent - position.pixels < 150;
+  }
+
+  /// Scroll to the bottom of the chat list
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -94,49 +106,111 @@ class _AiChatScreenState extends State<AiChatScreen>
     });
   }
 
+  /// Smart auto-scroll: only scroll if user is near bottom or just sent a message
+  void _smartScrollToBottom(int currentMessageCount) {
+    if (currentMessageCount > _previousMessageCount) {
+      // New message arrived
+      if (_shouldForceScroll || _isNearBottom()) {
+        _scrollToBottom();
+      }
+      _shouldForceScroll = false;
+    }
+    _previousMessageCount = currentMessageCount;
+  }
+
   void _sendMessage(String text) {
     if (text.trim().isEmpty) return;
+    _shouldForceScroll = true; // Always scroll after user sends
     context.read<KnowledgeProvider>().sendMessage(text.trim());
     _textController.clear();
+    _focusNode.requestFocus(); // Keep focus on input after send
     setState(() {});
-    _scrollToBottom();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: _isCheckingOnboard
           ? null
           : (!_isOnboarded ? _buildGetStartedAppBar() : _buildAppBar()),
-      body: _isCheckingOnboard
-          ? const SizedBox.shrink()
-          : FadeTransition(
-              opacity: _fadeAnimation,
-              child: Consumer<KnowledgeProvider>(
-                builder: (context, provider, _) {
-                  if (provider.chatMessages.isNotEmpty) {
-                    _scrollToBottom();
-                  }
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFF0F4FF), // Soft blue-white top
+              Color(0xFFF8FAFF), // Very light blue mid
+              AppColors.white, // Pure white bottom
+            ],
+            stops: [0.0, 0.35, 0.7],
+          ),
+        ),
+        child: SafeArea(
+          child: _isCheckingOnboard
+              ? const SizedBox.shrink()
+              : FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Consumer<KnowledgeProvider>(
+                    builder: (context, provider, _) {
+                      // Smart auto-scroll: only when new messages arrive & user near bottom
+                      if (provider.chatMessages.isNotEmpty) {
+                        _smartScrollToBottom(provider.chatMessages.length);
+                      }
 
-                  // Three states: get-started → welcome → chatting
-                  if (!_isOnboarded) {
-                    return _buildGetStartedView();
-                  }
+                      if (!_isOnboarded) {
+                        return _buildGetStartedView();
+                      }
 
-                  return Column(
-                    children: [
-                      Expanded(
-                        child: provider.hasChatHistory
-                            ? _buildChatList(provider)
-                            : _buildWelcomeView(provider),
-                      ),
-                      _buildInputBar(provider),
-                    ],
-                  );
-                },
+                      return Column(
+                        children: [
+                          Expanded(
+                            child: provider.hasChatHistory
+                                ? _buildChatList(provider)
+                                : _buildWelcomeView(provider),
+                          ),
+                          _buildInputBar(provider),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Rounded back button (matches ticket detail style) ─────────
+
+  Widget _buildBackButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.pop(context),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadow.withAlpha(20),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-            ),
+            ],
+          ),
+          child: const Icon(
+            Icons.arrow_back,
+            color: AppColors.primaryDark,
+            size: 22,
+          ),
+        ),
+      ),
     );
   }
 
@@ -144,7 +218,7 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   PreferredSizeWidget _buildGetStartedAppBar() {
     return AppBar(
-      backgroundColor: AppColors.white,
+      backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       automaticallyImplyLeading: false,
@@ -172,13 +246,13 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: AppColors.white,
+      backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-        color: AppColors.textPrimary,
-        onPressed: () => Navigator.pop(context),
+      leadingWidth: 76,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: Center(child: _buildBackButton()),
       ),
       title: Row(
         mainAxisSize: MainAxisSize.min,
@@ -246,12 +320,15 @@ class _AiChatScreenState extends State<AiChatScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Spacer(flex: 3),
-          // Large tixcora logo
-          Image.asset(AssetPaths.chatbot, width: 250, height: 250),
+          // Chatbot illustration — centered
+          Center(
+            child: Image.asset(AssetPaths.chatbot, width: 250, height: 250),
+          ),
           const SizedBox(height: 16),
-          // "Welcome to" — normal text
+          // "Welcome to" — left-aligned
           Text(
             'Welcome to',
             style: AppTextStyles.h2.copyWith(
@@ -261,7 +338,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             ),
           ),
           const SizedBox(height: 4),
-          // "TixAI 👋" — primaryDark color
+          // "TixAI 👋" — primaryDark, left-aligned
           Text(
             'TixAI 👋',
             style: AppTextStyles.h2.copyWith(
@@ -270,23 +347,13 @@ class _AiChatScreenState extends State<AiChatScreen>
               height: 1.2,
             ),
           ),
-          const SizedBox(height: 36),
-          // Subtitle lines
+          const SizedBox(height: 20),
+          // Subtitle — left-aligned
           Text(
-            'Start chatting with TixAI now.',
-            textAlign: TextAlign.center,
+            'Start chatting with TixAI Assistant now.\nYou can ask me anything about articles.',
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 0),
-          Text(
-            'You can ask me anything.',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.5,
+              height: 1.6,
             ),
           ),
           const Spacer(flex: 4),
@@ -347,14 +414,24 @@ class _AiChatScreenState extends State<AiChatScreen>
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 40),
-                // Welcome text — Aria-style, clean, no icon
+                // "Hi, I'm" — left-aligned
                 Text(
-                  'Hi, I\'m TixAI',
+                  'Hello,',
                   style: AppTextStyles.h3.copyWith(
                     color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                // "TixAI" — primaryDark, left-aligned
+                Text(
+                  'I\'m TixAI',
+                  style: AppTextStyles.h3.copyWith(
+                    color: AppColors.primaryDark,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -362,20 +439,19 @@ class _AiChatScreenState extends State<AiChatScreen>
                 Text(
                   'I can help you today',
                   style: AppTextStyles.h4.copyWith(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Take a deep breath. I\'m ready when you are.\nChoose what you\'d like to work on:',
-                  textAlign: TextAlign.center,
+                  'Take a deep breath. I\'m ready when you are.\nChoose what you\'d like to search for:',
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textSecondary,
                     height: 1.5,
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
                 // Suggested questions grid (2×2)
                 _buildSuggestionsGrid(suggestions),
                 const SizedBox(height: 32),
@@ -433,6 +509,8 @@ class _AiChatScreenState extends State<AiChatScreen>
   Widget _buildChatList(KnowledgeProvider provider) {
     return ListView.builder(
       controller: _scrollController,
+      // #2: Dismiss keyboard when user scrolls through chat
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: provider.chatMessages.length,
       itemBuilder: (context, index) {
@@ -445,119 +523,102 @@ class _AiChatScreenState extends State<AiChatScreen>
     );
   }
 
-  // ─── Input Bar ──────────────────────────────────────────────────
+  // ─── Input Bar (matches ticket chat style) ──────────────────────
 
   Widget _buildInputBar(KnowledgeProvider provider) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final canSend =
+        _textController.text.trim().isNotEmpty && !provider.isAiResponding;
 
-    return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 8,
-        top: 12,
-        bottom: 12 + bottomPadding,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow.withAlpha(10),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: Container(
-              constraints: const BoxConstraints(maxHeight: 120),
-              decoration: BoxDecoration(
-                color: AppColors.neutral50,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: _focusNode.hasFocus
-                      ? AppColors.primary400
-                      : AppColors.secondary200,
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Text field
+            Expanded(
+              child: Container(
+                constraints: const BoxConstraints(maxHeight: 120),
+                decoration: BoxDecoration(
+                  color: AppColors.grey100,
+                  borderRadius: BorderRadius.circular(24),
                 ),
-              ),
-              child: TextField(
-                controller: _textController,
-                focusNode: _focusNode,
-                maxLines: 3,
-                minLines: 1,
-                maxLength: _maxChars,
-                textInputAction: TextInputAction.newline,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textPrimary,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Ask me anything...',
-                  hintStyle: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.grey400,
+                child: TextField(
+                  controller: _textController,
+                  focusNode: _focusNode,
+                  maxLines: null,
+                  maxLength: _maxChars,
+                  textCapitalization: TextCapitalization.sentences,
+                  // #3: Submit via Enter key (send action on keyboard)
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: canSend
+                      ? (text) => _sendMessage(text)
+                      : (_) { _focusNode.requestFocus(); },
+                  style: AppTextStyles.bodyMedium,
+                  decoration: InputDecoration(
+                    hintText: 'Ask me anything...',
+                    hintStyle: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    counterText: '',
                   ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 12,
-                  ),
-                  counterText: '',
-                  isDense: true,
+                  onChanged: (_) => setState(() {}),
                 ),
-                onChanged: (_) => setState(() {}),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap:
-                provider.isAiResponding || _textController.text.trim().isEmpty
-                ? null
-                : () => _sendMessage(_textController.text),
-            child: Container(
+            const SizedBox(width: 8),
+            // Send button
+            Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                gradient:
-                    _textController.text.trim().isNotEmpty &&
-                        !provider.isAiResponding
-                    ? const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [AppColors.primary600, AppColors.primary500],
-                      )
-                    : null,
-                color:
-                    _textController.text.trim().isEmpty ||
-                        provider.isAiResponding
-                    ? AppColors.grey300
-                    : null,
-                borderRadius: BorderRadius.circular(22),
-                boxShadow:
-                    _textController.text.trim().isNotEmpty &&
-                        !provider.isAiResponding
-                    ? [
-                        BoxShadow(
-                          color: AppColors.primary500.withAlpha(40),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                color: provider.isAiResponding
+                    ? AppColors.primary.withAlpha(150)
+                    : canSend
+                    ? AppColors.primary
+                    : AppColors.grey300,
+                shape: BoxShape.circle,
+              ),
+              child: provider.isAiResponding
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.white,
                         ),
-                      ]
-                    : null,
-              ),
-              child: Icon(
-                Icons.arrow_upward_rounded,
-                color:
-                    _textController.text.trim().isNotEmpty &&
-                        !provider.isAiResponding
-                    ? AppColors.white
-                    : AppColors.grey500,
-                size: 22,
-              ),
+                      ),
+                    )
+                  : IconButton(
+                      onPressed: canSend
+                          ? () => _sendMessage(_textController.text)
+                          : null,
+                      icon: Icon(
+                        Icons.send,
+                        color: canSend ? AppColors.white : AppColors.grey400,
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
+                    ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

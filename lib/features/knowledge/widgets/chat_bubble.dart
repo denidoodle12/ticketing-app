@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../models/ai_chat_model.dart';
@@ -133,7 +135,8 @@ class ChatBubble extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.refresh, size: 14, color: AppColors.error700),
+                      const Icon(Icons.refresh,
+                          size: 14, color: AppColors.error700),
                       const SizedBox(width: 4),
                       Text(
                         'Retry',
@@ -152,47 +155,303 @@ class ChatBubble extends StatelessWidget {
       );
     }
 
-    // Normal message
+    // User message — plain text
+    if (_isUser) {
+      return Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.primary600, AppColors.primary500],
+          ),
+          borderRadius: BorderRadius.circular(16).copyWith(
+            bottomRight: const Radius.circular(4),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary500.withAlpha(30),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          message.content,
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.white,
+            height: 1.5,
+          ),
+        ),
+      );
+    }
+
+    // AI message — rendered with flutter_html
     return Container(
       constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.75,
+        maxWidth: MediaQuery.of(context).size.width * 0.78,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        gradient: _isUser
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.primary600, AppColors.primary500],
-              )
-            : null,
-        color: _isUser ? null : AppColors.neutral100,
-        borderRadius: _isUser
-            ? BorderRadius.circular(16).copyWith(
-                bottomRight: const Radius.circular(4),
-              )
-            : BorderRadius.circular(16).copyWith(
-                bottomLeft: const Radius.circular(4),
-              ),
-        boxShadow: _isUser
-            ? [
-                BoxShadow(
-                  color: AppColors.primary500.withAlpha(30),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
-      ),
-      child: Text(
-        message.content,
-        style: AppTextStyles.bodyMedium.copyWith(
-          color: _isUser ? AppColors.white : AppColors.textPrimary,
-          height: 1.5,
+        color: AppColors.neutral100,
+        borderRadius: BorderRadius.circular(16).copyWith(
+          bottomLeft: const Radius.circular(4),
         ),
       ),
+      child: _buildRenderedContent(context, message.content),
     );
   }
+
+  // ─── Rendered content using flutter_html ──────────────────────
+
+  Widget _buildRenderedContent(BuildContext context, String rawContent) {
+    final html = _prepareAiContent(rawContent);
+
+    return Html(
+      data: html,
+      onLinkTap: (url, _, __) async {
+        if (url == null || url.isEmpty) return;
+        try {
+          String fixedUrl = url.trim();
+          if (!fixedUrl.startsWith('http')) {
+            fixedUrl = 'https://$fixedUrl';
+          }
+          final uri = Uri.parse(fixedUrl);
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } catch (_) {
+          try {
+            String fixedUrl = url.trim();
+            if (!fixedUrl.startsWith('http')) fixedUrl = 'https://$fixedUrl';
+            await launchUrl(
+              Uri.parse(fixedUrl),
+              mode: LaunchMode.inAppBrowserView,
+            );
+          } catch (_) {}
+        }
+      },
+      style: {
+        'body': Style(
+          margin: Margins.zero,
+          padding: HtmlPaddings.zero,
+          fontSize: FontSize(13.5),
+          lineHeight: LineHeight(1.6),
+          color: AppColors.textPrimary,
+        ),
+        'p': Style(
+          margin: Margins.only(bottom: 8),
+          fontSize: FontSize(13.5),
+          lineHeight: LineHeight(1.6),
+          color: AppColors.textPrimary,
+        ),
+        'h1': Style(
+          fontSize: FontSize(18),
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+          margin: Margins.only(top: 12, bottom: 6),
+        ),
+        'h2': Style(
+          fontSize: FontSize(16),
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+          margin: Margins.only(top: 10, bottom: 6),
+        ),
+        'h3': Style(
+          fontSize: FontSize(15),
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+          margin: Margins.only(top: 8, bottom: 4),
+        ),
+        'strong': Style(
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+        ),
+        'b': Style(
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+        ),
+        'em': Style(fontStyle: FontStyle.italic),
+        'i': Style(fontStyle: FontStyle.italic),
+        'a': Style(
+          color: AppColors.primary500,
+          textDecoration: TextDecoration.underline,
+        ),
+        'ul': Style(
+          margin: Margins.only(bottom: 8),
+          padding: HtmlPaddings.only(left: 4),
+        ),
+        'ol': Style(
+          margin: Margins.only(bottom: 8),
+          padding: HtmlPaddings.only(left: 4),
+        ),
+        'li': Style(
+          fontSize: FontSize(13.5),
+          lineHeight: LineHeight(1.5),
+          color: AppColors.textPrimary,
+          margin: Margins.only(bottom: 3),
+        ),
+        'code': Style(
+          backgroundColor: AppColors.grey200,
+          color: AppColors.primaryDark,
+          fontSize: FontSize(12.5),
+          padding: HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
+        ),
+        'pre': Style(
+          backgroundColor: AppColors.grey200,
+          padding: HtmlPaddings.all(10),
+          margin: Margins.only(bottom: 8),
+        ),
+        'blockquote': Style(
+          margin: Margins.only(left: 0, bottom: 8),
+          padding: HtmlPaddings.only(left: 10),
+          border: Border(
+            left: BorderSide(color: AppColors.primary400, width: 3),
+          ),
+          color: AppColors.textSecondary,
+          fontStyle: FontStyle.italic,
+        ),
+      },
+    );
+  }
+
+  /// Prepares AI content for HTML rendering.
+  /// Strips think-blocks (LLM reasoning), converts markdown to HTML.
+  String _prepareAiContent(String content) {
+    String html = content;
+
+    // ── 0. Strip <think>...</think> blocks (LLM reasoning, not for user) ──
+    html = html.replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '');
+
+    // ── 0b. Strip any leftover standalone <think> or </think> tags ──
+    html = html.replaceAll(RegExp(r'</?think>'), '');
+
+    // Trim leading/trailing whitespace after stripping
+    html = html.trim();
+
+    // ── 1. Code blocks ```lang\ncode\n``` ──
+    html = html.replaceAllMapped(
+      RegExp(r'```(\w*)\n([\s\S]*?)```'),
+      (m) => '<pre><code>${m.group(2)}</code></pre>',
+    );
+
+    // ── 2. Inline code `text` ──
+    html = html.replaceAllMapped(
+      RegExp(r'`([^`]+)`'),
+      (m) => '<code>${m.group(1)}</code>',
+    );
+
+    // ── 3. Blockquotes (> text) ──
+    html = html.replaceAllMapped(
+      RegExp(r'^>\s*(.+)$', multiLine: true),
+      (m) => '<blockquote>${m.group(1)}</blockquote>',
+    );
+
+    // ── 4. Headings (### → h3, ## → h2, # → h1) ──
+    html = html.replaceAllMapped(
+      RegExp(r'^### (.+)$', multiLine: true),
+      (m) => '<h3>${m.group(1)}</h3>',
+    );
+    html = html.replaceAllMapped(
+      RegExp(r'^## (.+)$', multiLine: true),
+      (m) => '<h2>${m.group(1)}</h2>',
+    );
+    html = html.replaceAllMapped(
+      RegExp(r'^# (.+)$', multiLine: true),
+      (m) => '<h1>${m.group(1)}</h1>',
+    );
+
+    // ── 5. Horizontal rule (--- or more) ──
+    html = html.replaceAllMapped(
+      RegExp(r'^-{3,}$', multiLine: true),
+      (m) => '<hr>',
+    );
+
+    // ── 6. Inline formatting ──
+    // Bold + Italic ***text***
+    html = html.replaceAllMapped(
+      RegExp(r'\*\*\*(.+?)\*\*\*'),
+      (m) => '<strong><em>${m.group(1)}</em></strong>',
+    );
+
+    // Bold **text**
+    html = html.replaceAllMapped(
+      RegExp(r'\*\*(.+?)\*\*'),
+      (m) => '<strong>${m.group(1)}</strong>',
+    );
+
+    // Bold __text__
+    html = html.replaceAllMapped(
+      RegExp(r'__(.+?)__'),
+      (m) => '<strong>${m.group(1)}</strong>',
+    );
+
+    // Italic *text*
+    html = html.replaceAllMapped(
+      RegExp(r'(?<![\w<])\*(.+?)\*(?![\w>])'),
+      (m) => '<em>${m.group(1)}</em>',
+    );
+
+    // Italic _text_
+    html = html.replaceAllMapped(
+      RegExp(r'(?<!\w)_(.+?)_(?!\w)'),
+      (m) => '<em>${m.group(1)}</em>',
+    );
+
+    // Strikethrough ~~text~~
+    html = html.replaceAllMapped(
+      RegExp(r'~~(.+?)~~'),
+      (m) => '<del>${m.group(1)}</del>',
+    );
+
+    // ── 7. Links [text](url) ──
+    html = html.replaceAllMapped(
+      RegExp(r'\[(.+?)\]\((.+?)\)'),
+      (m) => '<a href="${m.group(2)}">${m.group(1)}</a>',
+    );
+
+    // ── 8. Unordered list items (- item or * item at start of line) ──
+    html = html.replaceAllMapped(
+      RegExp(r'^[\-\*]\s+(.+)$', multiLine: true),
+      (m) => '<li>${m.group(1)}</li>',
+    );
+    html = html.replaceAllMapped(
+      RegExp(r'((?:<li>.+?<\/li>\s*)+)'),
+      (m) => '<ul>${m.group(1)}</ul>',
+    );
+
+    // ── 9. Ordered list items (1. item) ──
+    html = html.replaceAllMapped(
+      RegExp(r'^\d+\.\s+(.+)$', multiLine: true),
+      (m) => '<oli>${m.group(1)}</oli>',
+    );
+    html = html.replaceAllMapped(RegExp(r'((?:<oli>.+?<\/oli>\s*)+)'), (m) {
+      final items = m
+          .group(1)!
+          .replaceAll('<oli>', '<li>')
+          .replaceAll('</oli>', '</li>');
+      return '<ol>$items</ol>';
+    });
+
+    // ── 10. Wrap plain-text lines in <p> (skip lines already HTML) ──
+    final lines = html.split('\n');
+    final buffer = StringBuffer();
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) {
+        buffer.writeln();
+      } else if (RegExp(r'^<[a-zA-Z/]').hasMatch(trimmed)) {
+        buffer.writeln(trimmed);
+      } else {
+        buffer.writeln('<p>$trimmed</p>');
+      }
+    }
+
+    return buffer.toString();
+  }
+
+  // ─── Source Chips ──────────────────────────────────────────────
 
   Widget _buildSourceChips(BuildContext context) {
     return Padding(
