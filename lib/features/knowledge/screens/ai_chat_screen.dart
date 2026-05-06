@@ -571,17 +571,26 @@ class _AiChatScreenState extends State<AiChatScreen>
   }
 
   Widget _buildChatList(KnowledgeProvider provider) {
-    return ListView.builder(
-      controller: _scrollController,
-      // #2: Dismiss keyboard when user scrolls through chat
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: provider.chatMessages.length,
-      itemBuilder: (context, index) {
-        final message = provider.chatMessages[index];
-        return ChatBubble(
-          message: message,
-          onRetry: message.isError ? () => provider.retryLastMessage() : null,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Gemini-style: large bottom padding so user message scrolls to top
+        // leaving space below for AI response
+        final bottomPadding = constraints.maxHeight * 0.6;
+
+        return ListView.builder(
+          controller: _scrollController,
+          // #2: Dismiss keyboard when user scrolls through chat
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
+          itemCount: provider.chatMessages.length,
+          itemBuilder: (context, index) {
+            final message = provider.chatMessages[index];
+            return ChatBubble(
+              message: message,
+              onRetry:
+                  message.isError ? () => provider.retryLastMessage() : null,
+            );
+          },
         );
       },
     );
