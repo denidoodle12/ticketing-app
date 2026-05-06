@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../models/ai_chat_model.dart';
-import 'typing_indicator.dart';
+import 'thinking_indicator.dart';
 
 /// A single chat bubble for user or assistant messages
 class ChatBubble extends StatelessWidget {
@@ -68,18 +69,9 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _buildBubble(BuildContext context) {
-    // Loading state
+    // Loading state — no container, just the thinking indicator inline
     if (message.isLoading) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        decoration: BoxDecoration(
-          color: AppColors.neutral100,
-          borderRadius: BorderRadius.circular(16).copyWith(
-            bottomLeft: const Radius.circular(4),
-          ),
-        ),
-        child: const TypingIndicator(),
-      );
+      return const ThinkingIndicator();
     }
 
     // Error state
@@ -189,12 +181,12 @@ class ChatBubble extends StatelessWidget {
       );
     }
 
-    // AI message — rendered with flutter_html
-    return Container(
+    // AI message — rendered with flutter_html, long-press to copy
+    final bubble = Container(
       constraints: BoxConstraints(
         maxWidth: MediaQuery.of(context).size.width * 0.78,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.neutral100,
         borderRadius: BorderRadius.circular(16).copyWith(
@@ -202,6 +194,93 @@ class ChatBubble extends StatelessWidget {
         ),
       ),
       child: _buildRenderedContent(context, message.content),
+    );
+
+    // #7: Wrap AI bubble with long-press to copy
+    return GestureDetector(
+      onLongPress: () => _showCopySheet(context),
+      child: bubble,
+    );
+  }
+
+  // ─── Copy / Actions Bottom Sheet ──────────────────────────────
+
+  void _showCopySheet(BuildContext context) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.grey300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy_rounded,
+                    color: AppColors.textPrimary, size: 22),
+                title: Text(
+                  'Copy text',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                onTap: () {
+                  // Strip any remaining HTML/markdown for plain text copy
+                  final plainText = message.content
+                      .replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '')
+                      .replaceAll(RegExp(r'</?think>'), '')
+                      .replaceAll(RegExp(r'\*\*(.+?)\*\*'), r'\1')
+                      .replaceAll(RegExp(r'\*(.+?)\*'), r'\1')
+                      .replaceAll(RegExp(r'~~(.+?)~~'), r'\1')
+                      .replaceAll(RegExp(r'`(.+?)`'), r'\1')
+                      .trim();
+                  Clipboard.setData(ClipboardData(text: plainText));
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Copied to clipboard'),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+              if (onRetry != null)
+                ListTile(
+                  leading: const Icon(Icons.refresh_rounded,
+                      color: AppColors.textPrimary, size: 22),
+                  title: Text(
+                    'Regenerate response',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onRetry!();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

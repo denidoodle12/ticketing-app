@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/themes/app_colors.dart';
@@ -28,6 +29,8 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   // Track message count for smart auto-scroll
   int _previousMessageCount = 0;
+  // Scroll-to-bottom FAB visibility
+  bool _showScrollFab = false;
   bool _shouldForceScroll = false;
 
   late AnimationController _fadeController;
@@ -46,10 +49,22 @@ class _AiChatScreenState extends State<AiChatScreen>
       curve: Curves.easeOut,
     );
 
+    // Listen to scroll to show/hide scroll-to-bottom FAB
+    _scrollController.addListener(_handleScrollForFab);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<KnowledgeProvider>().clearChat();
       _checkOnboardStatus();
     });
+  }
+
+  void _handleScrollForFab() {
+    if (!_scrollController.hasClients) return;
+    final shouldShow = !_isNearBottom() &&
+        _scrollController.position.maxScrollExtent > 300;
+    if (shouldShow != _showScrollFab) {
+      setState(() => _showScrollFab = shouldShow);
+    }
   }
 
   Future<void> _checkOnboardStatus() async {
@@ -80,6 +95,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   @override
   void dispose() {
     _textController.dispose();
+    _scrollController.removeListener(_handleScrollForFab);
     _scrollController.dispose();
     _focusNode.dispose();
     _fadeController.dispose();
@@ -97,6 +113,8 @@ class _AiChatScreenState extends State<AiChatScreen>
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
+        // Stop any active fling/momentum scroll before animating
+        _scrollController.jumpTo(_scrollController.position.pixels);
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
@@ -120,6 +138,8 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   void _sendMessage(String text) {
     if (text.trim().isEmpty) return;
+    // #5: Haptic feedback on send
+    HapticFeedback.lightImpact();
     _shouldForceScroll = true; // Always scroll after user sends
     context.read<KnowledgeProvider>().sendMessage(text.trim());
     _textController.clear();
@@ -168,7 +188,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                         children: [
                           Expanded(
                             child: provider.hasChatHistory
-                                ? _buildChatList(provider)
+                                ? _buildChatArea(provider)
                                 : _buildWelcomeView(provider),
                           ),
                           _buildInputBar(provider),
@@ -504,7 +524,51 @@ class _AiChatScreenState extends State<AiChatScreen>
     );
   }
 
-  // ─── Chat List ──────────────────────────────────────────────────
+  // ─── Chat Area (List + Scroll-to-Bottom FAB) ────────────────────
+
+  Widget _buildChatArea(KnowledgeProvider provider) {
+    return Stack(
+      children: [
+        _buildChatList(provider),
+        // #4: Scroll-to-bottom FAB — gradient style
+        if (_showScrollFab)
+          Positioned(
+            bottom: 12,
+            right: 12,
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                _scrollToBottom();
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.primary600, AppColors.primary500],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary500.withAlpha(50),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
   Widget _buildChatList(KnowledgeProvider provider) {
     return ListView.builder(
