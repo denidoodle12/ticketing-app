@@ -142,31 +142,37 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     return GestureDetector(
       onTap: () => context.push(AppRoutes.aiChat),
       child: Container(
-        height: 140,
+        height: 170, // Increased from 150 to fix overflow
+        clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [AppColors.primary600, AppColors.primary500],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF3B5BDB), // Deeper vibrant blue
+              AppColors.primary600,
+              AppColors.primary400,
+            ],
+            stops: [0.0, 0.5, 1.0],
           ),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary500.withAlpha(40),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: AppColors.primary500.withAlpha(50),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: Stack(
           children: [
-            // Subtle decorative circles
+            // Decorative elements for depth
             Positioned(
-              top: -20,
-              right: -20,
+              top: -30,
+              right: 60,
               child: Container(
-                width: 100,
-                height: 100,
+                width: 120,
+                height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.white.withAlpha(15),
@@ -174,20 +180,41 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
               ),
             ),
             Positioned(
-              bottom: -30,
-              left: -15,
+              bottom: -40,
+              left: -20,
               child: Container(
-                width: 80,
-                height: 80,
+                width: 100,
+                height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.white.withAlpha(10),
                 ),
               ),
             ),
+            Positioned(
+              top: 15,
+              left: 45,
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.white.withAlpha(50),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 35,
+              right: 140,
+              child: Icon(
+                Icons.auto_awesome,
+                size: 16,
+                color: AppColors.white.withAlpha(60),
+              ),
+            ),
             // Content
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 8, 18),
+              padding: const EdgeInsets.fromLTRB(20, 16, 0, 16),
               child: Row(
                 children: [
                   // Left: text + button
@@ -196,58 +223,109 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        // Tagline badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.white.withAlpha(30),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '✨ AI-Powered',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8), // Reduced gap
                         Text(
-                          'Tix AI Assistant',
-                          style: AppTextStyles.h5.copyWith(
+                          'TixAI Assistant',
+                          style: AppTextStyles.h4.copyWith(
                             color: AppColors.white,
                             fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Try to ask anything',
+                          'Get instant answers from\nour knowledge base',
                           style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.white.withAlpha(200),
+                            height: 1.3,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10), // Reduced gap
+                        // CTA Button
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
+                            horizontal: 16,
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
                             color: AppColors.white,
                             borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha(10),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          child: Text(
-                            'Start Now',
-                            style: AppTextStyles.labelMedium.copyWith(
-                              color: AppColors.primary600,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Ask Now',
+                                style: AppTextStyles.labelMedium.copyWith(
+                                  color: AppColors.primary600,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 14,
+                                color: AppColors.primary600,
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // Right: chatbot image
-                  Image.asset(
-                    AssetPaths.chatbot,
-                    width: 110,
-                    height: 110,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppColors.white.withAlpha(30),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.smart_toy_outlined,
-                        color: AppColors.white,
-                        size: 40,
+                  // Right: chatbot image (enlarged & cropped)
+                  SizedBox(
+                    width: 140,
+                    child: Align(
+                      alignment: Alignment.bottomRight,
+                      child: Transform.translate(
+                        offset: const Offset(10, 25), // Adjusted offset for larger height
+                        child: Image.asset(
+                          AssetPaths.chatbot,
+                          width: 175, 
+                          height: 175,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.topCenter, 
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: AppColors.white.withAlpha(30),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.smart_toy_outlined,
+                              color: AppColors.white,
+                              size: 40,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),

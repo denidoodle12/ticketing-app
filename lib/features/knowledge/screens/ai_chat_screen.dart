@@ -292,45 +292,6 @@ class _AiChatScreenState extends State<AiChatScreen>
         ],
       ),
       centerTitle: true,
-      actions: [
-        Consumer<KnowledgeProvider>(
-          builder: (context, provider, _) {
-            if (!provider.hasChatHistory) return const SizedBox.shrink();
-            return IconButton(
-              icon: const Icon(Icons.refresh_rounded, size: 22),
-              color: AppColors.textSecondary,
-              tooltip: 'New Chat',
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('New Chat'),
-                    content: const Text(
-                      'Start a new conversation? Current chat will be cleared.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          provider.clearChat();
-                        },
-                        child: Text(
-                          'Clear',
-                          style: TextStyle(color: AppColors.error500),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ],
     );
   }
 
@@ -596,7 +557,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     );
   }
 
-  // ─── Input Bar (matches ticket chat style) ──────────────────────
+  // ─── Input Bar (Gemini-style) ────────────────────────────────────
 
   Widget _buildInputBar(KnowledgeProvider provider) {
     final canSend =
@@ -604,93 +565,120 @@ class _AiChatScreenState extends State<AiChatScreen>
 
     return SafeArea(
       top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 8,
-              offset: const Offset(0, -2),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 140),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: AppColors.grey300,
+              width: 1,
             ),
-          ],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            // Text field
-            Expanded(
-              child: Container(
-                constraints: const BoxConstraints(maxHeight: 120),
-                decoration: BoxDecoration(
-                  color: AppColors.grey100,
-                  borderRadius: BorderRadius.circular(24),
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadow.withAlpha(15),
+                blurRadius: 16,
+                spreadRadius: 1,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Text field — clean, no hover/focus effects
+              Expanded(
                 child: TextField(
                   controller: _textController,
                   focusNode: _focusNode,
                   maxLines: null,
                   maxLength: _maxChars,
                   textCapitalization: TextCapitalization.sentences,
-                  // #3: Submit via Enter key (send action on keyboard)
                   textInputAction: TextInputAction.send,
+                  mouseCursor: SystemMouseCursors.text,
+                  cursorColor: AppColors.primary,
                   onSubmitted: canSend
                       ? (text) => _sendMessage(text)
-                      : (_) { _focusNode.requestFocus(); },
-                  style: AppTextStyles.bodyMedium,
+                      : (_) {
+                          _focusNode.requestFocus();
+                        },
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: InputDecoration(
-                    hintText: 'Ask me anything...',
+                    hintText: 'Ask TixAI',
                     hintStyle: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.grey400,
                     ),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    filled: false,
+                    hoverColor: Colors.transparent,
+                    contentPadding: const EdgeInsets.fromLTRB(20, 14, 8, 14),
                     counterText: '',
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            // Send button
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: provider.isAiResponding
-                    ? AppColors.primary.withAlpha(150)
-                    : canSend
-                    ? AppColors.primary
-                    : AppColors.grey300,
-                shape: BoxShape.circle,
-              ),
-              child: provider.isAiResponding
-                  ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.white,
+              // Send button — floating circle inside container
+              Padding(
+                padding: const EdgeInsets.only(right: 6, bottom: 6),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    gradient: (canSend || provider.isAiResponding)
+                        ? const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              AppColors.primary600,
+                              AppColors.primary500,
+                            ],
+                          )
+                        : null,
+                    color: (canSend || provider.isAiResponding)
+                        ? null
+                        : AppColors.grey200,
+                    shape: BoxShape.circle,
+                  ),
+                  child: provider.isAiResponding
+                      ? const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.white,
+                            ),
+                          ),
+                        )
+                      : Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: canSend
+                                ? () => _sendMessage(_textController.text)
+                                : null,
+                            borderRadius: BorderRadius.circular(19),
+                            child: Center(
+                              child: Icon(
+                                Icons.arrow_upward_rounded,
+                                color: canSend
+                                    ? AppColors.white
+                                    : AppColors.grey400,
+                                size: 20,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    )
-                  : IconButton(
-                      onPressed: canSend
-                          ? () => _sendMessage(_textController.text)
-                          : null,
-                      icon: Icon(
-                        Icons.send,
-                        color: canSend ? AppColors.white : AppColors.grey400,
-                        size: 20,
-                      ),
-                      padding: EdgeInsets.zero,
-                    ),
-            ),
-          ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
