@@ -22,6 +22,7 @@ abstract class ProfileRepository {
     String? phoneNumber,
   });
   Future<Result<User>> uploadProfilePicture(String filePath);
+  Future<Result<User>> deleteProfilePicture();
 }
 
 class ProfileRepositoryImpl implements ProfileRepository {
@@ -76,6 +77,24 @@ class ProfileRepositoryImpl implements ProfileRepository {
   Future<Result<User>> uploadProfilePicture(String filePath) async {
     try {
       final user = await _remoteDatasource.uploadProfilePicture(filePath);
+      return Result.success(user);
+    } on ValidationException catch (e) {
+      return Result.failure(ValidationFailure(e.message, e.errors));
+    } on NetworkException catch (e) {
+      return Result.failure(NetworkFailure(e.message));
+    } on UnauthorizedException catch (e) {
+      return Result.failure(UnauthorizedFailure(e.message));
+    } on ServerException catch (e) {
+      return Result.failure(ServerFailure(e.message));
+    } catch (e) {
+      return Result.failure(ServerFailure('An unexpected error occurred'));
+    }
+  }
+
+  @override
+  Future<Result<User>> deleteProfilePicture() async {
+    try {
+      final user = await _remoteDatasource.deleteProfilePicture();
       return Result.success(user);
     } on ValidationException catch (e) {
       return Result.failure(ValidationFailure(e.message, e.errors));

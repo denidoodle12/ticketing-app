@@ -89,6 +89,26 @@ class ProfileProvider extends ChangeNotifier {
     }
   }
 
+  /// Delete profile picture
+  Future<bool> deleteProfilePicture() async {
+    _isUpdating = true;
+    notifyListeners();
+
+    final result = await _repository.deleteProfilePicture();
+
+    _isUpdating = false;
+
+    if (result.isSuccess) {
+      _user = result.data;
+      await _syncUserData(_user!);
+      notifyListeners();
+      return true;
+    } else {
+      _setError(result.failure!.message);
+      return false;
+    }
+  }
+
   /// Sync user data to local storage and notify callback
   Future<void> _syncUserData(User user) async {
     // Update local storage

@@ -17,6 +17,7 @@ import '../../../shared/widgets/form_card.dart';
 import '../../tickets/widgets/ticket_card.dart';
 import '../widgets/ticket_statistics_card.dart';
 import '../widgets/ticket_activity_chart.dart';
+import '../../../shared/widgets/profile_picture_viewer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -132,6 +133,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 onSearchTap: () => context.push('/search'),
                 unreadCount: unreadCount,
                 onNotificationTap: () => context.push('/notifications'),
+                onAvatarTap: () {
+                  ProfilePictureViewer.show(
+                    context: context,
+                    imageUrl: profilePictureUrl,
+                    userName: user?.fullName ?? 'User',
+                    heroTag: 'home_avatar',
+                  );
+                },
               ),
             ),
             SliverToBoxAdapter(child: _buildContent(ticketProvider)),
@@ -320,6 +329,7 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   final VoidCallback onSearchTap;
   final int unreadCount;
   final VoidCallback onNotificationTap;
+  final VoidCallback onAvatarTap;
 
   _HomeHeaderDelegate({
     required this.firstName,
@@ -331,6 +341,7 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.onSearchTap,
     required this.unreadCount,
     required this.onNotificationTap,
+    required this.onAvatarTap,
   });
 
   @override
@@ -466,22 +477,28 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     return Row(
       children: [
         // Avatar
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.white.withAlpha(76), width: 3),
-          ),
-          child: ClipOval(
-            child: profilePictureUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: profilePictureUrl!,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => _buildAvatarPlaceholder(),
-                    errorWidget: (_, __, ___) => _buildAvatarPlaceholder(),
-                  )
-                : _buildAvatarPlaceholder(),
+        GestureDetector(
+          onTap: onAvatarTap,
+          child: Hero(
+            tag: 'home_avatar',
+            child: Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.white.withAlpha(76), width: 3),
+              ),
+              child: ClipOval(
+                child: profilePictureUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: profilePictureUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => _buildAvatarPlaceholder(),
+                        errorWidget: (_, __, ___) => _buildAvatarPlaceholder(),
+                      )
+                    : _buildAvatarPlaceholder(),
+              ),
+            ),
           ),
         ),
         const SizedBox(width: 14),

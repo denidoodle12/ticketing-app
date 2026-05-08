@@ -10,6 +10,7 @@ import '../../../core/utils/toast_helper.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../routes/app_routes.dart';
 import '../widgets/profile_avatar.dart';
+import '../../../shared/widgets/profile_picture_viewer.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -93,6 +94,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : null,
             name: user?.fullName ?? 'User',
             size: _avatarSize,
+            heroTag: 'profile_screen_avatar',
+            onTap: () {
+              ProfilePictureViewer.show(
+                context: context,
+                imageUrl: user?.profilePicture != null
+                    ? '${ApiConfig.baseUrl}${user!.profilePicture}'
+                    : null,
+                userName: user?.fullName ?? 'User',
+                heroTag: 'profile_screen_avatar',
+              );
+            },
           ),
           const SizedBox(width: 16),
           // User info

@@ -21,6 +21,7 @@ import '../../../shared/widgets/loading_overlay.dart';
 import '../../../shared/widgets/section_label.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/image_preview_dialog.dart';
+import '../../../shared/widgets/profile_picture_viewer.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -237,6 +238,104 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  void _viewProfilePicture() {
+    final user = context.read<ProfileProvider>().user;
+    if (user?.profilePicture == null) return;
+
+    ProfilePictureViewer.show(
+      context: context,
+      imageUrl: '${ApiConfig.baseUrl}${user!.profilePicture}',
+      userName: user.fullName,
+      heroTag: 'edit_profile_avatar',
+    );
+  }
+
+  Future<void> _deleteProfilePicture() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.error500.withAlpha(26),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error500,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('Delete Photo'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to delete your profile picture? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'Delete',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.error500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _isUploadingImage = true;
+      _uploadMessage = 'Deleting photo...';
+    });
+
+    final profileProvider = context.read<ProfileProvider>();
+    final authProvider = context.read<AuthProvider>();
+    final success = await profileProvider.deleteProfilePicture();
+
+    if (mounted) {
+      setState(() {
+        _isUploadingImage = false;
+        _uploadMessage = null;
+      });
+
+      if (success && profileProvider.user != null) {
+        authProvider.updateCurrentUser(profileProvider.user!);
+        ToastHelper.showSuccess(
+          context,
+          'Success',
+          description: 'Profile picture deleted successfully',
+        );
+      } else {
+        ToastHelper.showError(
+          context,
+          'Delete Failed',
+          description:
+              profileProvider.errorMessage ?? 'Failed to delete picture',
+        );
+      }
+    }
+  }
+
   Future<void> _saveProfile() async {
     setState(() => _hasAttemptedSubmit = true);
     if (!_formKey.currentState!.validate()) return;
@@ -402,6 +501,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildAvatarSection(user, bool isLoading) {
+    final hasPhoto = user?.profilePicture != null;
+    final imageUrl = hasPhoto
+        ? '${ApiConfig.baseUrl}${user!.profilePicture}'
+        : null;
+
     return Column(
       children: [
         Container(
@@ -411,12 +515,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             border: Border.all(color: AppColors.primaryDark, width: 2),
           ),
           child: ProfileAvatar(
-            imageUrl: user?.profilePicture != null
-                ? '${ApiConfig.baseUrl}${user!.profilePicture}'
-                : null,
+            imageUrl: imageUrl,
             name: user?.fullName ?? 'User',
             size: 100,
             showEditIcon: true,
+            heroTag: 'edit_profile_avatar',
             onTap: isLoading ? null : _pickImage,
           ),
         ),
@@ -427,22 +530,60 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             color: AppColors.textSecondary,
           ),
         ),
-        if (user?.profilePicture != null) ...[
-          const SizedBox(height: 4),
-          TextButton.icon(
-            onPressed: isLoading ? null : _downloadProfilePicture,
-            icon: Icon(
-              Icons.download_rounded,
-              size: 18,
-              color: AppColors.primaryDark,
-            ),
-            label: Text(
-              'Download Photo',
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.w500,
+        if (hasPhoto) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // View Photo
+              TextButton.icon(
+                onPressed: isLoading ? null : _viewProfilePicture,
+                icon: const Icon(
+                  Icons.visibility_outlined,
+                  size: 18,
+                  color: AppColors.primaryDark,
+                ),
+                label: Text(
+                  'View',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.primaryDark,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
-            ),
+              // Download Photo
+              TextButton.icon(
+                onPressed: isLoading ? null : _downloadProfilePicture,
+                icon: const Icon(
+                  Icons.download_rounded,
+                  size: 18,
+                  color: AppColors.primaryDark,
+                ),
+                label: Text(
+                  'Save',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.primaryDark,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              // Delete Photo
+              TextButton.icon(
+                onPressed: isLoading ? null : _deleteProfilePicture,
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  size: 18,
+                  color: AppColors.error500,
+                ),
+                label: Text(
+                  'Delete',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.error500,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ],

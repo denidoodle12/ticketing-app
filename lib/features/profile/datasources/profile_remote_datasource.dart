@@ -80,6 +80,22 @@ class ProfileRemoteDatasource {
     }
   }
 
+  /// Delete profile picture
+  Future<User> deleteProfilePicture() async {
+    try {
+      await _dioUser.delete(ApiEndpoints.userMeProfilePicture);
+
+      // Fetch complete profile after deletion
+      return await getProfile();
+    } on DioException catch (e) {
+      if (e.error is AppException) {
+        throw e.error as AppException;
+      }
+      _handleDioError(e);
+      rethrow;
+    }
+  }
+
   void _handleDioError(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:

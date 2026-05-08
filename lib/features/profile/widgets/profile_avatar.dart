@@ -8,6 +8,7 @@ class ProfileAvatar extends StatelessWidget {
   final double size;
   final VoidCallback? onTap;
   final bool showEditIcon;
+  final String? heroTag;
 
   const ProfileAvatar({
     super.key,
@@ -16,6 +17,7 @@ class ProfileAvatar extends StatelessWidget {
     this.size = 80,
     this.onTap,
     this.showEditIcon = false,
+    this.heroTag,
   });
 
   String get _initials {
@@ -27,9 +29,7 @@ class ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
+    Widget avatar = Stack(
         children: [
           Container(
             width: size,
@@ -84,7 +84,19 @@ class ProfileAvatar extends StatelessWidget {
               ),
             ),
         ],
-      ),
+      );
+
+    // Wrap with Hero if heroTag is provided
+    if (heroTag != null) {
+      avatar = Hero(
+        tag: heroTag!,
+        child: avatar,
+      );
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: avatar,
     );
   }
 
