@@ -119,15 +119,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-          // Logout icon button
-          IconButton(
-            onPressed: () => _showLogoutDialog(context),
-            icon: const Icon(
-              Icons.logout_rounded,
-              color: AppColors.error500,
-              size: 22,
-            ),
-          ),
         ],
       ),
     );
@@ -163,6 +154,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
 
 
+
+          const SizedBox(height: 32),
+
+          // ── Logout Button ──
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () => _showLogoutDialog(context),
+              icon: const Icon(
+                Icons.logout_rounded,
+                size: 18,
+                color: AppColors.error500,
+              ),
+              label: Text(
+                'Sign Out',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.error500,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.error500, width: 1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
 
           const SizedBox(height: 24),
 

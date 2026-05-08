@@ -6,6 +6,7 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/asset_paths.dart';
 import '../providers/knowledge_provider.dart';
+import '../models/ai_chat_model.dart';
 import '../widgets/chat_bubble.dart';
 
 class AiChatScreen extends StatefulWidget {
@@ -29,8 +30,6 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   // Track message count for smart auto-scroll
   int _previousMessageCount = 0;
-  // Scroll-to-bottom FAB visibility
-  bool _showScrollFab = false;
   bool _shouldForceScroll = false;
 
   late AnimationController _fadeController;
@@ -49,8 +48,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       curve: Curves.easeOut,
     );
 
-    // Listen to scroll to show/hide scroll-to-bottom FAB
-    _scrollController.addListener(_handleScrollForFab);
+
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<KnowledgeProvider>().clearChat();
@@ -58,14 +56,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     });
   }
 
-  void _handleScrollForFab() {
-    if (!_scrollController.hasClients) return;
-    final shouldShow = !_isNearBottom() &&
-        _scrollController.position.maxScrollExtent > 300;
-    if (shouldShow != _showScrollFab) {
-      setState(() => _showScrollFab = shouldShow);
-    }
-  }
+
 
   Future<void> _checkOnboardStatus() async {
     final prefs = await SharedPreferences.getInstance();
@@ -95,7 +86,6 @@ class _AiChatScreenState extends State<AiChatScreen>
   @override
   void dispose() {
     _textController.dispose();
-    _scrollController.removeListener(_handleScrollForFab);
     _scrollController.dispose();
     _focusNode.dispose();
     _fadeController.dispose();
@@ -112,15 +102,21 @@ class _AiChatScreenState extends State<AiChatScreen>
   /// Scroll to the bottom of the chat list
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        // Stop any active fling/momentum scroll before animating
-        _scrollController.jumpTo(_scrollController.position.pixels);
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      if (!_scrollController.hasClients) return;
+      final maxExtent = _scrollController.position.maxScrollExtent;
+      // First: hard-stop any active fling by jumping to max immediately
+      _scrollController.jumpTo(maxExtent);
+      // Then: smoothly animate to ensure we're truly at bottom
+      // (maxExtent might update slightly after jump)
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     });
   }
 
@@ -301,7 +297,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Spacer(flex: 3),
           // Chatbot illustration — centered
@@ -485,67 +481,34 @@ class _AiChatScreenState extends State<AiChatScreen>
     );
   }
 
-  // ─── Chat Area (List + Scroll-to-Bottom FAB) ────────────────────
+  // ─── Chat Area ──────────────────────────────────────────────────
 
   Widget _buildChatArea(KnowledgeProvider provider) {
-    return Stack(
-      children: [
-        _buildChatList(provider),
-        // #4: Scroll-to-bottom FAB — gradient style
-        if (_showScrollFab)
-          Positioned(
-            bottom: 12,
-            right: 12,
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _scrollToBottom();
-              },
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.primary600, AppColors.primary500],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary500.withAlpha(50),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
+    return _buildChatList(provider);
   }
 
   Widget _buildChatList(KnowledgeProvider provider) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Gemini-style: large bottom padding so user message scrolls to top
-        // leaving space below for AI response
-        final bottomPadding = constraints.maxHeight * 0.6;
+        // Gemini-style dynamic padding:
+        // - Large padding when waiting for AI (user msg at top, space for response)
+        // - Minimal padding when AI has already responded (no wasted space)
+        final messages = provider.chatMessages;
+        final isWaitingForAi = messages.isNotEmpty &&
+            (messages.last.isLoading ||
+             messages.last.role == ChatRole.user);
+        final bottomPadding = isWaitingForAi
+            ? constraints.maxHeight * 0.55
+            : 16.0;
 
         return ListView.builder(
           controller: _scrollController,
           // #2: Dismiss keyboard when user scrolls through chat
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
-          itemCount: provider.chatMessages.length,
+          itemCount: messages.length,
           itemBuilder: (context, index) {
-            final message = provider.chatMessages[index];
+            final message = messages[index];
             return ChatBubble(
               message: message,
               onRetry:
