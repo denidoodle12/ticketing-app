@@ -7,6 +7,7 @@ import '../models/knowledge_article_model.dart';
 import '../models/knowledge_category_model.dart';
 import '../providers/knowledge_provider.dart';
 import '../utils/content_utils.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 /// Screen that shows ALL knowledge articles (no category filter).
 /// Triggered from the "See all" link in the Recent Articles section.
@@ -460,36 +461,21 @@ class _KnowledgeAllArticlesScreenState
 
   Widget _buildEmptyState() {
     final isFiltered = _hasActiveFilter;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.article_outlined,
-              size: 64,
-              color: AppColors.textSecondary.withAlpha(100),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              isFiltered ? 'No articles found' : 'No articles yet',
-              style: AppTextStyles.h5.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
+
+    if (isFiltered) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const EmptyStateWidget(
+                imagePath: 'assets/images/empty-states/empty-six.png',
+                title: 'No Articles Found',
+                description:
+                    'No articles match the selected filters. Try clearing them.',
+                verticalPadding: 0,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isFiltered
-                  ? 'No articles match the selected filters.\nTry clearing the filter.'
-                  : 'There are no published articles available.',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (isFiltered) ...[
               const SizedBox(height: 20),
               OutlinedButton(
                 onPressed: _resetFilter,
@@ -503,8 +489,16 @@ class _KnowledgeAllArticlesScreenState
                 child: const Text('Clear Filters'),
               ),
             ],
-          ],
+          ),
         ),
+      );
+    }
+
+    return const Center(
+      child: EmptyStateWidget(
+        imagePath: 'assets/images/empty-states/empty-five.png',
+        title: 'No Articles Available',
+        description: 'There are no published articles available.',
       ),
     );
   }

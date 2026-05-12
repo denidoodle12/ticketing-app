@@ -13,6 +13,7 @@ import 'knowledge_search_screen.dart';
 import 'knowledge_category_screen.dart';
 import 'knowledge_all_articles_screen.dart';
 import '../utils/content_utils.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 class KnowledgeScreen extends StatefulWidget {
   const KnowledgeScreen({super.key});
@@ -643,27 +644,14 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 80),
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 40),
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: 32),
-            Icon(
-              Icons.article_outlined,
-              size: 64,
-              color: AppColors.textSecondary.withAlpha(100),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No articles yet',
-              style: AppTextStyles.bodyLarge.copyWith(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        child: EmptyStateWidget(
+          imagePath: 'assets/images/empty-states/empty-five.png',
+          title: 'No Articles Available',
+          description:
+              'Articles will appear here once they are published.',
         ),
       ),
     );

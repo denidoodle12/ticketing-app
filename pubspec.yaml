@@ -90,5 +90,6 @@ flutter:
     - assets/images/onboarding/
     - assets/images/illustrations/
     - assets/images/chatbot/
+    - assets/images/empty-states/
     - assets/icons/
     - assets/icons/dashboard/

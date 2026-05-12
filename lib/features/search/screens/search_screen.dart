@@ -14,6 +14,7 @@ import '../widgets/recent_searches_section.dart';
 import '../widgets/search_results_header.dart';
 import '../widgets/search_tips_card.dart';
 import '../widgets/ticket_card_shimmer.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 enum SearchScreenState { initial, searching, results, empty }
 
@@ -513,93 +514,26 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildEmptyContent() {
-    final searchQuery = _searchController.text.trim();
+    final hasActiveFilters =
+        _selectedStatusId != null || _selectedPriority != null;
 
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const SizedBox(height: 60),
+          const SizedBox(height: 40),
 
-          // Empty icon
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.grey100,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.search, size: 40, color: AppColors.grey400),
-              ),
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: AppColors.error500,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.priority_high,
-                  size: 16,
-                  color: AppColors.white,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Title
-          Text(
-            'No tickets found',
-            style: AppTextStyles.h5.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Description
-          Text(
-            searchQuery.isNotEmpty
-                ? 'We couldn\'t find any tickets matching\n"$searchQuery".'
-                : 'No tickets match the selected filters.',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-
-          // Suggestions card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.grey100,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Suggestions:',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildSuggestionItem('Check your spelling'),
-                const SizedBox(height: 4),
-                _buildSuggestionItem('Try using fewer keywords'),
-                const SizedBox(height: 4),
-                _buildSuggestionItem('Clear filters if applied'),
-              ],
-            ),
+          // Illustration-based empty state
+          EmptyStateWidget(
+            imagePath: 'assets/images/empty-states/empty-two.png',
+            title: hasActiveFilters
+                ? 'No Matching Tickets'
+                : 'No Results Found',
+            description: hasActiveFilters
+                ? 'No tickets match your current filters. Try adjusting them.'
+                : 'Try a different keyword or check the spelling.',
+            verticalPadding: 0,
           ),
           const SizedBox(height: 24),
 
@@ -623,32 +557,6 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSuggestionItem(String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          margin: const EdgeInsets.only(top: 7),
-          width: 4,
-          height: 4,
-          decoration: BoxDecoration(
-            color: AppColors.textSecondary,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

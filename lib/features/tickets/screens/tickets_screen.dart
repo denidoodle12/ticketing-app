@@ -11,6 +11,7 @@ import '../../../providers/ticket_provider.dart';
 import '../../search/widgets/filter_bottom_sheet.dart';
 import '../models/ticket_model.dart';
 import '../widgets/ticket_card.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 class TicketsScreen extends StatefulWidget {
   const TicketsScreen({super.key});
@@ -518,39 +519,39 @@ class _TicketsScreenState extends State<TicketsScreen> {
   }
 
   Widget _buildEmptyState({bool isSearchResult = false}) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 80),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSearchResult
-                  ? Icons.search_off_rounded
-                  : Icons.confirmation_number_outlined,
-              size: 64,
-              color: AppColors.textSecondary.withAlpha(100),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              isSearchResult ? 'No data available' : 'No tickets yet',
-              style: AppTextStyles.bodyLarge.copyWith(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isSearchResult
-                  ? 'Try searching with different keywords'
-                  : 'Create a new ticket to get started',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
+    // Determine which variant to show based on context
+    final bool isStatusFilter = _selectedFilter != 'all';
+    final bool hasSearchQuery = _searchController.text.isNotEmpty;
+
+    // Search with no matching keyword
+    if (hasSearchQuery) {
+      return const Center(
+        child: EmptyStateWidget(
+          imagePath: 'assets/images/empty-states/empty-two.png',
+          title: 'No Results Found',
+          description: 'Try a different keyword or check the spelling.',
         ),
+      );
+    }
+
+    // Status tabs (Open, In Progress, etc.) — empty
+    if (isStatusFilter) {
+      return const Center(
+        child: EmptyStateWidget(
+          imagePath: 'assets/images/empty-states/empty-one.png',
+          title: 'No Tickets Here',
+          description:
+              'There are no tickets with this status right now.',
+        ),
+      );
+    }
+
+    // "All" tab — first login, no tickets
+    return const Center(
+      child: EmptyStateWidget(
+        imagePath: 'assets/images/empty-states/empty-one.png',
+        title: 'No Tickets Yet',
+        description: 'Create a new ticket to get started.',
       ),
     );
   }

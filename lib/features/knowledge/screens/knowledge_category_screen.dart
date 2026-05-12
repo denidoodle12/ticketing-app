@@ -7,6 +7,7 @@ import '../models/knowledge_category_model.dart';
 import '../models/knowledge_article_model.dart';
 import '../providers/knowledge_provider.dart';
 import '../utils/content_utils.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 /// Screen showing all articles for a specific category
 class KnowledgeCategoryScreen extends StatefulWidget {
@@ -385,36 +386,21 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
 
   Widget _buildEmptyState() {
     final isFiltered = _selectedTag != null;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.article_outlined,
-              size: 64,
-              color: AppColors.textSecondary.withAlpha(100),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              isFiltered ? 'No articles found' : 'No articles yet',
-              style: AppTextStyles.h5.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
+
+    if (isFiltered) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              EmptyStateWidget(
+                imagePath: 'assets/images/empty-states/empty-six.png',
+                title: 'No Articles Found',
+                description:
+                    'No articles found with tag "$_selectedTag". Try clearing the filter.',
+                verticalPadding: 0,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isFiltered
-                  ? 'No articles found with tag "$_selectedTag".\nTry clearing the filter.'
-                  : 'There are no articles in "${widget.category.name}" yet.',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (isFiltered) ...[
               const SizedBox(height: 20),
               OutlinedButton(
                 onPressed: _resetFilter,
@@ -428,8 +414,17 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
                 child: const Text('Clear Filter'),
               ),
             ],
-          ],
+          ),
         ),
+      );
+    }
+
+    return const Center(
+      child: EmptyStateWidget(
+        imagePath: 'assets/images/empty-states/empty-five.png',
+        title: 'No Articles Yet',
+        description:
+            'This category doesn\'t have any articles yet. Check back later.',
       ),
     );
   }

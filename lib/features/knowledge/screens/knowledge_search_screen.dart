@@ -7,6 +7,7 @@ import '../../../core/themes/text_styles.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/knowledge_article_model.dart';
 import '../utils/content_utils.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 /// Knowledge search screen — matches the existing SearchScreen design
 class KnowledgeSearchScreen extends StatefulWidget {
@@ -355,63 +356,20 @@ class _KnowledgeSearchScreenState extends State<KnowledgeSearchScreen> {
   }
 
   Widget _buildEmptyState() {
-    final searchQuery = _searchController.text.trim();
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const SizedBox(height: 60),
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.grey100,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.search,
-                  size: 40,
-                  color: AppColors.grey400,
-                ),
-              ),
-              Container(
-                width: 24,
-                height: 24,
-                decoration: const BoxDecoration(
-                  color: AppColors.error500,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.priority_high,
-                  size: 16,
-                  color: AppColors.white,
-                ),
-              ),
-            ],
+          const SizedBox(height: 40),
+          const EmptyStateWidget(
+            imagePath: 'assets/images/empty-states/empty-six.png',
+            title: 'No Articles Found',
+            description:
+                'Try a different keyword or browse by category.',
+            verticalPadding: 0,
           ),
           const SizedBox(height: 24),
-          Text(
-            'No articles found',
-            style: AppTextStyles.h5.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            searchQuery.isNotEmpty
-                ? 'We couldn\'t find any articles matching\n"$searchQuery".'
-                : 'No articles match your search.',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
           OutlinedButton(
             onPressed: _clearSearch,
             style: OutlinedButton.styleFrom(

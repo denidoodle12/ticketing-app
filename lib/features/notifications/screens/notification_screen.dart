@@ -13,6 +13,7 @@ import '../../../routes/app_routes.dart';
 import '../models/notification_model.dart';
 import '../widgets/notification_item_widget.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 /// Screen displaying list of notifications with filters
 class NotificationScreen extends StatefulWidget {
@@ -388,35 +389,12 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 80),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.notifications_off_outlined,
-              size: 64,
-              color: AppColors.textSecondary.withAlpha(100),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No notifications yet',
-              style: AppTextStyles.bodyLarge.copyWith(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'When you get notifications, they\'ll appear here',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+    return const Center(
+      child: EmptyStateWidget(
+        imagePath: 'assets/images/empty-states/empty-seven.png',
+        title: 'No Notifications Yet',
+        description:
+            'You\'ll be notified here when there are updates on your tickets.',
       ),
     );
   }
@@ -466,41 +444,12 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   Widget _buildOfflinePlaceholder() {
-    return SizedBox.expand(
+    return const SizedBox.expand(
       child: Center(
-        child: Padding(
-          // Extra bottom padding to account for bottom navigation bar
-          padding: const EdgeInsets.fromLTRB(32, 32, 32, 100),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.grey200,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.wifi_off_rounded,
-                  size: 48,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Notifications Unavailable Offline',
-                style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Please connect to the internet to view\nyour notifications.',
-                textAlign: TextAlign.center,
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
+        child: OfflineStateWidget(
+          title: 'Notifications Unavailable Offline',
+          description:
+              'Please connect to the internet to view your notifications.',
         ),
       ),
     );

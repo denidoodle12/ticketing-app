@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 /// Data model for ticket statistics from API
 class TicketStatsData {
@@ -155,27 +156,12 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard>
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      height: 150,
-      decoration: BoxDecoration(
-        color: AppColors.grey50,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.pie_chart_outline, size: 40, color: AppColors.grey300),
-            const SizedBox(height: 8),
-            Text(
-              'No ticket data yet',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return const TextEmptyStateWidget(
+      icon: Icons.confirmation_number_outlined,
+      title: 'No Tickets Yet',
+      description:
+          'Your ticket summary will appear here once you create one.',
+      iconSize: 48,
     );
   }
 

@@ -12,6 +12,7 @@ import '../../../core/utils/toast_helper.dart';
 import '../models/ticket_model.dart';
 import '../models/comment_model.dart';
 import 'chat_bubble.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 class TicketChatTab extends StatefulWidget {
   final List<Comment> comments;
@@ -426,39 +427,11 @@ class _TicketChatTabState extends State<TicketChatTab>
 
   /// Build offline placeholder for chat tab
   Widget _buildOfflinePlaceholder() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.grey200,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.wifi_off_rounded,
-                size: 48,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Chat Unavailable Offline',
-              style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Chat requires an internet connection.\nPlease connect to the internet to view and send messages.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
+    return const Center(
+      child: OfflineStateWidget(
+        title: 'Chat Unavailable Offline',
+        description:
+            'Chat requires an active internet connection to view and send messages.',
       ),
     );
   }
@@ -521,26 +494,12 @@ class _TicketChatTabState extends State<TicketChatTab>
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.chat_bubble_outline, size: 64, color: AppColors.grey300),
-          const SizedBox(height: 16),
-          Text(
-            'No messages yet',
-            style: AppTextStyles.bodyLarge.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Start the conversation with the agent',
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
+    return const Center(
+      child: EmptyStateWidget(
+        imagePath: 'assets/images/empty-states/empty-three.png',
+        title: 'No Messages Yet',
+        description:
+            'Send a message to start the conversation with the agent.',
       ),
     );
   }

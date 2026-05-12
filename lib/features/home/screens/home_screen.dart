@@ -18,6 +18,7 @@ import '../../tickets/widgets/ticket_card.dart';
 import '../widgets/ticket_statistics_card.dart';
 import '../widgets/ticket_activity_chart.dart';
 import '../../../shared/widgets/profile_picture_viewer.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -270,34 +271,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           )
         else if (recentTickets.isEmpty)
-          FormCard(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.inbox_outlined,
-                      size: 48,
-                      color: AppColors.textSecondary.withAlpha(128),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No tickets yet',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Create a new ticket to get started',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textDisabled,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          const FormCard(
+            child: EmptyStateWidget(
+              imagePath: 'assets/images/empty-states/empty-one.png',
+              title: 'No Recent Tickets',
+              description: 'Tap the button above to create your first ticket.',
+              verticalPadding: 16,
+              imageSize: 150,
             ),
           )
         else

@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../models/comment_model.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 
 class TicketFilesTab extends StatelessWidget {
   final List<TicketAttachment> attachments;
@@ -41,40 +42,11 @@ class TicketFilesTab extends StatelessWidget {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.grey100,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.folder_open_rounded,
-              size: 40,
-              color: AppColors.grey300,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No attachments',
-            style: AppTextStyles.bodyLarge.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Files shared in this ticket will appear here',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+    return const Center(
+      child: EmptyStateWidget(
+        imagePath: 'assets/images/empty-states/empty-four.png',
+        title: 'No Attachments',
+        description: 'Files shared in this ticket will appear here.',
       ),
     );
   }
