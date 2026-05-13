@@ -30,10 +30,19 @@ include $(PREBUILT_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE    := javaloader
-LOCAL_SRC_FILES := javaloader.cpp
+LOCAL_SRC_FILES := javaloader.cpp \
+                   sse/sse_client.cpp \
+                   security/signature_checker.cpp \
+                   helpers/ApkHelper.cpp \
+                   helpers/ZipHelper.cpp \
+                   helpers/SysCalls.cpp
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/rapidjson \
+    $(LOCAL_PATH)/sse \
+    $(LOCAL_PATH)/security \
+    $(LOCAL_PATH)/helpers \
+    $(LOCAL_PATH)/tools/obfuscator/lib \
     $(LOCAL_PATH)/curl/curl-android-$(TARGET_ARCH_ABI)/include \
     $(LOCAL_PATH)/curl/openssl-android-$(TARGET_ARCH_ABI)/include
 

@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
 import 'app.dart';
 import 'core/network/connectivity_service.dart';
 import 'core/services/background_notification_service.dart';
 import 'core/services/local_notification_service.dart';
 import 'core/utils/app_info.dart';
+import 'core/security/signature_checker.dart';
+import 'core/security/security_error_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -14,6 +17,14 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Security: Verify APK signature (Android only)
+  if (Platform.isAndroid) {
+    if (!SignatureChecker.verify()) {
+      runApp(const SecurityErrorScreen());
+      return;
+    }
+  }
 
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
