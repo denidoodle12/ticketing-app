@@ -367,7 +367,6 @@ class _KnowledgeSearchScreenState extends State<KnowledgeSearchScreen> {
             title: 'No Articles Found',
             description:
                 'Try a different keyword or browse by category.',
-            verticalPadding: 0,
           ),
           const SizedBox(height: 24),
           OutlinedButton(

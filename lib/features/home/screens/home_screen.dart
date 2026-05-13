@@ -276,7 +276,6 @@ class _HomeScreenState extends State<HomeScreen> {
               imagePath: 'assets/images/empty-states/empty-one.png',
               title: 'No Recent Tickets',
               description: 'Tap the button above to create your first ticket.',
-              verticalPadding: 16,
               imageSize: 150,
             ),
           )

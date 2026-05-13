@@ -28,9 +28,6 @@ class EmptyStateWidget extends StatelessWidget {
   /// Size of the illustration image. Defaults to 180.
   final double imageSize;
 
-  /// Vertical padding around the widget. Defaults to 40.
-  final double verticalPadding;
-
   const EmptyStateWidget({
     super.key,
     required this.imagePath,
@@ -38,16 +35,16 @@ class EmptyStateWidget extends StatelessWidget {
     required this.description,
     this.action,
     this.imageSize = 180,
-    this.verticalPadding = 40,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Image.asset(
             imagePath,
@@ -55,25 +52,25 @@ class EmptyStateWidget extends StatelessWidget {
             height: imageSize,
             fit: BoxFit.contain,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           Text(
             title,
-            style: AppTextStyles.bodyLarge.copyWith(
+            style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             description,
-            style: AppTextStyles.bodyMedium.copyWith(
+            style: AppTextStyles.bodySmall.copyWith(
               color: AppColors.textSecondary,
-              height: 1.4,
+              height: 1.5,
             ),
             textAlign: TextAlign.center,
           ),
-          if (action != null) ...[const SizedBox(height: 20), action!],
+          if (action != null) ...[const SizedBox(height: 16), action!],
         ],
       ),
     );
@@ -96,7 +93,7 @@ class TextEmptyStateWidget extends StatelessWidget {
   /// Optional action widget.
   final Widget? action;
 
-  /// Size of the icon. Defaults to 56.
+  /// Size of the icon. Defaults to 48.
   final double iconSize;
 
   const TextEmptyStateWidget({
@@ -105,41 +102,42 @@ class TextEmptyStateWidget extends StatelessWidget {
     required this.title,
     required this.description,
     this.action,
-    this.iconSize = 56,
+    this.iconSize = 48,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(
             icon,
             size: iconSize,
             color: AppColors.textSecondary.withAlpha(100),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             title,
-            style: AppTextStyles.bodyLarge.copyWith(
+            style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             description,
-            style: AppTextStyles.bodyMedium.copyWith(
+            style: AppTextStyles.bodySmall.copyWith(
               color: AppColors.textSecondary,
-              height: 1.4,
+              height: 1.5,
             ),
             textAlign: TextAlign.center,
           ),
-          if (action != null) ...[const SizedBox(height: 20), action!],
+          if (action != null) ...[const SizedBox(height: 16), action!],
         ],
       ),
     );
@@ -156,7 +154,7 @@ class OfflineStateWidget extends StatelessWidget {
   /// Supportive description text.
   final String description;
 
-  /// Size of the illustration. Defaults to 120.
+  /// Size of the illustration. Defaults to 180.
   final double imageSize;
 
   const OfflineStateWidget({
@@ -169,10 +167,11 @@ class OfflineStateWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Image.asset(
             'assets/images/empty-states/empty-offline.png',
@@ -180,21 +179,21 @@ class OfflineStateWidget extends StatelessWidget {
             height: imageSize,
             fit: BoxFit.contain,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           Text(
             title,
-            style: AppTextStyles.bodyLarge.copyWith(
+            style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             description,
-            style: AppTextStyles.bodyMedium.copyWith(
+            style: AppTextStyles.bodySmall.copyWith(
               color: AppColors.textSecondary,
-              height: 1.4,
+              height: 1.5,
             ),
             textAlign: TextAlign.center,
           ),

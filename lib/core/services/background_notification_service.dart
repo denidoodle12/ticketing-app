@@ -3,12 +3,21 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../native/ca_bundle.dart';
+import '../native/native_sse.dart';
+
 /// Background notification service that runs SSE in a foreground service
-/// This keeps the SSE connection alive even when the app is minimized
+/// using native C++ (libcurl) for rock-solid long-lived connections.
+///
+/// Architecture:
+///   main isolate → flutter_background_service → background isolate
+///   background isolate → NativeSse (FFI) → libjavaloader.so worker thread
+///   native worker → SSE stream → NativeCallable.listener → Dart callback
 class BackgroundNotificationService {
   static final BackgroundNotificationService _instance =
       BackgroundNotificationService._internal();
@@ -21,8 +30,13 @@ class BackgroundNotificationService {
   static const String _tokenKey = 'sse_access_token';
   static const String _refreshTokenKey = 'sse_refresh_token';
 
+  // SSE configuration
+  static const String _baseUrl = 'https://magang.damarbrawijaya.my.id';
+  static const String _sseEndpoint = '/notifications/stream';
+
   /// Initialize the background service
   Future<void> initialize() async {
+    // Silent channel for foreground service notification (not visible to user)
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'sse_bg_silent',
       'Background Service',
@@ -120,6 +134,7 @@ Future<bool> _onIosBackground(ServiceInstance service) async {
 void _onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
+  // ── Initialize local notifications ──
   final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
@@ -127,221 +142,128 @@ void _onStart(ServiceInstance service) async {
   const initSettings = InitializationSettings(android: androidSettings);
   await notificationsPlugin.initialize(initSettings);
 
-  // SSE connection variables
-  HttpClient? sseClient;
-  StreamSubscription? sseSubscription;
+  // Pre-create the notification channel with Importance.max
+  // so popups actually appear (auto-created channels default to LOW)
+  const AndroidNotificationChannel notifChannel = AndroidNotificationChannel(
+    'ticketing_notifications',
+    'Ticketing Notifications',
+    description: 'Notifications for ticket updates and system alerts',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+    showBadge: true,
+  );
+  await notificationsPlugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.createNotificationChannel(notifChannel);
+
+  // ── Variables ──
   String? accessToken;
   String? refreshToken;
-  String currentEvent = '';
-  String currentData = '';
   int notificationIdCounter = 100;
+  final sse = NativeSse.instance;
 
-  // Auto-reconnect variables
-  bool shouldReconnect = true;
-  int reconnectAttempts = 0;
-  const maxReconnectAttempts = 50;
-  Timer? reconnectTimer;
-
-  // SSE URL
-  const baseUrl = 'https://magang.damarbrawijaya.my.id';
-  const sseEndpoint = '/notifications/stream';
-  const authRefreshEndpoint = '/auth/refresh';
-
-  /// Try to refresh the access token using the refresh token
-  Future<String?> refreshAccessToken() async {
-    if (refreshToken == null || refreshToken!.isEmpty) return null;
-
-    try {
-      final httpClient = HttpClient();
-      httpClient.connectionTimeout = const Duration(seconds: 10);
-
-      final uri = Uri.parse('$baseUrl$authRefreshEndpoint');
-      final request = await httpClient.postUrl(uri);
-      request.headers.set('Content-Type', 'application/json');
-      request.headers.set('Accept', 'application/json');
-      request.write(jsonEncode({'refresh_token': refreshToken}));
-
-      final response = await request.close();
-      final responseBody = await response.transform(utf8.decoder).join();
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(responseBody) as Map<String, dynamic>;
-        final data = json['data'] as Map<String, dynamic>?;
-        final newToken = data?['access_token'] as String?;
-
-        if (newToken != null) {
-          accessToken = newToken;
-          // Persist the new token so reconnects use the fresh one
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('sse_access_token', newToken);
-          // Sync token back to main isolate so FlutterSecureStorage stays updated
-          service.invoke('tokenSynced', {'token': newToken});
-          return newToken;
-        }
-      }
-      httpClient.close();
-      return null;
-    } catch (_) {
-      return null;
-    }
+  // ── Extract CA bundle ──
+  String? caBundlePath;
+  try {
+    caBundlePath = await CaBundle.ensureExtracted();
+    debugPrint('[BgService] CA bundle at: $caBundlePath');
+  } catch (e) {
+    debugPrint('[BgService] CA bundle extraction failed: $e');
   }
 
-  /// Connect to SSE stream
-  Future<void> connectSSE() async {
-    if (accessToken == null || accessToken!.isEmpty) return;
+  // ── SSE connect function ──
+  void connectSSE() {
+    if (accessToken == null || accessToken!.isEmpty) {
+      debugPrint('[BgService] no token; skipping SSE connect');
+      return;
+    }
 
-    try {
-      sseClient?.close(force: true);
-      sseSubscription?.cancel();
+    const sseUrl =
+        '${BackgroundNotificationService._baseUrl}${BackgroundNotificationService._sseEndpoint}';
 
-      sseClient = HttpClient();
-      sseClient!.idleTimeout = const Duration(minutes: 30);
-      sseClient!.connectionTimeout = const Duration(seconds: 30);
-
-      final uri = Uri.parse('$baseUrl$sseEndpoint');
-      final request = await sseClient!.getUrl(uri);
-      request.headers.set('Authorization', 'Bearer $accessToken');
-      request.headers.set('Accept', 'text/event-stream');
-      request.headers.set('Cache-Control', 'no-cache');
-      request.headers.set('Connection', 'keep-alive');
-
-      final response = await request.close();
-
-      if (response.statusCode == 200) {
-        reconnectAttempts = 0;
+    sse.start(
+      url: sseUrl,
+      token: accessToken!,
+      caBundlePath: caBundlePath ?? '',
+      onEvent: (String event, String data) {
+        debugPrint('[BgService] SSE event: $event (data_len=${data.length})');
+        _processSSEEvent(
+          event,
+          data,
+          notificationsPlugin,
+          service,
+          notificationIdCounter++,
+        );
+      },
+      onStatus: (NativeSseStatus status, String? info) {
+        debugPrint('[BgService] SSE status: ${status.name} info=$info');
 
         if (service is AndroidServiceInstance) {
-          service.setForegroundNotificationInfo(
-            title: 'Ticketing App',
-            content: 'Notification active',
-          );
-        }
-
-        sseSubscription = response
-            .transform(utf8.decoder)
-            .transform(const LineSplitter())
-            .listen(
-              (line) {
-                if (line.startsWith(':')) return;
-
-                if (line.isEmpty) {
-                  if (currentEvent.isNotEmpty && currentData.isNotEmpty) {
-                    _processSSEEvent(
-                      currentEvent,
-                      currentData,
-                      notificationsPlugin,
-                      service,
-                      notificationIdCounter++,
-                    );
-                  }
-                  currentEvent = '';
-                  currentData = '';
-                  return;
-                }
-
-                if (line.startsWith('event:')) {
-                  currentEvent = line.substring(6).trim();
-                } else if (line.startsWith('data:')) {
-                  currentData = line.substring(5).trim();
-                }
-              },
-              onError: (_) {
-                // SSE error — schedule reconnect with current token
-                // (which may have been updated by main app's proactive refresh)
-                // If token is expired, connectSSE()'s 401 handler will refresh
-                _scheduleReconnect(
-                  reconnectTimer,
-                  reconnectAttempts,
-                  maxReconnectAttempts,
-                  shouldReconnect,
-                  connectSSE,
-                  service,
-                  (t) => reconnectTimer = t,
-                  () => reconnectAttempts++,
-                );
-              },
-              onDone: () {
-                // SSE stream closed by server — schedule reconnect
-                // The proactive timer in main app pushes fresh tokens via updateToken,
-                // so the local accessToken variable should already be up-to-date.
-                // Only connectSSE()'s 401 handler refreshes as a last resort.
-                _scheduleReconnect(
-                  reconnectTimer,
-                  reconnectAttempts,
-                  maxReconnectAttempts,
-                  shouldReconnect,
-                  connectSSE,
-                  service,
-                  (t) => reconnectTimer = t,
-                  () => reconnectAttempts++,
-                );
-              },
-              cancelOnError: false,
-            );
-      } else if (response.statusCode == 401) {
-        // Token expired — try to refresh (last resort, only if proactive timer didn't push a new token)
-        final newToken = await refreshAccessToken();
-        if (newToken != null) {
-          // Successfully refreshed — reconnect with new token
-          reconnectAttempts = 0;
-          connectSSE();
-        } else {
-          // Refresh failed — session expired, stop reconnecting
-          shouldReconnect = false;
-          if (service is AndroidServiceInstance) {
-            service.setForegroundNotificationInfo(
-              title: 'Ticketing App',
-              content: 'Session expired',
-            );
+          switch (status) {
+            case NativeSseStatus.connected:
+              service.setForegroundNotificationInfo(
+                title: 'Ticketing App',
+                content: 'Notification active',
+              );
+              break;
+            case NativeSseStatus.connecting:
+            case NativeSseStatus.reconnecting:
+              service.setForegroundNotificationInfo(
+                title: 'Ticketing App',
+                content: 'Reconnecting...',
+              );
+              break;
+            case NativeSseStatus.unauthorized:
+              // Token expired — try refresh
+              _handleUnauthorized(
+                service,
+                refreshToken,
+                (newToken) {
+                  accessToken = newToken;
+                  sse.updateToken(newToken);
+                },
+              );
+              break;
+            case NativeSseStatus.disconnected:
+            case NativeSseStatus.fatal:
+              service.setForegroundNotificationInfo(
+                title: 'Ticketing App',
+                content: 'Connection lost',
+              );
+              break;
           }
         }
-      } else {
-        _scheduleReconnect(
-          reconnectTimer,
-          reconnectAttempts,
-          maxReconnectAttempts,
-          shouldReconnect,
-          connectSSE,
-          service,
-          (t) => reconnectTimer = t,
-          () => reconnectAttempts++,
-        );
-      }
-    } catch (_) {
-      _scheduleReconnect(
-        reconnectTimer,
-        reconnectAttempts,
-        maxReconnectAttempts,
-        shouldReconnect,
-        connectSSE,
-        service,
-        (t) => reconnectTimer = t,
-        () => reconnectAttempts++,
-      );
-    }
+      },
+    );
   }
 
-  // Listen for token updates from UI isolate
+  // ── Listen for token updates from UI isolate ──
   service.on('updateToken').listen((event) {
     if (event != null && event['token'] != null) {
       accessToken = event['token'] as String;
       if (event['refreshToken'] != null) {
         refreshToken = event['refreshToken'] as String;
       }
-      connectSSE();
+
+      if (sse.isRunning) {
+        sse.updateToken(accessToken!);
+      } else {
+        connectSSE();
+      }
     }
   });
 
-  // Listen for stop command
+  // ── Listen for stop command ──
   service.on('stopService').listen((event) {
-    shouldReconnect = false;
-    reconnectTimer?.cancel();
-    sseSubscription?.cancel();
-    sseClient?.close(force: true);
+    debugPrint('[BgService] stop requested');
+    sse.stop();
     service.stopSelf();
   });
 
-  // Auto-recover: load saved tokens on service start
+  // ── Auto-recover: load saved tokens on service start ──
   try {
     final prefs = await SharedPreferences.getInstance();
     final savedToken = prefs.getString('sse_access_token');
@@ -353,7 +275,55 @@ void _onStart(ServiceInstance service) async {
       accessToken = savedToken;
       connectSSE();
     }
-  } catch (_) {}
+  } catch (e) {
+    debugPrint('[BgService] auto-recover failed: $e');
+  }
+}
+
+/// Handle 401 unauthorized — try to refresh the access token
+Future<void> _handleUnauthorized(
+  ServiceInstance service,
+  String? refreshToken,
+  void Function(String newToken) onSuccess,
+) async {
+  if (refreshToken == null || refreshToken.isEmpty) {
+    debugPrint('[BgService] no refresh token; cannot recover from 401');
+    return;
+  }
+
+  try {
+    final httpClient = HttpClient();
+    httpClient.connectionTimeout = const Duration(seconds: 10);
+
+    const refreshUrl =
+        '${BackgroundNotificationService._baseUrl}/auth/refresh';
+    final uri = Uri.parse(refreshUrl);
+    final request = await httpClient.postUrl(uri);
+    request.headers.set('Content-Type', 'application/json');
+    request.headers.set('Accept', 'application/json');
+    request.write(jsonEncode({'refresh_token': refreshToken}));
+
+    final response = await request.close();
+    final responseBody = await response.transform(utf8.decoder).join();
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(responseBody) as Map<String, dynamic>;
+      final data = json['data'] as Map<String, dynamic>?;
+      final newToken = data?['access_token'] as String?;
+
+      if (newToken != null) {
+        // Persist and sync back
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('sse_access_token', newToken);
+        service.invoke('tokenSynced', {'token': newToken});
+        onSuccess(newToken);
+        debugPrint('[BgService] token refreshed successfully');
+      }
+    }
+    httpClient.close();
+  } catch (e) {
+    debugPrint('[BgService] token refresh failed: $e');
+  }
 }
 
 /// Process SSE events and show local notifications
@@ -366,6 +336,7 @@ void _processSSEEvent(
 ) {
   switch (event) {
     case 'connected':
+      debugPrint('[BgService] SSE connected event received');
       break;
     case 'notification':
       try {
@@ -425,46 +396,15 @@ void _processSSEEvent(
         );
 
         service.invoke('newNotification', json);
-      } catch (_) {}
+        debugPrint(
+            '[BgService] notification shown: $notifTitle - $message');
+      } catch (e) {
+        debugPrint('[BgService] failed to process notification event: $e');
+      }
       break;
     default:
+      debugPrint('[BgService] unhandled SSE event: $event');
       break;
   }
 }
 
-/// Schedule auto-reconnect with exponential backoff
-void _scheduleReconnect(
-  Timer? currentTimer,
-  int attempts,
-  int maxAttempts,
-  bool shouldReconnect,
-  Future<void> Function() connectFn,
-  ServiceInstance service,
-  void Function(Timer?) setTimer,
-  void Function() incrementAttempts,
-) {
-  if (!shouldReconnect || attempts >= maxAttempts) {
-    if (attempts >= maxAttempts) {
-      if (service is AndroidServiceInstance) {
-        service.setForegroundNotificationInfo(
-          title: 'Ticketing App',
-          content: 'Connection lost',
-        );
-      }
-    }
-    return;
-  }
-
-  incrementAttempts();
-  final delay = Duration(seconds: (2 * (attempts + 1)).clamp(2, 60));
-
-  if (service is AndroidServiceInstance) {
-    service.setForegroundNotificationInfo(
-      title: 'Ticketing App',
-      content: 'Reconnecting...',
-    );
-  }
-
-  currentTimer?.cancel();
-  setTimer(Timer(delay, () => connectFn()));
-}

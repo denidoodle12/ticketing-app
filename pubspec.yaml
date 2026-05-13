@@ -69,6 +69,9 @@ dependencies:
   # Password Strength Indicator
   flutter_password_strength: ^0.1.6
 
+  # Native FFI (C++ SSE)
+  ffi: ^2.1.0
+
   # Firebase
   firebase_core: ^4.4.0
   flutter_html: ^3.0.0
@@ -93,3 +96,4 @@ flutter:
     - assets/images/empty-states/
     - assets/icons/
     - assets/icons/dashboard/
+    - assets/certs/

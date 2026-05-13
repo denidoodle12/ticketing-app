@@ -404,9 +404,6 @@ class _TicketChatTabState extends State<TicketChatTab>
       onTap: () => FocusScope.of(context).unfocus(),
       child: Column(
         children: [
-          // Connection status indicator
-          _buildConnectionStatus(),
-
           // Chat messages list (Expanded to fill available space)
           Expanded(
             child: widget.comments.isEmpty
@@ -436,71 +433,23 @@ class _TicketChatTabState extends State<TicketChatTab>
     );
   }
 
-  Widget _buildConnectionStatus() {
-    Color bgColor;
-    Color textColor;
-    String statusText;
-    IconData icon;
-
-    switch (widget.connectionState) {
-      case WebSocketState.connected:
-        bgColor = AppColors.success500.withAlpha(25);
-        textColor = AppColors.success500;
-        statusText = 'Connected';
-        icon = Icons.wifi;
-        break;
-      case WebSocketState.connecting:
-      case WebSocketState.reconnecting:
-        bgColor = AppColors.warning500.withAlpha(25);
-        textColor = AppColors.warning500;
-        statusText = widget.connectionState == WebSocketState.connecting
-            ? 'Connecting...'
-            : 'Reconnecting...';
-        icon = Icons.sync;
-        break;
-      case WebSocketState.error:
-        bgColor = AppColors.error500.withAlpha(25);
-        textColor = AppColors.error500;
-        statusText = 'Connection error';
-        icon = Icons.wifi_off;
-        break;
-      case WebSocketState.disconnected:
-        bgColor = AppColors.grey200;
-        textColor = AppColors.textSecondary;
-        statusText = 'Offline mode';
-        icon = Icons.wifi_off;
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      color: bgColor,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: textColor),
-          const SizedBox(width: 6),
-          Text(
-            statusText,
-            style: AppTextStyles.caption.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w500,
+  Widget _buildEmptyState() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: const Center(
+              child: EmptyStateWidget(
+                imagePath: 'assets/images/empty-states/empty-three.png',
+                title: 'No Messages Yet',
+                description:
+                    'Send a message to start the conversation with the agent.',
+              ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return const Center(
-      child: EmptyStateWidget(
-        imagePath: 'assets/images/empty-states/empty-three.png',
-        title: 'No Messages Yet',
-        description:
-            'Send a message to start the conversation with the agent.',
-      ),
+        );
+      },
     );
   }
 

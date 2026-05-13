@@ -460,99 +460,107 @@ class _TicketsScreenState extends State<TicketsScreen> {
   }
 
   Widget _buildTicketList() {
-    return RefreshIndicator(
-      onRefresh: _onRefresh,
-      child: PagedListView<int, Ticket>.separated(
-        pagingController: _pagingController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-        // Pre-render items off-screen for smoother scrolling
-        cacheExtent: 500,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
-        builderDelegate: PagedChildBuilderDelegate<Ticket>(
-          // Wrap with RepaintBoundary for better performance
-          itemBuilder: (context, ticket, index) => RepaintBoundary(
-            child: TicketCard(
-              ticket: ticket,
-              onTap: () => _navigateToTicketDetail(ticket),
-            ),
-          ),
-          firstPageProgressIndicatorBuilder: (context) =>
-              const Center(child: CircularProgressIndicator()),
-          newPageProgressIndicatorBuilder: (context) => const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
-            ),
-          ),
-          noItemsFoundIndicatorBuilder: (context) => _buildEmptyState(
-            isSearchResult:
-                _searchController.text.isNotEmpty || _selectedFilter != 'all',
-          ),
-          firstPageErrorIndicatorBuilder: (context) => _buildErrorState(
-            _pagingController.error?.toString() ?? 'An error occurred',
-          ),
-          newPageErrorIndicatorBuilder: (context) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Failed to load more',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.error500,
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return RefreshIndicator(
+          onRefresh: _onRefresh,
+          child: PagedListView<int, Ticket>.separated(
+            pagingController: _pagingController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+            // Pre-render items off-screen for smoother scrolling
+            cacheExtent: 500,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            builderDelegate: PagedChildBuilderDelegate<Ticket>(
+              // Wrap with RepaintBoundary for better performance
+              itemBuilder: (context, ticket, index) => RepaintBoundary(
+                child: TicketCard(
+                  ticket: ticket,
+                  onTap: () => _navigateToTicketDetail(ticket),
+                ),
+              ),
+              firstPageProgressIndicatorBuilder: (context) =>
+                  const Center(child: CircularProgressIndicator()),
+              newPageProgressIndicatorBuilder: (context) => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              noItemsFoundIndicatorBuilder: (context) => _buildEmptyState(
+                availableHeight: constraints.maxHeight,
+                isSearchResult:
+                    _searchController.text.isNotEmpty ||
+                    _selectedFilter != 'all',
+              ),
+              firstPageErrorIndicatorBuilder: (context) => _buildErrorState(
+                _pagingController.error?.toString() ?? 'An error occurred',
+              ),
+              newPageErrorIndicatorBuilder: (context) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Failed to load more',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.error500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () =>
+                            _pagingController.retryLastFailedRequest(),
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => _pagingController.retryLastFailedRequest(),
-                    child: const Text('Retry'),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildEmptyState({bool isSearchResult = false}) {
-    // Determine which variant to show based on context
+  Widget _buildEmptyState({
+    required double availableHeight,
+    bool isSearchResult = false,
+  }) {
     final bool isStatusFilter = _selectedFilter != 'all';
     final bool hasSearchQuery = _searchController.text.isNotEmpty;
 
-    // Search with no matching keyword
+    final Widget emptyWidget;
+
     if (hasSearchQuery) {
-      return const Center(
-        child: EmptyStateWidget(
-          imagePath: 'assets/images/empty-states/empty-two.png',
-          title: 'No Results Found',
-          description: 'Try a different keyword or check the spelling.',
-        ),
+      emptyWidget = const EmptyStateWidget(
+        imagePath: 'assets/images/empty-states/empty-two.png',
+        title: 'No Results Found',
+        description: 'Try a different keyword or check the spelling.',
       );
-    }
-
-    // Status tabs (Open, In Progress, etc.) — empty
-    if (isStatusFilter) {
-      return const Center(
-        child: EmptyStateWidget(
-          imagePath: 'assets/images/empty-states/empty-one.png',
-          title: 'No Tickets Here',
-          description:
-              'There are no tickets with this status right now.',
-        ),
+    } else if (isStatusFilter) {
+      emptyWidget = const EmptyStateWidget(
+        imagePath: 'assets/images/empty-states/empty-one.png',
+        title: 'No Tickets Here',
+        description: 'There are no tickets with this status right now.',
       );
-    }
-
-    // "All" tab — first login, no tickets
-    return const Center(
-      child: EmptyStateWidget(
+    } else {
+      emptyWidget = const EmptyStateWidget(
         imagePath: 'assets/images/empty-states/empty-one.png',
         title: 'No Tickets Yet',
         description: 'Create a new ticket to get started.',
-      ),
+      );
+    }
+
+    // Subtract PagedListView padding (top: 16, bottom: 100) so Center
+    // aligns to the actual visible viewport, not the padded scroll area.
+    final contentHeight = availableHeight - 16 - 100;
+
+    return SizedBox(
+      height: contentHeight > 0 ? contentHeight : availableHeight,
+      child: Center(child: emptyWidget),
     );
   }
 

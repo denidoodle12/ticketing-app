@@ -399,7 +399,6 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
                 title: 'No Articles Found',
                 description:
                     'No articles found with tag "$_selectedTag". Try clearing the filter.',
-                verticalPadding: 0,
               ),
               const SizedBox(height: 20),
               OutlinedButton(

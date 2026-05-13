@@ -533,7 +533,6 @@ class _SearchScreenState extends State<SearchScreen> {
             description: hasActiveFilters
                 ? 'No tickets match your current filters. Try adjusting them.'
                 : 'Try a different keyword or check the spelling.',
-            verticalPadding: 0,
           ),
           const SizedBox(height: 24),
 

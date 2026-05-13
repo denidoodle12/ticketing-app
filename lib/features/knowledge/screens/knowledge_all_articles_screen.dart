@@ -474,7 +474,6 @@ class _KnowledgeAllArticlesScreenState
                 title: 'No Articles Found',
                 description:
                     'No articles match the selected filters. Try clearing them.',
-                verticalPadding: 0,
               ),
               const SizedBox(height: 20),
               OutlinedButton(

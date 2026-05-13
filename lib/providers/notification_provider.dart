@@ -23,7 +23,11 @@ class NotificationProvider extends ChangeNotifier {
   // Stream subscriptions
   StreamSubscription? _backgroundNotificationSubscription;
 
-  NotificationProvider(this._repository);
+  NotificationProvider(this._repository) {
+    // Start listening immediately — events can arrive before MainScreen mounts
+    // (e.g. from splash/login screen while background service is already running)
+    listenToBackgroundService();
+  }
 
   // Getters
   List<NotificationItem> get notifications => _notifications;

@@ -68,13 +68,25 @@ class NotificationItem {
   });
 
   /// Parse from JSON response
-  factory NotificationItem.fromJson(Map<String, dynamic> json) {
+  ///
+  /// Accepts [Map<dynamic, dynamic>] because IPC round-trips via
+  /// flutter_background_service lose generic type info (nested maps become
+  /// Map<Object?, Object?>).
+  factory NotificationItem.fromJson(Map<dynamic, dynamic> json) {
+    // Safe-cast nested metadata map
+    final rawMeta = json['metadata'];
+    final Map<String, dynamic> meta = rawMeta is Map
+        ? rawMeta.map<String, dynamic>(
+            (key, value) => MapEntry(key.toString(), value),
+          )
+        : <String, dynamic>{};
+
     return NotificationItem(
       id: json['id'] as int? ?? 0,
       type: NotificationType.fromString(json['type'] as String? ?? ''),
       title: json['title'] as String? ?? '',
       message: json['message'] as String? ?? '',
-      metadata: json['metadata'] as Map<String, dynamic>? ?? {},
+      metadata: meta,
       isRead: json['is_read'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
