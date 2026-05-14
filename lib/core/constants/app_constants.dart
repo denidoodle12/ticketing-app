@@ -24,8 +24,15 @@ class AppConstants {
   static const int maxAttachmentSizeMB = 5; // 5MB (API contract limit for ticket attachments)
   static const int maxChatAttachmentSizeMB = 5; // 5MB (API contract limit for chat attachments)
 
-  // Allowed roles for this app (end-user app)
-  static const String allowedRole = 'user';
+  // Allowed roles for this app (end-user level roles)
+  // Any role in this set is considered an end-user and can login
+  static const Set<String> allowedRoles = {
+    'user',
+    'end_user',
+    'employee',
+    'client',
+    'customer',
+  };
 
   // Delays
   static const int splashDurationMs = 2000; // 2 seconds

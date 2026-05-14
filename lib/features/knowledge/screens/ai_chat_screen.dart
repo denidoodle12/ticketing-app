@@ -23,6 +23,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   final FocusNode _focusNode = FocusNode();
 
   static const int _maxChars = 500;
+  static const int _minChars = 3;
   static const String _onboardedKey = 'ai_chat_onboarded';
 
   bool _isOnboarded = true;
@@ -48,15 +49,11 @@ class _AiChatScreenState extends State<AiChatScreen>
       curve: Curves.easeOut,
     );
 
-
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<KnowledgeProvider>().clearChat();
       _checkOnboardStatus();
     });
   }
-
-
 
   Future<void> _checkOnboardStatus() async {
     final prefs = await SharedPreferences.getInstance();
@@ -494,9 +491,9 @@ class _AiChatScreenState extends State<AiChatScreen>
         // - Large padding when waiting for AI (user msg at top, space for response)
         // - Minimal padding when AI has already responded (no wasted space)
         final messages = provider.chatMessages;
-        final isWaitingForAi = messages.isNotEmpty &&
-            (messages.last.isLoading ||
-             messages.last.role == ChatRole.user);
+        final isWaitingForAi =
+            messages.isNotEmpty &&
+            (messages.last.isLoading || messages.last.role == ChatRole.user);
         final bottomPadding = isWaitingForAi
             ? constraints.maxHeight * 0.55
             : 16.0;
@@ -511,8 +508,9 @@ class _AiChatScreenState extends State<AiChatScreen>
             final message = messages[index];
             return ChatBubble(
               message: message,
-              onRetry:
-                  message.isError ? () => provider.retryLastMessage() : null,
+              onRetry: message.isError
+                  ? () => provider.retryLastMessage()
+                  : null,
             );
           },
         );
@@ -523,8 +521,10 @@ class _AiChatScreenState extends State<AiChatScreen>
   // ─── Input Bar (Gemini-style) ────────────────────────────────────
 
   Widget _buildInputBar(KnowledgeProvider provider) {
-    final canSend =
-        _textController.text.trim().isNotEmpty && !provider.isAiResponding;
+    final trimmedText = _textController.text.trim();
+    final canSend = trimmedText.length >= _minChars && !provider.isAiResponding;
+    final showMinHint =
+        trimmedText.isNotEmpty && trimmedText.length < _minChars;
 
     return SafeArea(
       top: false,
@@ -535,10 +535,7 @@ class _AiChatScreenState extends State<AiChatScreen>
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: AppColors.grey300,
-              width: 1,
-            ),
+            border: Border.all(color: AppColors.grey300, width: 1),
             boxShadow: [
               BoxShadow(
                 color: AppColors.shadow.withAlpha(15),
@@ -571,9 +568,13 @@ class _AiChatScreenState extends State<AiChatScreen>
                     color: AppColors.textPrimary,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Ask TixAI',
+                    hintText: showMinHint
+                        ? 'Type at least $_minChars characters'
+                        : 'Ask TixAI',
                     hintStyle: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.grey400,
+                      color: showMinHint
+                          ? AppColors.warning700
+                          : AppColors.grey400,
                     ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,

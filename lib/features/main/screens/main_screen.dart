@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -8,12 +9,15 @@ import '../../../core/themes/text_styles.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/background_notification_service.dart';
+import '../../../core/services/local_notification_service.dart';
 import '../../../core/services/token_refresh_service.dart';
 import '../../../core/constants/storage_keys.dart';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../data/datasources/local/local_storage.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/notification_provider.dart';
+import '../../../providers/ticket_provider.dart';
 import '../../../routes/app_routes.dart';
 import '../../home/screens/home_screen.dart';
 import '../../tickets/screens/tickets_screen.dart';
@@ -47,6 +51,9 @@ class MainScreenState extends State<MainScreen> {
     // Listen for session expired (auto-redirect to login)
     _setupAuthListener();
 
+    // Setup handler for system tray notification taps
+    _setupNotificationTapHandler();
+
     // Show welcome toast after first frame if flag is set
     if (widget.showWelcomeToast) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -58,6 +65,41 @@ class MainScreenState extends State<MainScreen> {
           );
         }
       });
+    }
+  }
+
+  /// Setup handler for when user taps a notification in the system tray.
+  /// Parses the payload JSON and navigates to the relevant ticket detail.
+  void _setupNotificationTapHandler() {
+    LocalNotificationService.onNotificationTap = (String? payload) {
+      if (payload == null || payload.isEmpty) return;
+      try {
+        final data = jsonDecode(payload) as Map<String, dynamic>;
+        final ticketId = data['ticket_id'] as int?;
+        if (ticketId != null && mounted) {
+          _navigateToTicketFromNotification(ticketId);
+        }
+      } catch (_) {
+        // Invalid payload — ignore
+      }
+    };
+  }
+
+  /// Navigate to ticket detail from a notification tap.
+  /// Loads the ticket data first, then pushes the detail screen.
+  Future<void> _navigateToTicketFromNotification(int ticketId) async {
+    if (!mounted) return;
+    try {
+      final ticketProvider = context.read<TicketProvider>();
+      await ticketProvider.loadTicketDetail(ticketId);
+      final ticket = ticketProvider.selectedTicket;
+      if (ticket != null && mounted) {
+        context.push(AppRoutes.ticketDetail, extra: ticket);
+      }
+    } catch (_) {
+      if (mounted) {
+        ToastHelper.showError(context, 'Could not load ticket details');
+      }
     }
   }
 

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../../core/network/connectivity_service.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/asset_paths.dart';
@@ -23,12 +26,45 @@ class KnowledgeScreen extends StatefulWidget {
 }
 
 class _KnowledgeScreenState extends State<KnowledgeScreen> {
+  bool _isOffline = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<KnowledgeProvider>().loadInitialData();
-    });
+    // Check initial connectivity
+    _isOffline = !ConnectivityService().isConnected;
+
+    // Listen for connectivity changes
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _handleConnectivityChange,
+    );
+
+    if (!_isOffline) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<KnowledgeProvider>().loadInitialData();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Handle connectivity changes — show offline state or auto-refresh
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final isNowOffline = results.contains(ConnectivityResult.none);
+
+    if (isNowOffline && !_isOffline) {
+      if (mounted) setState(() => _isOffline = true);
+    } else if (!isNowOffline && _isOffline) {
+      if (mounted) {
+        setState(() => _isOffline = false);
+        context.read<KnowledgeProvider>().loadInitialData();
+      }
+    }
   }
 
   @override
@@ -37,30 +73,40 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       backgroundColor: AppColors.white,
       body: SafeArea(
         bottom: false,
-        child: Consumer<KnowledgeProvider>(
-          builder: (context, provider, _) {
-            return RefreshIndicator(
-              onRefresh: provider.refresh,
-              color: AppColors.primary600,
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: [
-                  const SizedBox(height: 32),
-                  _buildGreeting(),
-                  const SizedBox(height: 16),
-                  _buildSearchBar(),
-                  const SizedBox(height: 20),
-                  _buildAiBanner(),
-                  const SizedBox(height: 24),
-                  _buildCategoriesSection(provider),
-                  const SizedBox(height: 24),
-                  _buildRecentArticlesSection(provider),
-                  const SizedBox(height: 100),
-                ],
+        child: _isOffline
+            ? const SizedBox.expand(
+                child: Center(
+                  child: OfflineStateWidget(
+                    title: 'Knowledge Base Unavailable Offline',
+                    description:
+                        'Please connect to the internet to browse articles and categories.',
+                  ),
+                ),
+              )
+            : Consumer<KnowledgeProvider>(
+                builder: (context, provider, _) {
+                  return RefreshIndicator(
+                    onRefresh: provider.refresh,
+                    color: AppColors.primary600,
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      children: [
+                        const SizedBox(height: 32),
+                        _buildGreeting(),
+                        const SizedBox(height: 16),
+                        _buildSearchBar(),
+                        const SizedBox(height: 20),
+                        _buildAiBanner(),
+                        const SizedBox(height: 24),
+                        _buildCategoriesSection(provider),
+                        const SizedBox(height: 24),
+                        _buildRecentArticlesSection(provider),
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
       ),
     );
   }

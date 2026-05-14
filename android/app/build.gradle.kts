@@ -111,6 +111,9 @@ val ndkBuildNative = tasks.register<Exec>("ndkBuildNative") {
     group = "build"
     description = "Builds libjavaloader.so via ndk-build (Android.mk)"
 
+    // ndk-build creates .tmp files that Gradle's incremental tracking can't handle
+    doNotTrackState("ndk-build manages its own incremental builds")
+
     val ndkDir = ndkDirProp
         ?: System.getenv("ANDROID_NDK_HOME")
         ?: System.getenv("ANDROID_NDK_ROOT")
@@ -119,9 +122,6 @@ val ndkBuildNative = tasks.register<Exec>("ndkBuildNative") {
     val isWindows = org.gradle.internal.os.OperatingSystem.current().isWindows
     val ndkBuildName = if (isWindows) "ndk-build.cmd" else "ndk-build"
     val ndkBuildFile = file("$ndkDir/$ndkBuildName")
-
-    inputs.dir(jniSrcDir)
-    outputs.dir(jniLibsDir)
 
     commandLine(
         ndkBuildFile.absolutePath,

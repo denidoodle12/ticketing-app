@@ -66,11 +66,11 @@ class AuthRepositoryImpl implements AuthRepository {
           final loginData = response.data!;
           final user = loginData.user;
 
-          // Validate user role - only allow users
-          if (user.role.toLowerCase() != AppConstants.allowedRole) {
+          // Validate user role — only allow end-user level roles
+          if (!AppConstants.allowedRoles.contains(user.role.toLowerCase())) {
             return Result.failure(
               ForbiddenFailure(
-                'Access denied. This application is for users only.',
+                'Access denied. This application is for end users only.',
               ),
             );
           }
@@ -106,11 +106,11 @@ class AuthRepositoryImpl implements AuthRepository {
         );
         final user = loginResponse.user;
 
-        // Validate user role - only allow users
-        if (user.role.toLowerCase() != AppConstants.allowedRole) {
+        // Validate user role — only allow end-user level roles
+        if (!AppConstants.allowedRoles.contains(user.role.toLowerCase())) {
           return Result.failure(
             ForbiddenFailure(
-              'Access denied. This application is for users only.',
+              'Access denied. This application is for end users only.',
             ),
           );
         }
