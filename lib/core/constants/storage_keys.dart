@@ -23,4 +23,5 @@ class StorageKeys {
 
   // Search
   static const String recentSearches = 'recent_searches';
+  static const String recentArticleSearches = 'recent_article_searches';
 }

@@ -983,6 +983,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                           onImagePreview: _showImageViewer,
                           onFileOpen: _openFileInBrowser,
                           authHeaders: _authHeaders,
+                          isOffline: _isOffline,
+                          isLoading: provider.isTicketDetailLoading,
                         ),
                       ],
                     ),

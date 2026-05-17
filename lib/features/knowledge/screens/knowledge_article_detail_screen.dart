@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/network/connectivity_service.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/knowledge_article_model.dart';
 
@@ -19,12 +23,40 @@ class KnowledgeArticleDetailScreen extends StatefulWidget {
 
 class _KnowledgeArticleDetailScreenState
     extends State<KnowledgeArticleDetailScreen> {
+  bool _isOffline = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<KnowledgeProvider>().loadArticleDetail(widget.articleId);
-    });
+    _isOffline = !ConnectivityService().isConnected;
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _handleConnectivityChange,
+    );
+
+    if (!_isOffline) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<KnowledgeProvider>().loadArticleDetail(widget.articleId);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final isNowOffline = results.contains(ConnectivityResult.none);
+    if (isNowOffline && !_isOffline) {
+      if (mounted) setState(() => _isOffline = true);
+    } else if (!isNowOffline && _isOffline) {
+      if (mounted) {
+        setState(() => _isOffline = false);
+        context.read<KnowledgeProvider>().loadArticleDetail(widget.articleId);
+      }
+    }
   }
 
   @override
@@ -51,6 +83,16 @@ class _KnowledgeArticleDetailScreenState
       ),
       body: Consumer<KnowledgeProvider>(
         builder: (context, provider, _) {
+          if (_isOffline) {
+            return const Center(
+              child: OfflineStateWidget(
+                title: 'Article Unavailable Offline',
+                description:
+                    'Please connect to the internet to read this article.',
+              ),
+            );
+          }
+
           if (provider.isArticleLoading) {
             return _buildLoadingState();
           }

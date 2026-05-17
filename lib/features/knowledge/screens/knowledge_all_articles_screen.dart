@@ -1,6 +1,9 @@
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../../core/network/connectivity_service.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../models/knowledge_article_model.dart';
@@ -30,19 +33,47 @@ class _KnowledgeAllArticlesScreenState
 
   bool get _hasActiveFilter => _selectedCategoryId != null || _selectedTag != null;
 
+  // ─── Offline detection ─────────────────────────────────────────
+  bool _isOffline = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<KnowledgeProvider>().loadArticles();
-    });
+    _isOffline = !ConnectivityService().isConnected;
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _handleConnectivityChange,
+    );
+
+    if (!_isOffline) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<KnowledgeProvider>().loadArticles();
+      });
+    }
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final isNowOffline = results.contains(ConnectivityResult.none);
+    if (isNowOffline && !_isOffline) {
+      if (mounted) setState(() => _isOffline = true);
+    } else if (!isNowOffline && _isOffline) {
+      if (mounted) {
+        setState(() => _isOffline = false);
+        // Reload data once back online
+        context.read<KnowledgeProvider>().loadArticles(
+          categoryId: _selectedCategoryId,
+          tag: _selectedTag,
+        );
+      }
+    }
   }
 
   void _onScroll() {
@@ -98,9 +129,17 @@ class _KnowledgeAllArticlesScreenState
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: _buildAppBar(),
-      body: Consumer<KnowledgeProvider>(
-        builder: (context, provider, _) => _buildContent(provider),
-      ),
+      body: _isOffline
+          ? const Center(
+              child: OfflineStateWidget(
+                title: 'Articles Unavailable Offline',
+                description:
+                    'Please connect to the internet to browse all articles.',
+              ),
+            )
+          : Consumer<KnowledgeProvider>(
+              builder: (context, provider, _) => _buildContent(provider),
+            ),
     );
   }
 

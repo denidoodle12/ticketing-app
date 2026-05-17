@@ -1,10 +1,14 @@
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/network/connectivity_service.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/asset_paths.dart';
+import '../../../shared/widgets/empty_state_widget.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/ai_chat_model.dart';
 import '../widgets/chat_bubble.dart';
@@ -33,6 +37,10 @@ class _AiChatScreenState extends State<AiChatScreen>
   int _previousMessageCount = 0;
   bool _shouldForceScroll = false;
 
+  // Real-time offline detection — knowledge endpoints are not cached.
+  bool _isOffline = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -49,10 +57,25 @@ class _AiChatScreenState extends State<AiChatScreen>
       curve: Curves.easeOut,
     );
 
+    // Check initial connectivity
+    _isOffline = !ConnectivityService().isConnected;
+
+    // Listen for connectivity changes
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _handleConnectivityChange,
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<KnowledgeProvider>().clearChat();
       _checkOnboardStatus();
     });
+  }
+
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final isNowOffline = results.contains(ConnectivityResult.none);
+    if (isNowOffline != _isOffline && mounted) {
+      setState(() => _isOffline = isNowOffline);
+    }
   }
 
   Future<void> _checkOnboardStatus() async {
@@ -82,6 +105,7 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _textController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
@@ -131,6 +155,10 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   void _sendMessage(String text) {
     if (text.trim().isEmpty) return;
+    // Guard: don't send while offline. The build flow already shows the
+    // offline placeholder, but this is a safety net for the transient
+    // moment between connectivity events.
+    if (_isOffline) return;
     // #5: Haptic feedback on send
     HapticFeedback.lightImpact();
     _shouldForceScroll = true; // Always scroll after user sends
@@ -147,7 +175,9 @@ class _AiChatScreenState extends State<AiChatScreen>
       extendBodyBehindAppBar: true,
       appBar: _isCheckingOnboard
           ? null
-          : (!_isOnboarded ? _buildGetStartedAppBar() : _buildAppBar()),
+          : (_isOffline
+              ? _buildOfflineAppBar()
+              : (!_isOnboarded ? _buildGetStartedAppBar() : _buildAppBar())),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -164,33 +194,68 @@ class _AiChatScreenState extends State<AiChatScreen>
         child: SafeArea(
           child: _isCheckingOnboard
               ? const SizedBox.shrink()
-              : FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Consumer<KnowledgeProvider>(
-                    builder: (context, provider, _) {
-                      // Smart auto-scroll: only when new messages arrive & user near bottom
-                      if (provider.chatMessages.isNotEmpty) {
-                        _smartScrollToBottom(provider.chatMessages.length);
-                      }
+              : _isOffline
+                  ? _buildOfflinePlaceholder()
+                  : FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Consumer<KnowledgeProvider>(
+                        builder: (context, provider, _) {
+                          // Smart auto-scroll: only when new messages arrive & user near bottom
+                          if (provider.chatMessages.isNotEmpty) {
+                            _smartScrollToBottom(provider.chatMessages.length);
+                          }
 
-                      if (!_isOnboarded) {
-                        return _buildGetStartedView();
-                      }
+                          if (!_isOnboarded) {
+                            return _buildGetStartedView();
+                          }
 
-                      return Column(
-                        children: [
-                          Expanded(
-                            child: provider.hasChatHistory
-                                ? _buildChatArea(provider)
-                                : _buildWelcomeView(provider),
-                          ),
-                          _buildInputBar(provider),
-                        ],
-                      );
-                    },
-                  ),
-                ),
+                          return Column(
+                            children: [
+                              Expanded(
+                                child: provider.hasChatHistory
+                                    ? _buildChatArea(provider)
+                                    : _buildWelcomeView(provider),
+                              ),
+                              _buildInputBar(provider),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
         ),
+      ),
+    );
+  }
+
+  // ─── Offline state ─────────────────────────────────────────────
+
+  PreferredSizeWidget _buildOfflineAppBar() {
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      leadingWidth: 76,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: Center(child: _buildBackButton()),
+      ),
+      title: Text(
+        'TixAI',
+        style: AppTextStyles.h5.copyWith(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      centerTitle: true,
+    );
+  }
+
+  Widget _buildOfflinePlaceholder() {
+    return const Center(
+      child: OfflineStateWidget(
+        title: 'TixAI Unavailable Offline',
+        description:
+            'AI Assistant requires an active internet connection to answer your questions.',
       ),
     );
   }

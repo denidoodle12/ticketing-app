@@ -139,8 +139,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         authProvider.updateCurrentUser(profileProvider.user!);
         ToastHelper.showSuccess(
           context,
-          'Success',
-          description: 'Profile picture updated successfully',
+          'Photo Updated',
+          description: 'Your profile picture has been updated.',
         );
       } else {
         ToastHelper.showError(
@@ -219,8 +219,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         });
         ToastHelper.showSuccess(
           context,
-          'Success',
-          description: 'Photo saved to Gallery > Ticketing App',
+          'Photo Saved',
+          description: 'Saved to Gallery > Ticketing App',
         );
       }
     } catch (e) {
@@ -322,8 +322,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         authProvider.updateCurrentUser(profileProvider.user!);
         ToastHelper.showSuccess(
           context,
-          'Success',
-          description: 'Profile picture deleted successfully',
+          'Photo Deleted',
+          description: 'Your profile picture has been removed.',
         );
       } else {
         ToastHelper.showError(
@@ -356,6 +356,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
 
+    // Set explicit message for the overlay so users know what's happening
+    setState(() => _uploadMessage = 'Saving changes...');
+
     final success = await profileProvider.updateProfile(
       name: _nameController.text.trim(),
       lastName: _lastNameController.text.trim(),
@@ -363,12 +366,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
 
     if (mounted) {
+      setState(() => _uploadMessage = null);
       if (success && profileProvider.user != null) {
         authProvider.updateCurrentUser(profileProvider.user!);
         ToastHelper.showSuccess(
           context,
-          'Success',
-          description: 'Profile updated successfully',
+          'Profile Updated',
+          description: 'Your changes have been saved successfully.',
         );
         Navigator.pop(context);
       } else {
@@ -444,7 +448,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
         return LoadingOverlay(
           isLoading: isLoading,
-          message: _uploadMessage ?? 'Saving...',
+          message: _uploadMessage ?? 'Saving changes...',
           child: Scaffold(
             backgroundColor: AppColors.white,
             body: CustomScrollView(
@@ -525,7 +529,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Tap avatar to change photo',
+          hasPhoto ? 'Tap avatar to change' : 'Tap avatar to add a photo',
           style: AppTextStyles.bodySmall.copyWith(
             color: AppColors.textSecondary,
           ),

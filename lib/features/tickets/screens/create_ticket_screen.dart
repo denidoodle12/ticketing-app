@@ -10,6 +10,7 @@ import '../../../core/themes/text_styles.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../providers/ticket_provider.dart';
+import '../../../shared/widgets/local_image_preview_dialog.dart';
 
 class CreateTicketScreen extends StatefulWidget {
   const CreateTicketScreen({super.key});
@@ -830,29 +831,74 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
         ),
         child: Row(
           children: [
-            // File preview
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: isImage
-                  ? Image.file(
-                      _attachmentFile!,
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                    )
-                  : Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary50,
-                        borderRadius: BorderRadius.circular(8),
+            // File preview — tap image to open fullscreen preview
+            GestureDetector(
+              onTap: isImage
+                  ? () => LocalImagePreviewDialog.show(
+                        context: context,
+                        filePath: _attachmentFile!.path,
+                        fileName: _attachmentFileName ?? 'Image',
+                      )
+                  : null,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: isImage
+                    ? Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Image.file(
+                            _attachmentFile!,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                          ),
+                          // Subtle zoom hint overlay
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withAlpha(60),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 4,
+                            bottom: 4,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withAlpha(120),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                Icons.zoom_in_rounded,
+                                color: AppColors.white,
+                                size: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          _getFileIcon(_attachmentFileName),
+                          size: 28,
+                          color: AppColors.primaryDark,
+                        ),
                       ),
-                      child: Icon(
-                        _getFileIcon(_attachmentFileName),
-                        size: 28,
-                        color: AppColors.primaryDark,
-                      ),
-                    ),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -870,7 +916,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Tap to change',
+                    isImage ? 'Tap image to preview' : 'Tap to change',
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.textSecondary,
                     ),

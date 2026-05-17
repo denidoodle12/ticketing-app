@@ -122,14 +122,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
       var newItems = response.tickets.toList();
 
-      // Only client-side filter: hide closed tickets when "All" tab is active
-      // and no explicit status filter is set from bottom sheet
-      if (_selectedFilter == 'all' && _bottomSheetStatusId == null) {
-        newItems = newItems.where((ticket) {
-          final statusName = ticket.status?.name.toLowerCase() ?? '';
-          return statusName != 'closed';
-        }).toList();
-      }
+      // Note: We intentionally show ALL tickets (including closed) under
+      // the "All" tab. Users can filter by specific status using the chips
+      // or bottom sheet when they want to narrow down the list.
 
       // Determine if this is the last page based on API response
       final isLastPage =

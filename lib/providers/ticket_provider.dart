@@ -91,18 +91,9 @@ class TicketProvider extends ChangeNotifier {
   List<TicketStatus> get statuses => _statuses;
 
   /// Returns tickets with client-side filtering applied
-  /// - Excludes 'closed' tickets when viewing "All" (no status filter)
   /// - Applies search filter if search query is present
   List<Ticket> get tickets {
     var filteredTickets = _rawTickets.toList();
-
-    // Exclude closed tickets when no specific status filter is applied (All mode)
-    if (_filterStatusId == null) {
-      filteredTickets = filteredTickets.where((ticket) {
-        final statusName = ticket.status?.name.toLowerCase() ?? '';
-        return statusName != 'closed';
-      }).toList();
-    }
 
     // Apply search filter if present
     if (_searchQuery != null && _searchQuery!.trim().isNotEmpty) {
@@ -391,12 +382,13 @@ class TicketProvider extends ChangeNotifier {
         categoryCounts[categoryName] = (categoryCounts[categoryName] ?? 0) + 1;
       }
 
-      // 'All' count excludes closed tickets
+      // 'All' count includes all tickets (open + in_progress + pending + resolved + closed)
       statusCounts['all'] =
           (statusCounts['open'] ?? 0) +
           (statusCounts['in_progress'] ?? 0) +
           (statusCounts['pending'] ?? 0) +
-          (statusCounts['resolved'] ?? 0);
+          (statusCounts['resolved'] ?? 0) +
+          (statusCounts['closed'] ?? 0);
 
       _statusCounts = statusCounts;
       _priorityCounts = priorityCounts;

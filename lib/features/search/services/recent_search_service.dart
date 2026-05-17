@@ -5,10 +5,17 @@ import '../../../core/constants/storage_keys.dart';
 class RecentSearchService {
   static const int _maxRecentSearches = 10;
 
+  /// Storage key — defaults to ticket recent searches.
+  /// Pass `StorageKeys.recentArticleSearches` for article search history.
+  final String _storageKey;
+
+  RecentSearchService({String? storageKey})
+      : _storageKey = storageKey ?? StorageKeys.recentSearches;
+
   /// Get list of recent searches
   Future<List<String>> getRecentSearches() async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(StorageKeys.recentSearches);
+    final jsonString = prefs.getString(_storageKey);
 
     if (jsonString == null || jsonString.isEmpty) {
       return [];
@@ -45,7 +52,7 @@ class RecentSearchService {
     final limited = searches.take(_maxRecentSearches).toList();
 
     // Save
-    await prefs.setString(StorageKeys.recentSearches, jsonEncode(limited));
+    await prefs.setString(_storageKey, jsonEncode(limited));
   }
 
   /// Remove a specific search query from recent searches
@@ -57,12 +64,12 @@ class RecentSearchService {
       (s) => s.toLowerCase() == query.toLowerCase(),
     );
 
-    await prefs.setString(StorageKeys.recentSearches, jsonEncode(searches));
+    await prefs.setString(_storageKey, jsonEncode(searches));
   }
 
   /// Clear all recent searches
   Future<void> clearAllRecentSearches() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(StorageKeys.recentSearches);
+    await prefs.remove(_storageKey);
   }
 }

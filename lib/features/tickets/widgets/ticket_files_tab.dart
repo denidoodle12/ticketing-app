@@ -4,13 +4,14 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../models/comment_model.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
-
 class TicketFilesTab extends StatelessWidget {
   final List<TicketAttachment> attachments;
   final String Function(String) getAttachmentUrl;
   final void Function(String imageUrl, String fileName) onImagePreview;
   final void Function(String url, String fileName) onFileOpen;
   final Map<String, String>? authHeaders;
+  final bool isOffline;
+  final bool isLoading;
 
   const TicketFilesTab({
     super.key,
@@ -19,10 +20,28 @@ class TicketFilesTab extends StatelessWidget {
     required this.onImagePreview,
     required this.onFileOpen,
     this.authHeaders,
+    this.isOffline = false,
+    this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Show offline placeholder when device is offline — matches chat tab UX.
+    // Without this, after going offline + back to list + reopen detail,
+    // the attachments cache may be empty and we'd flash the wrong empty state.
+    if (isOffline) {
+      return _buildOfflinePlaceholder();
+    }
+
+    // Show loading while ticket detail is being refreshed (e.g. just came
+    // back online). Prevents the "No Attachments" empty state from flashing
+    // before the real list arrives.
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primaryDark),
+      );
+    }
+
     if (attachments.isEmpty) {
       return _buildEmptyState();
     }
@@ -37,6 +56,16 @@ class TicketFilesTab extends StatelessWidget {
           ...attachments.map((attachment) => _buildFileItem(context, attachment)),
           const SizedBox(height: 8),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOfflinePlaceholder() {
+    return const Center(
+      child: OfflineStateWidget(
+        title: 'Attachments Unavailable Offline',
+        description:
+            'Files require an active internet connection to view and download.',
       ),
     );
   }
