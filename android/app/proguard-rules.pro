@@ -13,6 +13,10 @@
 -keep class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
 
+# Google Play Core (referenced by Flutter engine for deferred components)
+# We don't use deferred components, so these classes are safely ignored.
+-dontwarn com.google.android.play.core.**
+
 # Gson / JSON serialization (if used by plugins)
 -keepattributes Signature
 -keepattributes *Annotation*
