@@ -71,18 +71,39 @@ class MainScreenState extends State<MainScreen> {
   /// Setup handler for when user taps a notification in the system tray.
   /// Parses the payload JSON and navigates to the relevant ticket detail.
   void _setupNotificationTapHandler() {
+    // Register callback for notification taps while app is alive
     LocalNotificationService.onNotificationTap = (String? payload) {
       if (payload == null || payload.isEmpty) return;
-      try {
-        final data = jsonDecode(payload) as Map<String, dynamic>;
-        final ticketId = data['ticket_id'] as int?;
-        if (ticketId != null && mounted) {
-          _navigateToTicketFromNotification(ticketId);
-        }
-      } catch (_) {
-        // Invalid payload — ignore
-      }
+      _handleNotificationPayload(payload);
     };
+
+    // Check for cold-launch: app was opened by tapping a notification
+    // The payload was stored during LocalNotificationService.initialize()
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final pendingPayload = LocalNotificationService.instance
+          .consumePendingNotificationPayload();
+      if (pendingPayload != null) {
+        _handleNotificationPayload(pendingPayload);
+      }
+    });
+  }
+
+  /// Parse notification payload and navigate to ticket detail
+  void _handleNotificationPayload(String payload) {
+    try {
+      final data = jsonDecode(payload) as Map<String, dynamic>;
+      final ticketId = data['ticket_id'];
+      if (ticketId != null && mounted) {
+        // ticket_id can be int or String depending on source
+        final id = ticketId is int ? ticketId : int.tryParse('$ticketId');
+        if (id != null) {
+          _navigateToTicketFromNotification(id);
+        }
+      }
+    } catch (_) {
+      // Invalid payload — ignore
+    }
   }
 
   /// Navigate to ticket detail from a notification tap.
@@ -164,6 +185,31 @@ class MainScreenState extends State<MainScreen> {
               );
               // Restart proactive timer with the synced token
               TokenRefreshService.instance.startProactiveRefresh();
+            }
+          });
+
+          // Listen for notification taps forwarded from background isolate
+          BackgroundNotificationService.instance.on('notificationTapped').listen((
+            data,
+          ) {
+            final payload = data?['payload'] as String?;
+            if (payload != null && payload.isNotEmpty && mounted) {
+              _handleNotificationPayload(payload);
+            }
+          });
+
+          // When background service sends a new notification event,
+          // re-show it from the main isolate's LocalNotificationService.
+          // This ensures the tap handler (onDidReceiveNotificationResponse)
+          // is properly registered, enabling deep-link to ticket detail.
+          // The same notification ID replaces the background's version.
+          BackgroundNotificationService.instance.on('newNotification').listen((
+            data,
+          ) {
+            if (data != null) {
+              LocalNotificationService.instance.showFromRawJson(
+                Map<String, dynamic>.from(data),
+              );
             }
           });
 

@@ -49,10 +49,10 @@ app.*.map.json
 .env.*
 !.env.example
 
-# Firebase
+# Firebase (use **/ prefix to match any depth)
 **/google-services.json
 **/GoogleService-Info.plist
-firebase_options.dart
+**/firebase_options.dart
 
 # Keystore & Certificates
 *.keystore
@@ -61,6 +61,29 @@ firebase_options.dart
 *.key
 *.mobileprovision
 key.properties
+
+# Android local config (contains machine-specific SDK paths)
+**/local.properties
+
+# Gradle caches
+.gradle/
+
+# Release builds & APKs (should not be in repo)
+*.apk
+*.aab
+*.ipa
+
+# AI/LLM tool configs
+.claude/
+.serena/
+.gemini/
+CLAUDE.md
+
+# OS-specific
+Thumbs.db
+Desktop.ini
+*.exe
+*.dll
 
 # Temporary files
 nul

@@ -20,6 +20,10 @@ class LocalNotificationService {
   /// Callback when notification is tapped
   static Function(String?)? onNotificationTap;
 
+  /// Stores payload from cold-launch notification tap (app was killed)
+  /// MainScreen will consume this after setting up the tap handler.
+  String? _pendingNotificationPayload;
+
   /// Initialize the notification service
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -50,6 +54,32 @@ class LocalNotificationService {
     );
 
     _isInitialized = true;
+
+    // Check if app was launched by tapping a notification (cold start)
+    await _checkAppLaunchNotification();
+  }
+
+  /// Check if the app was launched from a notification tap (cold start).
+  /// If so, store the payload for MainScreen to consume later.
+  Future<void> _checkAppLaunchNotification() async {
+    try {
+      final launchDetails = await _flutterLocalNotificationsPlugin
+          .getNotificationAppLaunchDetails();
+      if (launchDetails != null &&
+          launchDetails.didNotificationLaunchApp &&
+          launchDetails.notificationResponse?.payload != null) {
+        _pendingNotificationPayload =
+            launchDetails.notificationResponse!.payload;
+      }
+    } catch (_) {}
+  }
+
+  /// Check and consume any pending notification payload from cold launch.
+  /// Returns the payload if one exists, then clears it.
+  String? consumePendingNotificationPayload() {
+    final payload = _pendingNotificationPayload;
+    _pendingNotificationPayload = null;
+    return payload;
   }
 
   /// Load app logo from assets for use as large icon
@@ -166,6 +196,96 @@ class LocalNotificationService {
       case NotificationType.unknown:
         return notification.title;
     }
+  }
+
+  /// Show a tray notification from raw SSE JSON data.
+  /// This is used when the main isolate receives notification events from
+  /// the background service, so that the notification is shown by the main
+  /// isolate's plugin instance (which has the tap handler registered).
+  Future<void> showFromRawJson(Map<String, dynamic> json) async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    final title = json['title'] as String? ?? 'New Notification';
+    final message = json['message'] as String? ?? '';
+    final type = json['type'] as String? ?? 'unknown';
+    final ticketId = json['ticket_id'];
+    // Use the same display ID from background service to replace its notification
+    final notifId = json['_display_notif_id'] as int?
+        ?? json['id'] as int?
+        ?? DateTime.now().millisecondsSinceEpoch % 100000;
+
+    // Determine display title by type
+    String notifTitle;
+    switch (type) {
+      case 'status_change':
+        notifTitle = 'Ticket Status Updated';
+        break;
+      case 'assignment':
+        notifTitle = 'Ticket Assigned';
+        break;
+      case 'overdue':
+        notifTitle = 'Ticket Overdue!';
+        break;
+      case 'warning':
+        notifTitle = 'SLA Warning';
+        break;
+      case 'auto_close':
+        notifTitle = 'Ticket Auto-Closed';
+        break;
+      case 'new_comment':
+        notifTitle = 'New Comment';
+        break;
+      default:
+        notifTitle = title;
+    }
+
+    final androidDetails = AndroidNotificationDetails(
+      'ticketing_notifications',
+      'Ticketing Notifications',
+      channelDescription: 'Notifications for ticket updates and system alerts',
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: true,
+      enableVibration: true,
+      playSound: true,
+      color: const Color(0xFF1E3A8A),
+      icon: '@mipmap/ic_launcher',
+      largeIcon:
+          _appLogoBitmap ??
+          const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      styleInformation: BigTextStyleInformation(
+        message,
+        contentTitle: notifTitle,
+        summaryText: 'Ticketing App',
+      ),
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    final notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final payload = jsonEncode({
+      'notification_id': notifId,
+      'ticket_id': ticketId,
+      'type': type,
+    });
+
+    await _flutterLocalNotificationsPlugin.show(
+      notifId,
+      notifTitle,
+      message,
+      notificationDetails,
+      payload: payload,
+    );
   }
 
   /// Cancel a specific notification

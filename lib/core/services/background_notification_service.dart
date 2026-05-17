@@ -8,6 +8,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../constants/api_config.dart';
 import '../native/ca_bundle.dart';
 import '../native/native_sse.dart';
 
@@ -30,8 +31,8 @@ class BackgroundNotificationService {
   static const String _tokenKey = 'sse_access_token';
   static const String _refreshTokenKey = 'sse_refresh_token';
 
-  // SSE configuration
-  static const String _baseUrl = 'https://magang.damarbrawijaya.my.id';
+  // SSE configuration — reads from ApiConfig (single source of truth)
+  static String get _baseUrl => ApiConfig.baseUrl;
   static const String _sseEndpoint = '/notifications/stream';
 
   /// Initialize the background service
@@ -134,13 +135,21 @@ Future<bool> _onIosBackground(ServiceInstance service) async {
 void _onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
-  // ── Initialize local notifications ──
+  // ── Initialize local notifications (with tap handler) ──
   final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
   const initSettings = InitializationSettings(android: androidSettings);
-  await notificationsPlugin.initialize(initSettings);
+  await notificationsPlugin.initialize(
+    initSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) {
+      // Forward tap payload to main isolate via service invoke
+      if (response.payload != null && response.payload!.isNotEmpty) {
+        service.invoke('notificationTapped', {'payload': response.payload});
+      }
+    },
+  );
 
   // Pre-create the notification channel with Importance.max
   // so popups actually appear (auto-created channels default to LOW)
@@ -181,7 +190,7 @@ void _onStart(ServiceInstance service) async {
       return;
     }
 
-    const sseUrl =
+    final sseUrl =
         '${BackgroundNotificationService._baseUrl}${BackgroundNotificationService._sseEndpoint}';
 
     sse.start(
@@ -295,7 +304,7 @@ Future<void> _handleUnauthorized(
     final httpClient = HttpClient();
     httpClient.connectionTimeout = const Duration(seconds: 10);
 
-    const refreshUrl =
+    final refreshUrl =
         '${BackgroundNotificationService._baseUrl}/auth/refresh';
     final uri = Uri.parse(refreshUrl);
     final request = await httpClient.postUrl(uri);
@@ -370,6 +379,14 @@ void _processSSEEvent(
             notifTitle = title;
         }
 
+        // Forward event to main isolate with the display notification ID.
+        // Main isolate will re-show the notification from its own plugin
+        // instance (which has the tap handler) using the same ID to replace
+        // this one. If main isolate is dead, this notification stays.
+        final enrichedJson = Map<String, dynamic>.from(json);
+        enrichedJson['_display_notif_id'] = notificationId;
+        service.invoke('newNotification', enrichedJson);
+
         notificationsPlugin.show(
           notificationId,
           notifTitle,
@@ -395,7 +412,6 @@ void _processSSEEvent(
           }),
         );
 
-        service.invoke('newNotification', json);
         debugPrint(
             '[BgService] notification shown: $notifTitle - $message');
       } catch (e) {

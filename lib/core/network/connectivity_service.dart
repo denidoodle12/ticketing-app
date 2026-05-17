@@ -12,7 +12,7 @@ class ConnectivityService {
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   bool _isConnected = true;
   Completer<void>? _waitingCompleter;
-
+  
   bool get isConnected => _isConnected;
   Stream<bool> get connectionStream => _connectionController.stream;
 
