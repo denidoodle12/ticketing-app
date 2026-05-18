@@ -6,6 +6,7 @@ import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/storage_keys.dart';
+import '../../../core/services/local_notification_service.dart';
 import 'package:ticketing_app/core/constants/asset_paths.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../routes/app_routes.dart';
@@ -91,7 +92,18 @@ class _SplashScreenState extends State<SplashScreen>
       if (authProvider.isFirstLogin) {
         context.go(AppRoutes.changePassword, extra: true);
       } else {
-        context.go(AppRoutes.home);
+        // Cold-launch: check if app was opened from a notification tap.
+        // Pass the payload to MainScreen so it can deep-link to the ticket.
+        final pendingPayload = LocalNotificationService.instance
+            .consumePendingNotificationPayload();
+
+        context.go(
+          AppRoutes.home,
+          extra: {
+            if (pendingPayload != null)
+              'pendingNotificationPayload': pendingPayload,
+          },
+        );
       }
     } else {
       context.go(AppRoutes.login);

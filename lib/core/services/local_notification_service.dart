@@ -60,7 +60,7 @@ class LocalNotificationService {
   }
 
   /// Check if the app was launched from a notification tap (cold start).
-  /// If so, store the payload for MainScreen to consume later.
+  /// If so, store the payload for SplashScreen to consume later.
   Future<void> _checkAppLaunchNotification() async {
     try {
       final launchDetails = await _flutterLocalNotificationsPlugin
@@ -210,7 +210,12 @@ class LocalNotificationService {
     final title = json['title'] as String? ?? 'New Notification';
     final message = json['message'] as String? ?? '';
     final type = json['type'] as String? ?? 'unknown';
-    final ticketId = json['ticket_id'];
+
+    // ticket_id is nested under metadata; fallback to top-level for compat
+    final metadata = json['metadata'] is Map
+        ? Map<String, dynamic>.from(json['metadata'] as Map)
+        : null;
+    final ticketId = metadata?['ticket_id'] ?? json['ticket_id'];
     // Use the same display ID from background service to replace its notification
     final notifId = json['_display_notif_id'] as int?
         ?? json['id'] as int?

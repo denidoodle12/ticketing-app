@@ -26,8 +26,13 @@ import '../../profile/screens/profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
   final bool showWelcomeToast;
+  final String? pendingNotificationPayload;
 
-  const MainScreen({super.key, this.showWelcomeToast = false});
+  const MainScreen({
+    super.key,
+    this.showWelcomeToast = false,
+    this.pendingNotificationPayload,
+  });
 
   @override
   State<MainScreen> createState() => MainScreenState();
@@ -77,10 +82,19 @@ class MainScreenState extends State<MainScreen> {
       _handleNotificationPayload(payload);
     };
 
-    // Check for cold-launch: app was opened by tapping a notification
-    // The payload was stored during LocalNotificationService.initialize()
+    // Handle cold-launch: app was opened by tapping a notification.
+    // Priority: widget param (from SplashScreen) > consumePendingNotificationPayload
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
+      // 1. Payload passed explicitly via route extra (preferred path)
+      final passedPayload = widget.pendingNotificationPayload;
+      if (passedPayload != null && passedPayload.isNotEmpty) {
+        _handleNotificationPayload(passedPayload);
+        return;
+      }
+
+      // 2. Fallback: payload stored during LocalNotificationService.initialize()
       final pendingPayload = LocalNotificationService.instance
           .consumePendingNotificationPayload();
       if (pendingPayload != null) {
@@ -110,6 +124,12 @@ class MainScreenState extends State<MainScreen> {
   /// Loads the ticket data first, then pushes the detail screen.
   Future<void> _navigateToTicketFromNotification(int ticketId) async {
     if (!mounted) return;
+
+    // Small delay to ensure GoRouter is fully initialized after cold-launch
+    // (during cold-launch the home route may not be fully set up yet)
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
     try {
       final ticketProvider = context.read<TicketProvider>();
       await ticketProvider.loadTicketDetail(ticketId);

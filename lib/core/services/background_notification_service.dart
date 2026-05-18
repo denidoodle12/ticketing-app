@@ -353,7 +353,11 @@ void _processSSEEvent(
         final title = json['title'] as String? ?? 'New Notification';
         final message = json['message'] as String? ?? '';
         final type = json['type'] as String? ?? 'unknown';
-        final ticketId = json['ticket_id'];
+
+        // ticket_id is nested under metadata in the SSE event,
+        // fallback to top-level for backward compatibility
+        final metadata = json['metadata'] as Map<String, dynamic>?;
+        final ticketId = metadata?['ticket_id'] ?? json['ticket_id'];
 
         String notifTitle;
         switch (type) {

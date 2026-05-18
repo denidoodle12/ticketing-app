@@ -110,13 +110,20 @@ class AppRoutes {
         path: home,
         name: 'home',
         builder: (context, state) {
-          // Check if we need to show welcome toast (from change password success)
+          // Read extras: showWelcomeToast (from change password) +
+          // pendingNotificationPayload (from cold-launch via notification tap)
           final extra = state.extra;
           bool showWelcomeToast = false;
+          String? pendingNotificationPayload;
           if (extra is Map<String, dynamic>) {
             showWelcomeToast = extra['showWelcomeToast'] as bool? ?? false;
+            pendingNotificationPayload =
+                extra['pendingNotificationPayload'] as String?;
           }
-          return MainScreen(showWelcomeToast: showWelcomeToast);
+          return MainScreen(
+            showWelcomeToast: showWelcomeToast,
+            pendingNotificationPayload: pendingNotificationPayload,
+          );
         },
       ),
       GoRoute(
