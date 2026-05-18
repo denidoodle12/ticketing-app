@@ -25,7 +25,11 @@ class AppConstants {
   static const int maxChatAttachmentSizeMB = 5; // 5MB (API contract limit for chat attachments)
 
   // Allowed roles for this app (end-user level roles)
-  // Any role in this set is considered an end-user and can login
+  // Primary validation: by role_level from backend (role_level < 2 = end-user)
+  // End-user roles (level 1) can login. Agent (level 2+) and above are blocked.
+  static const int maxAllowedRoleLevel = 1;
+
+  // Fallback: by role name (if role_level is not available from backend)
   static const Set<String> allowedRoles = {
     'user',
     'end_user',

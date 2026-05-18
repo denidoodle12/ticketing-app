@@ -293,6 +293,17 @@ class ChatBubble extends StatelessWidget {
       data: html,
       onLinkTap: (url, _, __) async {
         if (url == null || url.isEmpty) return;
+
+        // Handle internal @mention links (source articles)
+        if (url.startsWith('kbarticle://')) {
+          final idStr = url.replaceFirst('kbarticle://', '');
+          final articleId = int.tryParse(idStr);
+          if (articleId != null) {
+            context.push('/knowledge/article', extra: articleId);
+            return;
+          }
+        }
+
         try {
           String fixedUrl = url.trim();
           if (!fixedUrl.startsWith('http')) {
@@ -396,7 +407,8 @@ class ChatBubble extends StatelessWidget {
   }
 
   /// Prepares AI content for HTML rendering.
-  /// Strips think-blocks (LLM reasoning), converts markdown to HTML.
+  /// Strips think-blocks (LLM reasoning), converts markdown to HTML,
+  /// and injects @mention links for referenced source articles.
   String _prepareAiContent(String content) {
     String html = content;
 
@@ -408,6 +420,23 @@ class ChatBubble extends StatelessWidget {
 
     // Trim leading/trailing whitespace after stripping
     html = html.trim();
+
+    // ── 0c. Inject @mention links for source article titles ──
+    // If AI references article titles in its response, wrap them with a
+    // tappable link that navigates to the article detail page.
+    for (final source in message.sources) {
+      if (source.title.isEmpty) continue;
+      // Escape title for regex
+      final escapedTitle = RegExp.escape(source.title);
+      // Match the title that is NOT already inside an HTML tag or link
+      final mentionRegex = RegExp(
+        '(?<!<[^>]*)(?<!")($escapedTitle)(?!")',
+        caseSensitive: false,
+      );
+      html = html.replaceFirstMapped(mentionRegex, (m) {
+        return '<a href="kbarticle://${source.id}">@${m.group(1)}</a>';
+      });
+    }
 
     // ── 1. Code blocks ```lang\ncode\n``` ──
     html = html.replaceAllMapped(
@@ -534,50 +563,97 @@ class ChatBubble extends StatelessWidget {
 
   Widget _buildSourceChips(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 8, left: 4),
+      padding: const EdgeInsets.only(top: 10, left: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Sources',
-            style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Icon(
+                Icons.menu_book_rounded,
+                size: 13,
+                color: AppColors.textSecondary.withAlpha(180),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Sources (${message.sources.length})',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: message.sources.map((source) {
+            children: message.sources.asMap().entries.map((entry) {
+              final index = entry.key;
+              final source = entry.value;
               return GestureDetector(
                 onTap: () {
                   context.push('/knowledge/article', extra: source.id);
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary50,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.primary100),
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.primary100,
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary500.withAlpha(8),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.article_outlined,
-                          size: 13, color: AppColors.primary600),
-                      const SizedBox(width: 5),
+                      // Source number badge
+                      Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary500,
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${index + 1}',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 7),
                       Flexible(
                         child: Text(
                           source.title,
                           style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.primary600,
-                            fontWeight: FontWeight.w500,
+                            color: AppColors.primaryDark,
+                            fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.open_in_new_rounded,
+                        size: 11,
+                        color: AppColors.primary500.withAlpha(180),
                       ),
                     ],
                   ),
