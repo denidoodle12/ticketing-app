@@ -8,9 +8,23 @@ class ApiConfig {
   // ──────────────────────────────────────────────────────
   // Base URL — Single Source of Truth
   // All services go through the API Gateway.
-  // To switch environments, change ONLY this value.
+  //
+  // Configurable at compile-time via --dart-define so we don't have to
+  // edit & commit code every time we point at a different environment.
+  // Default = production. Override examples:
+  //
+  //   flutter run --dart-define=API_BASE_URL=https://magang.damarbrawijaya.my.id
+  //   flutter build apk --release --dart-define=API_BASE_URL=https://staging.damarbrawijaya.my.id
+  //
+  // Notes:
+  // - String.fromEnvironment is evaluated at compile-time, NOT runtime,
+  //   so the value is baked into the binary (no .env file at runtime).
+  // - Must be `const` to satisfy the const constructor below.
   // ──────────────────────────────────────────────────────
-  static const String baseUrl = 'https://magang.damarbrawijaya.my.id';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://prod.damarbrawijaya.my.id',
+  );
 
   // Service URLs (all routed through gateway)
   static const String authServiceUrl = baseUrl;

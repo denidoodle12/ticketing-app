@@ -1,7 +1,7 @@
 # 📱 Tixcora — Mobile Ticketing App Documentation
 
 > **Dokumen ini ditulis untuk persiapan UAT, onboarding developer baru, dan referensi internal.**
-> Status: Sprint aktif (versi pubspec `0.14.2`). Backend gateway `https://magang.damarbrawijaya.my.id`.
+> Status: Sprint aktif (versi pubspec `0.14.2`). Backend gateway `https://prod.damarbrawijaya.my.id`.
 
 ---
 
@@ -45,7 +45,8 @@
 | **Dart SDK** | `^3.9.2` |
 | **Target Platform** | Android (primary), iOS (secondary), folder web/windows/linux/macos tersedia tapi tidak difokuskan |
 | **Backend** | Golang + Gin (microservices), single API Gateway HTTPS |
-| **Base URL** | `https://magang.damarbrawijaya.my.id` |
+| **Base URL (default / prod)** | `https://prod.damarbrawijaya.my.id` |
+| **Base URL (staging / magang)** | `https://magang.damarbrawijaya.my.id` (override via `--dart-define`) |
 | **Tipe User** | End-user / pelapor (bukan admin/agent) |
 | **Bahasa UI** | English |
 
@@ -401,7 +402,23 @@ Dua Dio instance singleton (lihat `dio_client.dart`):
 - `DioClient.authInstance` → base URL = `ApiEndpoints.authBaseUrl`
 - `DioClient.userInstance` → base URL = `ApiEndpoints.userBaseUrl`
 
-Karena semua microservice via gateway tunggal (`https://magang.damarbrawijaya.my.id`), keduanya **base URL-nya sama**. Pemisahan ini siap untuk migrasi multi-host nanti.
+Karena semua microservice via gateway tunggal (default `https://prod.damarbrawijaya.my.id`), keduanya **base URL-nya sama**. Pemisahan ini siap untuk migrasi multi-host nanti.
+
+#### Switching Environments
+
+Base URL di-bake saat compile via `String.fromEnvironment('API_BASE_URL', defaultValue: 'https://prod.damarbrawijaya.my.id')` di `lib/core/constants/api_config.dart`. Tidak ada file `.env` runtime — value masuk binary saat build.
+
+```bash
+# Default (prod)
+flutter run
+flutter build apk --release
+
+# Staging / dev (magang)
+flutter run --dart-define=API_BASE_URL=https://magang.damarbrawijaya.my.id
+flutter build apk --release --dart-define=API_BASE_URL=https://magang.damarbrawijaya.my.id
+```
+
+WebSocket URL otomatis ikut (`https://` → `wss://` di `chat_websocket_service.dart`).
 
 ### 7.2 Headers Default
 ```
@@ -525,7 +542,7 @@ disconnected → connecting → connected
 
 ### 9.2 URL
 ```
-wss://magang.damarbrawijaya.my.id/ws/tickets/{ticketId}?token=<access_token>
+wss://prod.damarbrawijaya.my.id/ws/tickets/{ticketId}?token=<access_token>
 ```
 (`https` → `wss`, `http` → `ws` otomatis di getter `_getWebSocketUrl`)
 
@@ -1049,7 +1066,7 @@ File: `android/app/src/main/AndroidManifest.xml`.
 
 ## 21. API Endpoints Reference
 
-Semua endpoint via gateway: `https://magang.damarbrawijaya.my.id`
+Semua endpoint via gateway. Default base URL = `https://prod.damarbrawijaya.my.id` (lihat [Section 7.1](#71-dio-configuration) untuk override staging).
 
 ### 21.1 ms-auth
 | Method | Path | Kegunaan |
