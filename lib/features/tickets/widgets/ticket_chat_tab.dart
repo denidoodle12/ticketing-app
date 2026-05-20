@@ -293,7 +293,7 @@ class _TicketChatTabState extends State<TicketChatTab>
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text(
-                'Pilih Lampiran',
+                'Select Attachment',
                 style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
               ),
             ),
@@ -587,16 +587,25 @@ class _TicketChatTabState extends State<TicketChatTab>
 
                 const SizedBox(width: 8),
 
-                // Send button
-                Container(
+                // Send button — gradient circle matching AI chat
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: widget.isSending
-                        ? AppColors.primary.withAlpha(150)
-                        : _canSend
-                        ? AppColors.primary
-                        : AppColors.grey300,
+                    gradient: (_canSend || widget.isSending)
+                        ? const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              AppColors.primary600,
+                              AppColors.primary500,
+                            ],
+                          )
+                        : null,
+                    color: (_canSend || widget.isSending)
+                        ? null
+                        : AppColors.grey200,
                     shape: BoxShape.circle,
                   ),
                   child: widget.isSending
@@ -609,16 +618,21 @@ class _TicketChatTabState extends State<TicketChatTab>
                             ),
                           ),
                         )
-                      : IconButton(
-                          onPressed: _canSend ? _handleSend : null,
-                          icon: Icon(
-                            Icons.send,
-                            color: _canSend
-                                ? AppColors.white
-                                : AppColors.grey400,
-                            size: 20,
+                      : Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _canSend ? _handleSend : null,
+                            borderRadius: BorderRadius.circular(22),
+                            child: Center(
+                              child: Icon(
+                                Icons.arrow_upward_rounded,
+                                color: _canSend
+                                    ? AppColors.white
+                                    : AppColors.grey400,
+                                size: 20,
+                              ),
+                            ),
                           ),
-                          padding: EdgeInsets.zero,
                         ),
                 ),
               ],

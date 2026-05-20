@@ -609,7 +609,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
             ],
           ),
           duration: const Duration(seconds: 60),
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.primaryDark,
         ),
       );
     }
@@ -783,7 +783,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
             ],
           ),
           duration: const Duration(seconds: 30),
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.primaryDark,
         ),
       );
     }

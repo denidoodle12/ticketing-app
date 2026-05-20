@@ -177,13 +177,13 @@ class TicketFilesTab extends StatelessWidget {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withAlpha(20),
+                        color: AppColors.primaryDark.withAlpha(20),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         Icons.image_rounded,
                         size: 18,
-                        color: AppColors.primary,
+                        color: AppColors.primaryDark,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -337,7 +337,7 @@ class TicketFilesTab extends StatelessWidget {
     return IconButton(
       onPressed: () => _handleDownload(context, attachment),
       style: IconButton.styleFrom(
-        backgroundColor: AppColors.primary.withAlpha(15),
+        backgroundColor: AppColors.primaryDark.withAlpha(15),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
@@ -346,7 +346,7 @@ class TicketFilesTab extends StatelessWidget {
       icon: Icon(
         Icons.download_rounded,
         size: 19,
-        color: AppColors.primary,
+        color: AppColors.primaryDark,
       ),
     );
   }
@@ -401,7 +401,7 @@ class TicketFilesTab extends StatelessWidget {
 
   Color _getFileTypeColor(TicketAttachment attachment) {
     if (attachment.isImage) {
-      return AppColors.primary;
+      return AppColors.primaryDark;
     }
     return _getFileIconColor(attachment);
   }

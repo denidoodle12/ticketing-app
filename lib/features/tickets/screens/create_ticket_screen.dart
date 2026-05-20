@@ -84,7 +84,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text(
-                'Pilih Lampiran',
+                'Select Attachment',
                 style: AppTextStyles.h6.copyWith(color: AppColors.textPrimary),
               ),
             ),
@@ -1019,43 +1019,63 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           flex: 3,
           child: SizedBox(
             height: 50,
-            child: ElevatedButton(
-              onPressed: ticketProvider.isCreatingTicket ? null : _submitTicket,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryDark,
-                foregroundColor: AppColors.white,
-                disabledBackgroundColor: AppColors.grey300,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: ticketProvider.isCreatingTicket
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.white,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: ticketProvider.isCreatingTicket
+                    ? null
+                    : const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          AppColors.primary600,
+                          AppColors.primary500,
+                        ],
                       ),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Submit Ticket',
-                          style: AppTextStyles.buttonSmall.copyWith(
-                            color: AppColors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(
-                          Icons.arrow_circle_up,
+                color: ticketProvider.isCreatingTicket
+                    ? AppColors.grey300
+                    : null,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ElevatedButton(
+                onPressed: ticketProvider.isCreatingTicket ? null : _submitTicket,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: AppColors.white,
+                  disabledBackgroundColor: Colors.transparent,
+                  disabledForegroundColor: AppColors.textDisabled,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: ticketProvider.isCreatingTicket
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
                           color: AppColors.white,
-                          size: 20,
                         ),
-                      ],
-                    ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Submit Ticket',
+                            style: AppTextStyles.buttonSmall.copyWith(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.arrow_circle_up,
+                            color: AppColors.white,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),

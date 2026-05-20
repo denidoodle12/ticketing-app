@@ -137,7 +137,14 @@ class ChatBubble extends StatelessWidget {
         maxWidth: MediaQuery.of(context).size.width * 0.7,
       ),
       decoration: BoxDecoration(
-        color: isFromUser ? AppColors.primary : AppColors.surface,
+        gradient: isFromUser
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.primary600, AppColors.primary500],
+              )
+            : null,
+        color: isFromUser ? null : AppColors.surface,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(16),
           topRight: const Radius.circular(16),
@@ -147,8 +154,10 @@ class ChatBubble extends StatelessWidget {
         border: isFromUser ? null : Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadow.withAlpha(26),
-            blurRadius: 4,
+            color: isFromUser
+                ? AppColors.primary500.withAlpha(30)
+                : AppColors.shadow.withAlpha(26),
+            blurRadius: isFromUser ? 8 : 4,
             offset: const Offset(0, 2),
           ),
         ],
