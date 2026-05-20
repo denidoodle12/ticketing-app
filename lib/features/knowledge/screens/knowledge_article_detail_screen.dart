@@ -1,13 +1,12 @@
-import 'dart:async';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../core/network/connectivity_service.dart';
+import '../../../core/mixins/offline_aware_mixin.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../shared/widgets/circle_icon_button.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/knowledge_article_model.dart';
@@ -23,40 +22,24 @@ class KnowledgeArticleDetailScreen extends StatefulWidget {
 }
 
 class _KnowledgeArticleDetailScreenState
-    extends State<KnowledgeArticleDetailScreen> {
-  bool _isOffline = false;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
-
+    extends State<KnowledgeArticleDetailScreen>
+    with OfflineAwareStateMixin<KnowledgeArticleDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _isOffline = !ConnectivityService().isConnected;
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      _handleConnectivityChange,
-    );
-
-    if (!_isOffline) {
+    if (!isOffline) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<KnowledgeProvider>().loadArticleDetail(widget.articleId);
+        if (mounted) {
+          context.read<KnowledgeProvider>().loadArticleDetail(widget.articleId);
+        }
       });
     }
   }
 
   @override
-  void dispose() {
-    _connectivitySubscription?.cancel();
-    super.dispose();
-  }
-
-  void _handleConnectivityChange(List<ConnectivityResult> results) {
-    final isNowOffline = results.contains(ConnectivityResult.none);
-    if (isNowOffline && !_isOffline) {
-      if (mounted) setState(() => _isOffline = true);
-    } else if (!isNowOffline && _isOffline) {
-      if (mounted) {
-        setState(() => _isOffline = false);
-        context.read<KnowledgeProvider>().loadArticleDetail(widget.articleId);
-      }
+  void onConnectionRestored() {
+    if (mounted) {
+      context.read<KnowledgeProvider>().loadArticleDetail(widget.articleId);
     }
   }
 
@@ -75,7 +58,7 @@ class _KnowledgeArticleDetailScreenState
         leading: Padding(
           padding: const EdgeInsets.only(left: 16),
           child: Center(
-            child: _buildActionButton(
+            child: CircleIconButton(
               icon: Icons.arrow_back,
               onTap: () => Navigator.pop(context),
             ),
@@ -84,7 +67,7 @@ class _KnowledgeArticleDetailScreenState
       ),
       body: Consumer<KnowledgeProvider>(
         builder: (context, provider, _) {
-          if (_isOffline) {
+          if (isOffline) {
             return const Center(
               child: OfflineStateWidget(
                 title: 'Article Unavailable Offline',
@@ -537,32 +520,5 @@ class _KnowledgeArticleDetailScreenState
   // Date formatting handled by [DateFormatter.date].
 
   /// Reusable action button — matches ticket detail screen style
-  Widget _buildActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow.withAlpha(20),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: AppColors.primaryDark, size: 22),
-        ),
-      ),
-    );
-  }
+  // _buildActionButton replaced by CircleIconButton.
 }

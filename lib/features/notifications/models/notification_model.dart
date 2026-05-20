@@ -69,9 +69,9 @@ class NotificationItem {
 
   /// Parse from JSON response
   ///
-  /// Accepts [Map<dynamic, dynamic>] because IPC round-trips via
+  /// Accepts `Map<dynamic, dynamic>` because IPC round-trips via
   /// flutter_background_service lose generic type info (nested maps become
-  /// Map<Object?, Object?>).
+  /// `Map<Object?, Object?>`).
   factory NotificationItem.fromJson(Map<dynamic, dynamic> json) {
     // Safe-cast nested metadata map
     final rawMeta = json['metadata'];

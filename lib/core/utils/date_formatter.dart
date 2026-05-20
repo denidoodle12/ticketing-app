@@ -13,6 +13,7 @@
 /// | List / card timestamp    | `relative()`  | `2h ago`, `Yesterday`, `May 20` |
 /// | Date-only meta           | `date()`      | `May 20, 2026`               |
 /// | Detail field / timeline  | `dateTime()`  | `May 20, 2026, 2:30 PM`      |
+/// | Time-only (chat, log)    | `time()`      | `2:30 PM`                    |
 class DateFormatter {
   DateFormatter._();
 
@@ -77,6 +78,16 @@ class DateFormatter {
   /// Returns an empty string for null inputs.
   static String dateTime(DateTime? dateTime) {
     if (dateTime == null) return '';
+    return '${date(dateTime)}, ${time(dateTime)}';
+  }
+
+  /// Time-only (12-hour clock). Use for chat bubbles, activity logs, and
+  /// anywhere the date is already grouped/known.
+  ///
+  /// Example: `2:30 PM`.
+  /// Returns an empty string for null inputs.
+  static String time(DateTime? dateTime) {
+    if (dateTime == null) return '';
     final local = dateTime.toLocal();
     final hour24 = local.hour;
     final minute = local.minute.toString().padLeft(2, '0');
@@ -84,7 +95,6 @@ class DateFormatter {
     final hour12 = hour24 == 0
         ? 12
         : (hour24 > 12 ? hour24 - 12 : hour24);
-    return '${_months[local.month - 1]} ${local.day}, ${local.year}, '
-        '$hour12:$minute $period';
+    return '$hour12:$minute $period';
   }
 }

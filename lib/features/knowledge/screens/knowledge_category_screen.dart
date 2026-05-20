@@ -1,16 +1,12 @@
-import 'dart:async';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../../core/network/connectivity_service.dart';
+import '../../../core/mixins/offline_aware_mixin.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
-import '../../../core/utils/date_formatter.dart';
+import '../../../shared/widgets/circle_icon_button.dart';
+import '../widgets/knowledge_article_card.dart';
 import '../models/knowledge_category_model.dart';
-import '../models/knowledge_article_model.dart';
 import '../providers/knowledge_provider.dart';
-import '../utils/content_utils.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
 
 /// Screen showing all articles for a specific category
@@ -24,29 +20,24 @@ class KnowledgeCategoryScreen extends StatefulWidget {
       _KnowledgeCategoryScreenState();
 }
 
-class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
+class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen>
+    with OfflineAwareStateMixin<KnowledgeCategoryScreen> {
   final ScrollController _scrollController = ScrollController();
 
   // ─── Tag filter state (server-side via ?tag= param) ────────────
   String? _selectedTag; // null = no filter
-
-  // ─── Offline detection ─────────────────────────────────────────
-  bool _isOffline = false;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  // (offline state handled by OfflineAwareStateMixin)
 
   @override
   void initState() {
     super.initState();
-    _isOffline = !ConnectivityService().isConnected;
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      _handleConnectivityChange,
-    );
-
-    if (!_isOffline) {
+    if (!isOffline) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<KnowledgeProvider>().loadArticles(
-          categoryId: widget.category.id,
-        );
+        if (mounted) {
+          context.read<KnowledgeProvider>().loadArticles(
+            categoryId: widget.category.id,
+          );
+        }
       });
     }
     _scrollController.addListener(_onScroll);
@@ -54,25 +45,18 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
 
   @override
   void dispose() {
-    _connectivitySubscription?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _handleConnectivityChange(List<ConnectivityResult> results) {
-    final isNowOffline = results.contains(ConnectivityResult.none);
-    if (isNowOffline && !_isOffline) {
-      if (mounted) setState(() => _isOffline = true);
-    } else if (!isNowOffline && _isOffline) {
-      if (mounted) {
-        setState(() => _isOffline = false);
-        // Reload data once back online
-        context.read<KnowledgeProvider>().loadArticles(
-          categoryId: widget.category.id,
-          tag: _selectedTag,
-        );
-      }
-    }
+  @override
+  void onConnectionRestored() {
+    if (!mounted) return;
+    // Reload data once back online with the filters that were active
+    context.read<KnowledgeProvider>().loadArticles(
+      categoryId: widget.category.id,
+      tag: _selectedTag,
+    );
   }
 
   void _onScroll() {
@@ -122,7 +106,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: _buildAppBar(),
-      body: _isOffline
+      body: isOffline
           ? const Center(
               child: OfflineStateWidget(
                 title: 'Articles Unavailable Offline',
@@ -151,7 +135,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
       leading: Padding(
         padding: const EdgeInsets.only(left: 16),
         child: Center(
-          child: _buildActionButton(
+          child: CircleIconButton(
             icon: Icons.arrow_back,
             onTap: () => Navigator.pop(context),
           ),
@@ -222,35 +206,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
     );
   }
 
-  /// Reusable action button — matches ticket detail screen style
-  Widget _buildActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow.withAlpha(20),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: AppColors.primaryDark, size: 22),
-        ),
-      ),
-    );
-  }
+  // _buildActionButton replaced by CircleIconButton.
 
   Widget _buildContent(KnowledgeProvider provider) {
     if (provider.isArticlesLoading && provider.articles.isEmpty) {
@@ -286,128 +242,14 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen> {
           }
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _buildArticleCard(provider.articles[index]),
+            child: KnowledgeArticleCard(article: provider.articles[index]),
           );
         },
       ),
     );
   }
 
-  Widget _buildArticleCard(KnowledgeArticle article) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => context.push('/knowledge/article', extra: article.id),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow.withAlpha(15),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Row 1: Title and Category badge
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      article.title,
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (article.category != null) ...[
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary50,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        article.category!.name,
-                        style: AppTextStyles.labelSmall.copyWith(
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Row 2: Content preview
-              Text(
-                ContentUtils.stripToPlainText(article.content),
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                  height: 1.4,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 10),
-
-              // Row 3: Meta info
-              Row(
-                children: [
-                  const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Updated ${DateFormatter.date(article.updatedAt ?? article.createdAt)}',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  if (article.tags.isNotEmpty) ...[
-                    const SizedBox(width: 12),
-                    const Icon(
-                      Icons.label_outline,
-                      size: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        article.tags.take(2).join(', '),
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // _buildArticleCard replaced by KnowledgeArticleCard.
 
   Widget _buildShimmer() {
     return ListView.separated(

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:provider/provider.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../../core/mixins/offline_aware_mixin.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../providers/ticket_provider.dart';
@@ -20,7 +20,8 @@ class TicketsScreen extends StatefulWidget {
   State<TicketsScreen> createState() => _TicketsScreenState();
 }
 
-class _TicketsScreenState extends State<TicketsScreen> {
+class _TicketsScreenState extends State<TicketsScreen>
+    with OfflineAwareStateMixin<TicketsScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounceTimer;
   String _selectedFilter = 'all';
@@ -37,9 +38,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
   // Flag to track if filter has been initialized
   bool _isFilterInitialized = false;
 
-  // Connectivity listener for real-time sync
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
-  bool _wasOffline = false;
+
 
   final List<Map<String, dynamic>> _filterOptions = [
     {'id': 'all', 'label': 'All'},
@@ -59,11 +58,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
       _fetchPage(pageKey);
     });
 
-    // Listen to connectivity changes for real-time sync
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      _handleConnectivityChange,
-    );
-
     // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ticketProvider = context.read<TicketProvider>();
@@ -75,27 +69,19 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
   @override
   void dispose() {
-    _connectivitySubscription?.cancel();
     _debounceTimer?.cancel();
     _searchController.dispose();
     _pagingController.dispose();
     super.dispose();
   }
 
-  /// Handle connectivity changes in real-time
-  void _handleConnectivityChange(List<ConnectivityResult> results) {
-    final isNowOffline = results.contains(ConnectivityResult.none);
-
-    if (isNowOffline) {
-      _wasOffline = true;
-    } else if (!isNowOffline && _wasOffline) {
-      // Just came back online — refresh ticket list and stats
-      _wasOffline = false;
-      if (mounted) {
-        _pagingController.refresh();
-        context.read<TicketProvider>().loadTicketStats();
-      }
-    }
+  /// Handle connectivity changes via mixin: when we come back online,
+  /// refresh the paged ticket list and the stats card.
+  @override
+  void onConnectionRestored() {
+    if (!mounted) return;
+    _pagingController.refresh();
+    context.read<TicketProvider>().loadTicketStats();
   }
 
   Future<void> _fetchPage(int pageKey) async {

@@ -9,6 +9,7 @@ import '../../../core/utils/validators.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/custom_text_field.dart';
+import '../../../shared/widgets/circle_icon_button.dart';
 
 import '../../../shared/widgets/section_label.dart';
 import '../../../routes/app_routes.dart';
@@ -165,7 +166,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         if (widget.isFirstLogin)
                           const SizedBox(width: 44)
                         else
-                          _buildActionButton(
+                          CircleIconButton(
                             icon: Icons.arrow_back,
                             onTap: () => Navigator.pop(context),
                           ),
@@ -352,29 +353,5 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     );
   }
 
-  /// Back button matching edit profile / ticket detail style
-  Widget _buildActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadow.withAlpha(20),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Icon(icon, color: AppColors.primaryDark, size: 22),
-      ),
-    );
-  }
+  // _buildActionButton replaced by CircleIconButton.
 }

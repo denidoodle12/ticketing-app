@@ -1,10 +1,9 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../core/mixins/offline_aware_mixin.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/api_config.dart';
@@ -27,30 +26,18 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with OfflineAwareStateMixin<HomeScreen> {
   // Counter to force rebuild TicketActivityChart when coming back online
   int _chartRebuildKey = 0;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
-  bool _wasOffline = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Listen to connectivity changes for real-time sync
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      _handleConnectivityChange,
-    );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
-  }
-
-  @override
-  void dispose() {
-    _connectivitySubscription?.cancel();
-    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -62,21 +49,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Handle connectivity changes in real-time
-  void _handleConnectivityChange(List<ConnectivityResult> results) {
-    final isNowOffline = results.contains(ConnectivityResult.none);
-
-    if (isNowOffline) {
-      _wasOffline = true;
-    } else if (!isNowOffline && _wasOffline) {
-      // Just came back online — refresh all home data
-      _wasOffline = false;
-      if (mounted) {
-        _loadData();
-        // Force rebuild TicketActivityChart by changing its key
-        setState(() => _chartRebuildKey++);
-      }
-    }
+  /// When connectivity is restored, reload home data and force the
+  /// activity chart to rebuild (so it can re-issue its own request).
+  @override
+  void onConnectionRestored() {
+    if (!mounted) return;
+    _loadData();
+    setState(() => _chartRebuildKey++);
   }
 
   String _getGreeting() {

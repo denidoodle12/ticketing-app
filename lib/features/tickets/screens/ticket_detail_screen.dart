@@ -23,6 +23,7 @@ import '../models/comment_model.dart';
 import '../widgets/ticket_detail_tab.dart';
 import '../widgets/ticket_chat_tab.dart';
 import '../widgets/ticket_files_tab.dart';
+import '../../../shared/widgets/circle_icon_button.dart';
 import '../widgets/ticket_rating_bottom_sheet.dart';
 import '../widgets/star_rating_widget.dart';
 
@@ -880,7 +881,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                     leading: Padding(
                       padding: const EdgeInsets.only(left: 16),
                       child: Center(
-                        child: _buildActionButton(
+                        child: CircleIconButton(
                           icon: Icons.arrow_back,
                           onTap: () => Navigator.pop(context),
                         ),
@@ -1029,34 +1030,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   // _buildHeader() — integrated into SliverAppBar leading/title/actions
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow.withAlpha(20),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: AppColors.primaryDark, size: 22),
-        ),
-      ),
-    );
-  }
+  // _buildActionButton replaced by CircleIconButton.
 
   Widget _buildTicketInfo() {
     return Container(

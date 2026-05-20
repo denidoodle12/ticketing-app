@@ -1,22 +1,19 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import '../../../core/network/connectivity_service.dart';
+import '../../../core/mixins/offline_aware_mixin.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
-import '../../../core/utils/date_formatter.dart';
 import '../../../core/constants/asset_paths.dart';
 import '../../../shared/widgets/section_label.dart';
 import '../../../routes/app_routes.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/knowledge_article_model.dart';
 import '../widgets/knowledge_category_card.dart';
+import '../widgets/knowledge_article_card.dart';
 import 'knowledge_search_screen.dart';
 import 'knowledge_category_screen.dart';
 import 'knowledge_all_articles_screen.dart';
-import '../utils/content_utils.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
 
 class KnowledgeScreen extends StatefulWidget {
@@ -26,45 +23,24 @@ class KnowledgeScreen extends StatefulWidget {
   State<KnowledgeScreen> createState() => _KnowledgeScreenState();
 }
 
-class _KnowledgeScreenState extends State<KnowledgeScreen> {
-  bool _isOffline = false;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
-
+class _KnowledgeScreenState extends State<KnowledgeScreen>
+    with OfflineAwareStateMixin<KnowledgeScreen> {
   @override
   void initState() {
     super.initState();
-    // Check initial connectivity
-    _isOffline = !ConnectivityService().isConnected;
-
-    // Listen for connectivity changes
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      _handleConnectivityChange,
-    );
-
-    if (!_isOffline) {
+    if (!isOffline) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<KnowledgeProvider>().loadInitialData();
+        if (mounted) {
+          context.read<KnowledgeProvider>().loadInitialData();
+        }
       });
     }
   }
 
   @override
-  void dispose() {
-    _connectivitySubscription?.cancel();
-    super.dispose();
-  }
-
-  /// Handle connectivity changes — show offline state or auto-refresh
-  void _handleConnectivityChange(List<ConnectivityResult> results) {
-    final isNowOffline = results.contains(ConnectivityResult.none);
-
-    if (isNowOffline && !_isOffline) {
-      if (mounted) setState(() => _isOffline = true);
-    } else if (!isNowOffline && _isOffline) {
-      if (mounted) {
-        setState(() => _isOffline = false);
-        context.read<KnowledgeProvider>().loadInitialData();
-      }
+  void onConnectionRestored() {
+    if (mounted) {
+      context.read<KnowledgeProvider>().loadInitialData();
     }
   }
 
@@ -74,7 +50,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       backgroundColor: AppColors.white,
       body: SafeArea(
         bottom: false,
-        child: _isOffline
+        child: isOffline
             ? const SizedBox.expand(
                 child: Center(
                   child: OfflineStateWidget(
@@ -491,132 +467,19 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           _buildEmptyState()
         else
           ...provider.recentArticles.map(
-            (article) => _buildArticleCard(article),
+            (article) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: KnowledgeArticleCard(
+                article: article,
+                onTap: () => _navigateToArticleDetail(article),
+              ),
+            ),
           ),
       ],
     );
   }
 
-  // ─── Article Card (TicketCard-style) ───────────────────────────
-
-  Widget _buildArticleCard(KnowledgeArticle article) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _navigateToArticleDetail(article),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.shadow.withAlpha(15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Row 1: Title and Category badge
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        article.title,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (article.category != null) ...[
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary50,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          article.category!.name,
-                          style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.primaryDark,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 8),
-
-                // Row 2: Content preview
-                Text(
-                  ContentUtils.stripToPlainText(article.content),
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 10),
-
-                // Row 3: Meta info
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.calendar_today_outlined,
-                      size: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Updated ${DateFormatter.date(article.updatedAt ?? article.createdAt)}',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    if (article.tags.isNotEmpty) ...[
-                      const SizedBox(width: 12),
-                      const Icon(
-                        Icons.label_outline,
-                        size: 14,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          article.tags.take(2).join(', '),
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // _buildArticleCard replaced by KnowledgeArticleCard.
 
   // ─── Shimmer Helpers ───────────────────────────────────────────
 

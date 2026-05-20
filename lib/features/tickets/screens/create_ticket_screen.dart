@@ -11,6 +11,7 @@ import '../../../core/utils/validators.dart';
 import '../../../core/utils/toast_helper.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../shared/widgets/local_image_preview_dialog.dart';
+import '../../../shared/widgets/circle_icon_button.dart';
 
 class CreateTicketScreen extends StatefulWidget {
   const CreateTicketScreen({super.key});
@@ -419,7 +420,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 child: Row(
                   children: [
                     // Back button with rounded square background
-                    _buildActionButton(
+                    CircleIconButton(
                       icon: Icons.arrow_back,
                       onTap: _handleBackAction,
                     ),
@@ -446,34 +447,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow.withAlpha(20),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: AppColors.primaryDark, size: 22),
-        ),
-      ),
-    );
-  }
+  // _buildActionButton replaced by CircleIconButton.
 
   Widget _buildBody() {
     return Consumer<TicketProvider>(

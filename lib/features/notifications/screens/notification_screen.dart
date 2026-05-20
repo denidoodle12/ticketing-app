@@ -1,9 +1,7 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import '../../../core/network/connectivity_service.dart';
+import '../../../core/mixins/offline_aware_mixin.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/utils/toast_helper.dart';
@@ -24,32 +22,23 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin,
+        OfflineAwareStateMixin<NotificationScreen> {
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
-  bool _isOffline = false;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
-    // Set initial offline state synchronously from singleton
-    _isOffline = !ConnectivityService().isConnected;
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     _scrollController.addListener(_onScroll);
-
-    // Listen to connectivity changes for real-time offline/online switch
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      _handleConnectivityChange,
-    );
 
     _loadNotifications();
   }
 
   @override
   void dispose() {
-    _connectivitySubscription?.cancel();
     _tabController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -60,16 +49,9 @@ class _NotificationScreenState extends State<NotificationScreen>
     setState(() {});
   }
 
-  /// Load notifications — skips API call if offline
+  /// Load notifications — skips API call if offline.
   void _loadNotifications() async {
-    // Check connectivity before loading
-    final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult.contains(ConnectivityResult.none)) {
-      if (mounted) {
-        setState(() => _isOffline = true);
-      }
-      return;
-    }
+    if (isOffline) return;
     if (mounted) {
       context.read<NotificationProvider>().refresh();
     }
@@ -82,21 +64,10 @@ class _NotificationScreenState extends State<NotificationScreen>
     }
   }
 
-  /// Handle connectivity changes in real-time
-  void _handleConnectivityChange(List<ConnectivityResult> results) {
-    final isNowOffline = results.contains(ConnectivityResult.none);
-
-    if (isNowOffline && !_isOffline) {
-      // Just went offline
-      if (mounted) {
-        setState(() => _isOffline = true);
-      }
-    } else if (!isNowOffline && _isOffline) {
-      // Just came back online — refresh notifications
-      if (mounted) {
-        setState(() => _isOffline = false);
-        context.read<NotificationProvider>().refresh();
-      }
+  @override
+  void onConnectionRestored() {
+    if (mounted) {
+      context.read<NotificationProvider>().refresh();
     }
   }
 
@@ -198,7 +169,7 @@ class _NotificationScreenState extends State<NotificationScreen>
         builder: (context, provider, _) {
           // Always show offline placeholder when device is offline
           // (notifications are not cached locally)
-          if (_isOffline) {
+          if (isOffline) {
             return _buildOfflinePlaceholder();
           }
 
@@ -293,7 +264,7 @@ class _NotificationScreenState extends State<NotificationScreen>
 
   Widget _buildNotificationList(NotificationProvider provider) {
     // Show offline placeholder immediately (before loading check)
-    if (_isOffline) {
+    if (isOffline) {
       return _buildOfflinePlaceholder();
     }
 

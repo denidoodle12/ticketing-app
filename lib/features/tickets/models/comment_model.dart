@@ -85,14 +85,7 @@ class Comment {
   }
 
   /// Get formatted time (e.g., "10:30 AM") in local timezone
-  String get formattedTime {
-    final localTime = createdAt.toLocal();
-    final hour = localTime.hour;
-    final minute = localTime.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    return '$displayHour:$minute $period';
-  }
+  String get formattedTime => DateFormatter.time(createdAt);
 
   /// Get formatted date (e.g., "May 20, 2026") in local timezone
   String get formattedDate => DateFormatter.date(createdAt);
@@ -173,14 +166,7 @@ class TicketAttachment {
   String get formattedDate => DateFormatter.date(uploadedAt);
 
   /// Get formatted time (e.g., "10:30 AM") in local timezone
-  String get formattedTime {
-    final localTime = uploadedAt.toLocal();
-    final hour = localTime.hour;
-    final minute = localTime.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    return '$displayHour:$minute $period';
-  }
+  String get formattedTime => DateFormatter.time(uploadedAt);
 }
 
 /// Comments response model for pagination

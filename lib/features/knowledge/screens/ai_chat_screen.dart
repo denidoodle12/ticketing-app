@@ -1,14 +1,14 @@
 import 'dart:async';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/network/connectivity_service.dart';
+import '../../../core/mixins/offline_aware_mixin.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../core/constants/asset_paths.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
+import '../../../shared/widgets/circle_icon_button.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/ai_chat_model.dart';
 import '../models/knowledge_article_model.dart';
@@ -23,7 +23,7 @@ class AiChatScreen extends StatefulWidget {
 }
 
 class _AiChatScreenState extends State<AiChatScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, OfflineAwareStateMixin<AiChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
@@ -40,8 +40,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   bool _shouldForceScroll = false;
 
   // Real-time offline detection — knowledge endpoints are not cached.
-  bool _isOffline = false;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  // (offline state now handled by OfflineAwareStateMixin)
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -71,26 +70,14 @@ class _AiChatScreenState extends State<AiChatScreen>
       curve: Curves.easeOut,
     );
 
-    // Check initial connectivity
-    _isOffline = !ConnectivityService().isConnected;
-
-    // Listen for connectivity changes
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      _handleConnectivityChange,
-    );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<KnowledgeProvider>().clearChat();
       _checkOnboardStatus();
     });
   }
 
-  void _handleConnectivityChange(List<ConnectivityResult> results) {
-    final isNowOffline = results.contains(ConnectivityResult.none);
-    if (isNowOffline != _isOffline && mounted) {
-      setState(() => _isOffline = isNowOffline);
-    }
-  }
+  // Mixin handles connectivity — nothing else needed here for AI chat
+  // since the screen only needs the read-only `isOffline` flag.
 
   Future<void> _checkOnboardStatus() async {
     final prefs = await SharedPreferences.getInstance();
@@ -119,7 +106,6 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   @override
   void dispose() {
-    _connectivitySubscription?.cancel();
     _textController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
@@ -172,7 +158,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     // Guard: don't send while offline. The build flow already shows the
     // offline placeholder, but this is a safety net for the transient
     // moment between connectivity events.
-    if (_isOffline) return;
+    if (isOffline) return;
     // #5: Haptic feedback on send
     HapticFeedback.lightImpact();
     _shouldForceScroll = true; // Always scroll after user sends
@@ -287,7 +273,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       extendBodyBehindAppBar: true,
       appBar: _isCheckingOnboard
           ? null
-          : (_isOffline
+          : (isOffline
               ? _buildOfflineAppBar()
               : (!_isOnboarded ? _buildGetStartedAppBar() : _buildAppBar())),
       body: Container(
@@ -306,7 +292,7 @@ class _AiChatScreenState extends State<AiChatScreen>
         child: SafeArea(
           child: _isCheckingOnboard
               ? const SizedBox.shrink()
-              : _isOffline
+              : isOffline
                   ? _buildOfflinePlaceholder()
                   : FadeTransition(
                       opacity: _fadeAnimation,
@@ -349,7 +335,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       leadingWidth: 76,
       leading: Padding(
         padding: const EdgeInsets.only(left: 16),
-        child: Center(child: _buildBackButton()),
+        child: Center(child: CircleIconButton.back(context)),
       ),
       title: Text(
         'TixAI',
@@ -372,37 +358,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     );
   }
 
-  // ─── Rounded back button (matches ticket detail style) ─────────
-
-  Widget _buildBackButton() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => Navigator.pop(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow.withAlpha(20),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.arrow_back,
-            color: AppColors.primaryDark,
-            size: 22,
-          ),
-        ),
-      ),
-    );
-  }
+  // _buildBackButton replaced by CircleIconButton.back(context).
 
   // ─── AppBar for Get-Started state ─────────────────────────────
 
@@ -442,7 +398,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       leadingWidth: 76,
       leading: Padding(
         padding: const EdgeInsets.only(left: 16),
-        child: Center(child: _buildBackButton()),
+        child: Center(child: CircleIconButton.back(context)),
       ),
       title: Row(
         mainAxisSize: MainAxisSize.min,

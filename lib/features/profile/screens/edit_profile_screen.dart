@@ -17,6 +17,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/profile_provider.dart';
 import '../../../shared/widgets/custom_text_field.dart';
 import '../../../shared/widgets/loading_overlay.dart';
+import '../../../shared/widgets/circle_icon_button.dart';
 
 import '../../../shared/widgets/section_label.dart';
 import '../widgets/profile_avatar.dart';
@@ -475,7 +476,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  _buildActionButton(
+                  CircleIconButton(
                     icon: Icons.arrow_back,
                     onTap: isLoading ? null : _discardChanges,
                   ),
@@ -594,32 +595,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  /// Back button matching ticket detail screen style
-  Widget _buildActionButton({required IconData icon, VoidCallback? onTap}) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow.withAlpha(20),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: AppColors.primaryDark, size: 22),
-        ),
-      ),
-    );
-  }
+  // _buildActionButton replaced by CircleIconButton.
 
   Widget _buildFormContent(user, bool isLoading) {
     return Padding(

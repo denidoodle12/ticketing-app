@@ -15,6 +15,7 @@ import '../widgets/search_results_header.dart';
 import '../widgets/search_tips_card.dart';
 import '../widgets/ticket_card_shimmer.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
+import '../../../shared/widgets/circle_icon_button.dart';
 
 enum SearchScreenState { initial, searching, results, empty }
 
@@ -126,7 +127,9 @@ class _SearchScreenState extends State<SearchScreen> {
 
     // Skip duplicate call if same query already completed
     if (trimmedQuery == _lastSearchedQuery &&
-        _screenState == SearchScreenState.results) return;
+        _screenState == SearchScreenState.results) {
+      return;
+    }
 
     // Show searching state but keep existing results visible (no flash to empty)
     setState(() {
@@ -304,31 +307,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildBackButton() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => context.pop(),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow.withAlpha(20),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(Icons.arrow_back, color: AppColors.primaryDark, size: 22),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildSearchHeader() {
     return Container(
@@ -346,7 +325,7 @@ class _SearchScreenState extends State<SearchScreen> {
       child: Row(
         children: [
           // Back button with rounded square background (same as detail screen)
-          _buildBackButton(),
+          CircleIconButton.back(context),
           const SizedBox(width: 12),
 
           // Search field
