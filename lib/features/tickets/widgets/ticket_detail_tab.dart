@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../models/ticket_model.dart';
 import 'ticket_status_badge.dart';
 
@@ -16,40 +17,7 @@ class TicketDetailTab extends StatefulWidget {
 class _TicketDetailTabState extends State<TicketDetailTab> {
   bool _isDescriptionExpanded = true;
 
-  String _formatDateTime(DateTime? dateTime) {
-    if (dateTime == null) return '-';
-    final localTime = dateTime.toLocal();
-    final day = localTime.day.toString().padLeft(2, '0');
-    final month = localTime.month.toString().padLeft(2, '0');
-    final year = localTime.year;
-    final hour = localTime.hour.toString().padLeft(2, '0');
-    final minute = localTime.minute.toString().padLeft(2, '0');
-    final second = localTime.second.toString().padLeft(2, '0');
-    return '$day/$month/$year, $hour:$minute:$second';
-  }
-
-  String _formatDateForTimeline(DateTime dateTime) {
-    final localTime = dateTime.toLocal();
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final hour = localTime.hour;
-    final minute = localTime.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.year} \u2022 $displayHour:$minute $period';
-  }
+  // Date/time formatting handled by [DateFormatter] for app-wide consistency.
 
   @override
   Widget build(BuildContext context) {
@@ -231,14 +199,18 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
           // Created Date
           _buildInfoRow(
             'Created Date',
-            _formatDateTime(widget.ticket.createdAt),
+            DateFormatter.dateTime(widget.ticket.createdAt).isEmpty
+                ? '-'
+                : DateFormatter.dateTime(widget.ticket.createdAt),
           ),
           _buildDivider(),
 
           // Last Updated
           _buildInfoRow(
             'Last Updated',
-            _formatDateTime(widget.ticket.updatedAt),
+            DateFormatter.dateTime(widget.ticket.updatedAt).isEmpty
+                ? '-'
+                : DateFormatter.dateTime(widget.ticket.updatedAt),
           ),
         ],
       ),
@@ -433,7 +405,7 @@ class _TicketDetailTabState extends State<TicketDetailTab> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _formatDateForTimeline(date),
+                    DateFormatter.dateTime(date),
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.textSecondary,
                     ),

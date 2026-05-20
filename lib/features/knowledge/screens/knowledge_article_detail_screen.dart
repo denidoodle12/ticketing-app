@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/connectivity_service.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/knowledge_article_model.dart';
@@ -172,7 +173,7 @@ class _KnowledgeArticleDetailScreenState
 
   Widget _buildMetaRow(KnowledgeArticle article) {
     final dateStr = article.createdAt != null
-        ? _formatDate(article.createdAt!)
+        ? DateFormatter.date(article.createdAt)
         : 'Unknown date';
 
     return Row(
@@ -533,23 +534,7 @@ class _KnowledgeArticleDetailScreenState
 
   // ─── Helpers ───────────────────────────────────────────────────
 
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
-  }
+  // Date formatting handled by [DateFormatter.date].
 
   /// Reusable action button — matches ticket detail screen style
   Widget _buildActionButton({

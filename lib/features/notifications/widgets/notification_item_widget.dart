@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../models/notification_model.dart';
 
 /// Widget for displaying a single notification item
@@ -71,7 +72,7 @@ class NotificationItemWidget extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        _formatTime(notification.createdAt),
+                        DateFormatter.relative(notification.createdAt),
                         style: AppTextStyles.caption.copyWith(
                           color: notification.isRead
                               ? AppColors.textSecondary
@@ -153,36 +154,5 @@ class NotificationItemWidget extends StatelessWidget {
     );
   }
 
-  String _formatTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      return '${months[dateTime.month - 1]} ${dateTime.day}';
-    }
-  }
+  // Time formatting handled by [DateFormatter.relative] for app-wide consistency.
 }

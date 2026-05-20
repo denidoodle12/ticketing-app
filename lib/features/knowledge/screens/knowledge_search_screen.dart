@@ -7,6 +7,7 @@ import '../../../core/constants/storage_keys.dart';
 import '../../../core/network/connectivity_service.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/knowledge_article_model.dart';
 import '../models/knowledge_category_model.dart';
@@ -892,7 +893,7 @@ class _KnowledgeSearchScreenState extends State<KnowledgeSearchScreen> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Updated ${_formatDate(article.updatedAt ?? article.createdAt ?? DateTime.now())}',
+                    'Updated ${DateFormatter.date(article.updatedAt ?? article.createdAt)}',
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -925,13 +926,7 @@ class _KnowledgeSearchScreenState extends State<KnowledgeSearchScreen> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
+  // Date formatting handled by [DateFormatter.date].
 }
 
 // ─── Category Filter Bottom Sheet ───────────────────────────────────────────

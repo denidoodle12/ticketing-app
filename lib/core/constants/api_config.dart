@@ -3,7 +3,8 @@ class ApiConfig {
   static const String appVersion = '1.0.0';
 
   // Environment Mode
-  static const bool useMockData = false; // Set to true for testing without backend
+  static const bool useMockData =
+      false; // Set to true for testing without backend
 
   // ──────────────────────────────────────────────────────
   // Base URL — Single Source of Truth
@@ -12,9 +13,6 @@ class ApiConfig {
   // Configurable at compile-time via --dart-define so we don't have to
   // edit & commit code every time we point at a different environment.
   // Default = production. Override examples:
-  //
-  //   flutter run --dart-define=API_BASE_URL=https://magang.damarbrawijaya.my.id
-  //   flutter build apk --release --dart-define=API_BASE_URL=https://staging.damarbrawijaya.my.id
   //
   // Notes:
   // - String.fromEnvironment is evaluated at compile-time, NOT runtime,
@@ -39,6 +37,4 @@ class ApiConfig {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
-
-  
 }

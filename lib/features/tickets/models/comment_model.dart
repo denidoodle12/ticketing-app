@@ -1,3 +1,5 @@
+import '../../../core/utils/date_formatter.dart';
+
 /// Comment/Chat message model for ticket conversations
 class Comment {
   final int id;
@@ -92,25 +94,8 @@ class Comment {
     return '$displayHour:$minute $period';
   }
 
-  /// Get formatted date (e.g., "Jan 6, 2026") in local timezone
-  String get formattedDate {
-    final localTime = createdAt.toLocal();
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.year}';
-  }
+  /// Get formatted date (e.g., "May 20, 2026") in local timezone
+  String get formattedDate => DateFormatter.date(createdAt);
 
   /// Get formatted date for grouping (e.g., "JANUARY 6, 2026") in local timezone
   String get formattedDateGroup {
@@ -184,25 +169,8 @@ class TicketAttachment {
     }
   }
 
-  /// Get formatted date (e.g., "Jan 6, 2026") in local timezone
-  String get formattedDate {
-    final localTime = uploadedAt.toLocal();
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.year}';
-  }
+  /// Get formatted date (e.g., "May 20, 2026") in local timezone
+  String get formattedDate => DateFormatter.date(uploadedAt);
 
   /// Get formatted time (e.g., "10:30 AM") in local timezone
   String get formattedTime {

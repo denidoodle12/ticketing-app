@@ -6,6 +6,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../core/network/connectivity_service.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/constants/asset_paths.dart';
 import '../../../shared/widgets/section_label.dart';
 import '../../../routes/app_routes.dart';
@@ -583,7 +584,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'Updated ${_formatDate(article.updatedAt ?? article.createdAt ?? DateTime.now())}',
+                      'Updated ${DateFormatter.date(article.updatedAt ?? article.createdAt)}',
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -842,11 +843,5 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
+  // Date formatting handled by [DateFormatter.date].
 }

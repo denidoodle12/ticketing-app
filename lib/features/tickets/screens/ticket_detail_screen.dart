@@ -14,6 +14,7 @@ import '../../../core/themes/text_styles.dart';
 import '../../../core/network/chat_websocket_service.dart';
 import '../../../core/constants/api_config.dart';
 import '../../../core/utils/toast_helper.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/services/token_refresh_service.dart';
 import '../../../data/datasources/local/local_storage.dart';
 import '../../../providers/ticket_provider.dart';
@@ -842,19 +843,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
 
   String _getUpdatedTimeAgo() {
     if (_currentTicket.updatedAt == null) return '';
-
-    final now = DateTime.now();
-    final difference = now.difference(_currentTicket.updatedAt!);
-
-    if (difference.inDays > 0) {
-      return 'Updated ${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return 'Updated ${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return 'Updated ${difference.inMinutes}m ago';
-    } else {
-      return 'Updated just now';
-    }
+    final relative = DateFormatter.relative(_currentTicket.updatedAt);
+    return relative.isEmpty ? '' : 'Updated $relative';
   }
 
   @override

@@ -1,3 +1,4 @@
+import '../../../core/utils/date_formatter.dart';
 import 'ticket_category_model.dart';
 import 'ticket_status_model.dart';
 
@@ -219,29 +220,10 @@ class Ticket {
     );
   }
 
-  /// Get time ago string from createdAt
-  String get timeAgo {
-    if (createdAt == null) return '';
-
-    final now = DateTime.now();
-    final difference = now.difference(createdAt!);
-
-    if (difference.inDays > 365) {
-      final years = (difference.inDays / 365).floor();
-      return '$years ${years == 1 ? 'year' : 'years'} ago';
-    } else if (difference.inDays > 30) {
-      final months = (difference.inDays / 30).floor();
-      return '$months ${months == 1 ? 'month' : 'months'} ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays} ${difference.inDays == 1 ? 'day' : 'days'} ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} ${difference.inHours == 1 ? 'hour' : 'hours'} ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} ${difference.inMinutes == 1 ? 'minute' : 'minutes'} ago';
-    } else {
-      return 'Just now';
-    }
-  }
+  /// Smart relative time string for list/card display (e.g. `2h ago`).
+  /// Delegates to [DateFormatter.relative] so the format stays consistent
+  /// with notifications, knowledge cards, and detail headers.
+  String get timeAgo => DateFormatter.relative(createdAt);
 
   @override
   String toString() =>
