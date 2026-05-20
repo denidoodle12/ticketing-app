@@ -59,6 +59,8 @@ class ChatBubble extends StatelessWidget {
                 _buildBubble(context),
                 if (!_isUser && message.sources.isNotEmpty && !message.isLoading)
                   _buildSourceChips(context),
+                if (_isUser && message.mentionedArticles.isNotEmpty)
+                  _buildMentionChips(context),
               ],
             ),
           ),
@@ -662,6 +664,65 @@ class ChatBubble extends StatelessWidget {
             }).toList(),
           ),
         ],
+      ),
+    );
+  }
+  // ─── Mention Chips (User Message) ───────────────────────────────
+
+  /// Renders tappable chips for articles the user @-mentioned in their
+  /// question. Tap navigates to the article detail page — mirrors the
+  /// behaviour of source chips on AI responses.
+  Widget _buildMentionChips(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, right: 4),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 6,
+        runSpacing: 6,
+        children: message.mentionedArticles.map((mention) {
+          return GestureDetector(
+            onTap: () {
+              context.push('/knowledge/article', extra: mention.id);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.primary50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primary100),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.menu_book_outlined,
+                    size: 13,
+                    color: AppColors.primary500.withAlpha(220),
+                  ),
+                  const SizedBox(width: 5),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth:
+                          MediaQuery.of(context).size.width * 0.5,
+                    ),
+                    child: Text(
+                      '@${mention.title}',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

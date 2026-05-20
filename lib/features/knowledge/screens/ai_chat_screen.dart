@@ -11,6 +11,8 @@ import '../../../core/constants/asset_paths.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
 import '../providers/knowledge_provider.dart';
 import '../models/ai_chat_model.dart';
+import '../models/knowledge_article_model.dart';
+import '../widgets/article_mention_picker.dart';
 import '../widgets/chat_bubble.dart';
 
 class AiChatScreen extends StatefulWidget {
@@ -43,6 +45,18 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+
+  // ─── @-mention state ──────────────────────────────────────────────
+  // Articles the user picked via @-mention for the message currently
+  // being composed. Cleared after a successful send.
+  final List<MentionedArticle> _pendingMentions = [];
+  // Index of the last `@` typed in the input. Set when the picker opens,
+  // used to replace the `@<query>` slice with the selected `@<title> `.
+  int? _mentionStartIndex;
+  // Tracks the previous text length to detect *new* `@` insertions
+  // (vs. paste / autocorrect that may also insert `@`).
+  int _previousTextLength = 0;
+  bool _isPickerOpen = false;
 
   @override
   void initState() {
@@ -162,9 +176,107 @@ class _AiChatScreenState extends State<AiChatScreen>
     // #5: Haptic feedback on send
     HapticFeedback.lightImpact();
     _shouldForceScroll = true; // Always scroll after user sends
-    context.read<KnowledgeProvider>().sendMessage(text.trim());
+    // Keep only mentions whose title still appears in the final text
+    // (user may have deleted some after picking).
+    final activeMentions = _pendingMentions
+        .where((m) => text.contains('@${m.title}'))
+        .toList();
+    context
+        .read<KnowledgeProvider>()
+        .sendMessage(text.trim(), mentions: activeMentions);
     _textController.clear();
+    _pendingMentions.clear();
+    _previousTextLength = 0;
     _focusNode.requestFocus(); // Keep focus on input after send
+    setState(() {});
+  }
+
+  // ─── @-Mention Picker Integration ─────────────────────────────────
+
+  /// Detect when the user just typed `@` at a valid position (start of
+  /// text or after whitespace). Opens the picker and remembers where the
+  /// `@` was so we can replace it with the selected article title later.
+  void _handleTextChanged(String newText) {
+    final lengthDelta = newText.length - _previousTextLength;
+    _previousTextLength = newText.length;
+
+    // Only react to a single-character insertion of `@` to avoid false
+    // positives from paste, undo, or selection replacement.
+    if (!_isPickerOpen && lengthDelta == 1) {
+      final cursor = _textController.selection.baseOffset;
+      if (cursor > 0 && cursor <= newText.length) {
+        final justTyped = newText[cursor - 1];
+        if (justTyped == '@') {
+          final isValidPosition = cursor == 1 ||
+              _isWhitespace(newText[cursor - 2]);
+          if (isValidPosition) {
+            _mentionStartIndex = cursor - 1;
+            _openMentionPicker();
+          }
+        }
+      }
+    }
+
+    setState(() {});
+  }
+
+  bool _isWhitespace(String char) {
+    return char == ' ' ||
+        char == '\t' ||
+        char == '\n' ||
+        char == '\r';
+  }
+
+  Future<void> _openMentionPicker() async {
+    _isPickerOpen = true;
+    // Drop the on-screen keyboard so the bottom sheet has full real estate.
+    _focusNode.unfocus();
+    await showArticleMentionPicker(
+      context,
+      initialQuery: '',
+      onSelected: _handleMentionSelected,
+    );
+    if (!mounted) return;
+    _isPickerOpen = false;
+    _mentionStartIndex = null;
+    // Restore focus + keyboard so the user can keep typing.
+    _focusNode.requestFocus();
+  }
+
+  /// Replace `@<query>` (from `_mentionStartIndex` up to current cursor)
+  /// with `@<title> ` (trailing space so the next keystroke is clean).
+  void _handleMentionSelected(KnowledgeArticle article) {
+    final startIndex = _mentionStartIndex;
+    if (startIndex == null) return;
+
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset.clamp(0, text.length);
+    if (startIndex < 0 || startIndex > text.length) return;
+
+    final before = text.substring(0, startIndex);
+    // The `@` itself sits at startIndex; cursor is wherever the user has
+    // typed up to. If picker opened immediately after `@`, cursor == startIndex+1.
+    final endIndex = cursor < startIndex ? startIndex : cursor;
+    final after = endIndex < text.length ? text.substring(endIndex) : '';
+    final insertion = '@${article.title} ';
+
+    final newText = before + insertion + after;
+    final newCursor = before.length + insertion.length;
+
+    _textController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newCursor),
+    );
+    _previousTextLength = newText.length;
+
+    // Avoid duplicates if the user picks the same article twice in a row.
+    final alreadyAdded =
+        _pendingMentions.any((m) => m.id == article.id);
+    if (!alreadyAdded) {
+      _pendingMentions.add(
+        MentionedArticle(id: article.id, title: article.title),
+      );
+    }
     setState(() {});
   }
 
@@ -635,7 +747,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                   decoration: InputDecoration(
                     hintText: showMinHint
                         ? 'Type at least $_minChars characters'
-                        : 'Ask TixAI',
+                        : 'Ask or type @ to mention the article…',
                     hintStyle: AppTextStyles.bodyMedium.copyWith(
                       color: showMinHint
                           ? AppColors.warning700
@@ -650,7 +762,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                     contentPadding: const EdgeInsets.fromLTRB(20, 14, 8, 14),
                     counterText: '',
                   ),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: _handleTextChanged,
                 ),
               ),
               // Send button — floating circle inside container

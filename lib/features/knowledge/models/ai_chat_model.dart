@@ -57,6 +57,16 @@ class AiSource {
 /// Role for chat messages
 enum ChatRole { user, assistant }
 
+/// Lightweight reference to a knowledge article that the user mentioned
+/// in their question (via @-mention in the input bar). Persisted on the
+/// user [AiChatMessage] so the bubble can render tappable chips after send.
+class MentionedArticle {
+  final int id;
+  final String title;
+
+  const MentionedArticle({required this.id, required this.title});
+}
+
 /// Local UI model for a single chat message
 class AiChatMessage {
   final ChatRole role;
@@ -67,6 +77,10 @@ class AiChatMessage {
   final bool isLoading;
   final bool isError;
 
+  /// Articles the user explicitly mentioned via @-picker for this message.
+  /// Only populated for [ChatRole.user] messages.
+  final List<MentionedArticle> mentionedArticles;
+
   const AiChatMessage({
     required this.role,
     required this.content,
@@ -75,14 +89,19 @@ class AiChatMessage {
     required this.timestamp,
     this.isLoading = false,
     this.isError = false,
+    this.mentionedArticles = const [],
   });
 
-  /// Create a user message
-  factory AiChatMessage.user(String content) {
+  /// Create a user message, optionally tagged with mentioned articles.
+  factory AiChatMessage.user(
+    String content, {
+    List<MentionedArticle> mentionedArticles = const [],
+  }) {
     return AiChatMessage(
       role: ChatRole.user,
       content: content,
       timestamp: DateTime.now(),
+      mentionedArticles: mentionedArticles,
     );
   }
 
@@ -126,6 +145,7 @@ class AiChatMessage {
     DateTime? timestamp,
     bool? isLoading,
     bool? isError,
+    List<MentionedArticle>? mentionedArticles,
   }) {
     return AiChatMessage(
       role: role ?? this.role,
@@ -135,6 +155,7 @@ class AiChatMessage {
       timestamp: timestamp ?? this.timestamp,
       isLoading: isLoading ?? this.isLoading,
       isError: isError ?? this.isError,
+      mentionedArticles: mentionedArticles ?? this.mentionedArticles,
     );
   }
 }

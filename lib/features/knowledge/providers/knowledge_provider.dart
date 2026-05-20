@@ -88,6 +88,21 @@ class KnowledgeProvider extends ChangeNotifier {
   /// Whether the chat has any messages (used to show welcome vs chat view)
   bool get hasChatHistory => _chatMessages.isNotEmpty;
 
+  // ─── Mention Picker (AI Chat input) ──────────────────────────────
+  // State is isolated from the main `_articles` list so opening the
+  // picker never disturbs the knowledge screens.
+  //
+  // Strategy: fetch up to 100 articles ONCE when the picker opens, then
+  // filter by title client-side as the user types. This gives instant
+  // feedback and avoids hammering the API on every keystroke. For tenants
+  // with > 100 articles we'd need to revisit, but the typical KB size is
+  // well under that.
+  List<KnowledgeArticle> _mentionAllArticles = [];
+  List<KnowledgeArticle> _mentionResults = [];
+  List<KnowledgeArticle> get mentionResults => _mentionResults;
+  bool _isMentionLoading = false;
+  bool get isMentionLoading => _isMentionLoading;
+
   /// Dynamic suggested questions generated from loaded categories & articles
   List<String> get suggestedQuestions {
     final questions = <String>[];
@@ -330,14 +345,26 @@ class KnowledgeProvider extends ChangeNotifier {
 
   /// Send a message to the AI Assistant
   /// Pattern: append user msg → append loading placeholder → call API → replace
-  Future<void> sendMessage(String question) async {
+  ///
+  /// [mentions] — articles the user picked via @-mention. Stored on the
+  /// user message for UI chips. The current backend contract
+  /// (`POST /knowledge/ask`) only accepts `{question}`, so mentions are
+  /// not sent over the wire — the AI's pgvector semantic search picks up
+  /// the article titles from the question text itself.
+  Future<void> sendMessage(
+    String question, {
+    List<MentionedArticle> mentions = const [],
+  }) async {
     if (_isAiResponding || question.trim().isEmpty) return;
 
     _isAiResponding = true;
     _aiError = null;
 
-    // 1. Append user message
-    _chatMessages = [..._chatMessages, AiChatMessage.user(question.trim())];
+    // 1. Append user message (with mentions if any)
+    _chatMessages = [
+      ..._chatMessages,
+      AiChatMessage.user(question.trim(), mentionedArticles: mentions),
+    ];
     // 2. Append loading placeholder
     _chatMessages = [..._chatMessages, AiChatMessage.loading()];
     notifyListeners();
@@ -374,8 +401,11 @@ class KnowledgeProvider extends ChangeNotifier {
     _chatMessages = _chatMessages.sublist(0, _chatMessages.length - 1);
     notifyListeners();
 
-    // Resend
-    sendMessage(lastUserMsg.content);
+    // Resend, preserving the original mentions
+    sendMessage(
+      lastUserMsg.content,
+      mentions: lastUserMsg.mentionedArticles,
+    );
   }
 
   /// Clear chat history (reset to welcome state)
@@ -384,6 +414,58 @@ class KnowledgeProvider extends ChangeNotifier {
     _aiError = null;
     _isAiResponding = false;
     notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Mention Picker Actions (AI Chat @-mention)
+  // ═══════════════════════════════════════════════════════════════════
+
+  /// Load articles for the picker. Fetches once per picker open; subsequent
+  /// filter calls are handled client-side in [filterArticlesForMention].
+  Future<void> loadArticlesForMention() async {
+    // Already populated for this picker session — no-op.
+    if (_mentionAllArticles.isNotEmpty) return;
+
+    _isMentionLoading = true;
+    notifyListeners();
+    try {
+      final response = await _repository.getArticles(
+        sortBy: 'updated_at',
+        order: 'DESC',
+        page: 1,
+        limit: 100,
+      );
+      _mentionAllArticles = response.articles;
+      _mentionResults = response.articles;
+    } catch (_) {
+      _mentionAllArticles = [];
+      _mentionResults = [];
+    } finally {
+      _isMentionLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Filter the already-loaded mention articles by title (case-insensitive).
+  /// Runs entirely on-device for instant feedback.
+  void filterArticlesForMention(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) {
+      _mentionResults = _mentionAllArticles;
+    } else {
+      _mentionResults = _mentionAllArticles
+          .where((a) => a.title.toLowerCase().contains(q))
+          .toList();
+    }
+    notifyListeners();
+  }
+
+  /// Reset mention picker state when sheet is dismissed.
+  void clearMentionResults() {
+    _mentionAllArticles = [];
+    _mentionResults = [];
+    _isMentionLoading = false;
+    // No notify — sheet is already closing.
   }
 
   @override

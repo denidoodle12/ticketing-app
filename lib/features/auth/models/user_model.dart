@@ -7,6 +7,8 @@ class User {
   final String? phoneNumber;
   final String? profilePicture;
   final String role;
+  final int? roleId;
+  final int? roleLevel;
   final bool isFirstLogin;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -20,6 +22,8 @@ class User {
     this.phoneNumber,
     this.profilePicture,
     required this.role,
+    this.roleId,
+    this.roleLevel,
     this.isFirstLogin = false,
     this.createdAt,
     this.updatedAt,
@@ -76,6 +80,8 @@ class User {
         phoneNumber: json['phone'] as String? ?? json['phone_number'] as String?,
         profilePicture: json['profile_picture'] as String?,
         role: roleName,
+        roleId: json['role_id'] as int?,
+        roleLevel: json['role_level'] as int?,
         isFirstLogin: json['is_first_login'] as bool? ?? false,
         createdAt: json['created_at'] != null
             ? DateTime.parse(json['created_at'] as String)
@@ -99,6 +105,8 @@ class User {
       'phone_number': phoneNumber,
       'profile_picture': profilePicture,
       'role': role,
+      'role_id': roleId,
+      'role_level': roleLevel,
       'is_first_login': isFirstLogin,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
@@ -114,6 +122,8 @@ class User {
     String? phoneNumber,
     String? profilePicture,
     String? role,
+    int? roleId,
+    int? roleLevel,
     bool? isFirstLogin,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -127,6 +137,8 @@ class User {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       profilePicture: profilePicture ?? this.profilePicture,
       role: role ?? this.role,
+      roleId: roleId ?? this.roleId,
+      roleLevel: roleLevel ?? this.roleLevel,
       isFirstLogin: isFirstLogin ?? this.isFirstLogin,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

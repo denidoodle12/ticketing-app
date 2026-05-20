@@ -66,14 +66,14 @@ class AuthRepositoryImpl implements AuthRepository {
           final loginData = response.data!;
           final user = loginData.user;
 
-          // Validate user role — only allow end-user level roles
-          if (!AppConstants.allowedRoles.contains(user.role.toLowerCase())) {
-            return Result.failure(
-              ForbiddenFailure(
-                'Access denied. This application is for end users only.',
-              ),
-            );
-          }
+        // Validate user role — primary: by role_level, fallback: by role name
+        if (!_isAllowedRole(user)) {
+          return Result.failure(
+            ForbiddenFailure(
+              'Access denied. This application is for end users only.',
+            ),
+          );
+        }
 
           // Save tokens
           await _localStorage.saveTokens(
@@ -106,8 +106,8 @@ class AuthRepositoryImpl implements AuthRepository {
         );
         final user = loginResponse.user;
 
-        // Validate user role — only allow end-user level roles
-        if (!AppConstants.allowedRoles.contains(user.role.toLowerCase())) {
+        // Validate user role — primary: by role_level, fallback: by role name
+        if (!_isAllowedRole(user)) {
           return Result.failure(
             ForbiddenFailure(
               'Access denied. This application is for end users only.',
@@ -290,6 +290,18 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   bool getIsFirstLogin() {
     return _localStorage.getUserIsFirstLogin();
+  }
+
+  /// Check if a user is allowed to login to this end-user app.
+  /// Primary: validates by role_level (level <= maxAllowedRoleLevel).
+  /// Fallback: validates by role name if role_level is not available.
+  bool _isAllowedRole(User user) {
+    // Primary: use role_level from backend if available
+    if (user.roleLevel != null) {
+      return user.roleLevel! <= AppConstants.maxAllowedRoleLevel;
+    }
+    // Fallback: check role name against whitelist
+    return AppConstants.allowedRoles.contains(user.role.toLowerCase());
   }
 
   /// Request password reset - sends 4-digit code to email
