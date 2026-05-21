@@ -18,6 +18,7 @@ import '../widgets/ticket_statistics_card.dart';
 import '../widgets/ticket_activity_chart.dart';
 import '../../../shared/widgets/profile_picture_viewer.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
+import '../../../shared/widgets/ticket_card_shimmer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -136,12 +137,14 @@ class _HomeScreenState extends State<HomeScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Ticket Statistics
+          // Ticket Statistics — only shimmers on the very first load
+          // (no cached data). Subsequent visits keep prior data visible
+          // while a background refresh runs silently.
           FormCard(
             padding: const EdgeInsets.all(16),
             child: TicketStatisticsCard(
               statusCounts: ticketProvider.statusCounts,
-              isLoading: ticketProvider.isStatsLoading,
+              isLoading: ticketProvider.isInitialStatsLoad,
             ),
           ),
 
@@ -232,7 +235,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildRecentTicketsSection(TicketProvider ticketProvider) {
     final recentTickets = ticketProvider.recentTickets;
-    final isLoading = ticketProvider.isRecentTicketsLoading;
+    // Only show loading state on the very first fetch. Subsequent
+    // refreshes silently update the list to avoid jarring shimmer flashes
+    // when navigating back or in offline mode (cache loads instantly).
+    final isInitialLoad = ticketProvider.isInitialRecentTicketsLoad;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,12 +248,10 @@ class _HomeScreenState extends State<HomeScreen>
         const SizedBox(height: 12),
 
         // Content
-        if (isLoading)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
+        if (isInitialLoad)
+          const TicketCardShimmerList(
+            itemCount: 3,
+            padding: EdgeInsets.zero,
           )
         else if (recentTickets.isEmpty)
           const FormCard(

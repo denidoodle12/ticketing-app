@@ -38,6 +38,10 @@ class NotificationProvider extends ChangeNotifier {
   bool get hasMore => _hasMore;
   bool get isConnected => _isConnected;
 
+  /// Only true when no notifications have been loaded yet AND a fetch is in
+  /// progress. Used to suppress shimmer flashes during warm refreshes.
+  bool get isInitialLoad => _isLoading && _notifications.isEmpty;
+
   /// Get unread notifications only
   List<NotificationItem> get unreadNotifications =>
       _notifications.where((n) => !n.isRead).toList();

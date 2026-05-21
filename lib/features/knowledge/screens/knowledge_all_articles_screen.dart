@@ -212,7 +212,7 @@ class _KnowledgeAllArticlesScreenState
   // _buildBackButton replaced by CircleIconButton.back(context).
 
   Widget _buildContent(KnowledgeProvider provider) {
-    if (provider.isArticlesLoading && provider.articles.isEmpty) {
+    if (provider.isInitialArticlesLoad) {
       return _buildShimmer();
     }
 

@@ -140,6 +140,23 @@ class TicketProvider extends ChangeNotifier {
   bool get isRecentTicketsLoading => _recentTicketsState == TicketState.loading;
   bool get isStatsLoading => _statsState == TicketState.loading;
 
+  // Initial-load helpers — only true when there is no data yet AND a fetch is
+  // in flight. Screens use these to suppress shimmer/CPI flashes when cached
+  // data is already on screen (e.g. offline mode, warm navigation).
+  bool get isInitialTicketsLoad =>
+      isTicketsLoading && _rawTickets.isEmpty;
+  bool get isInitialRecentTicketsLoad =>
+      isRecentTicketsLoading && _recentTickets.isEmpty;
+
+  /// Stats are derived from `_statusCounts`. We treat them as "empty" when
+  /// the total across all status buckets is zero — the same condition the
+  /// TicketStatisticsCard uses to render its empty state.
+  bool get isInitialStatsLoad {
+    if (!isStatsLoading) return false;
+    final total = _statusCounts.values.fold<int>(0, (a, b) => a + b);
+    return total == 0;
+  }
+
   // Getters - Rating
   TicketRating? get currentRating => _currentRating;
   bool get isRatingLoading => _isRatingLoading;

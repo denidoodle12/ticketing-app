@@ -17,6 +17,10 @@ class KnowledgeProvider extends ChangeNotifier {
   List<KnowledgeCategory> get categories => _categories;
   bool _isCategoriesLoading = false;
   bool get isCategoriesLoading => _isCategoriesLoading;
+  /// Only true when we are loading AND have no cached data yet.
+  /// Use this to gate shimmer/CPI to avoid flashes during warm refreshes.
+  bool get isInitialCategoriesLoad =>
+      _isCategoriesLoading && _categories.isEmpty;
   String? _categoriesError;
   String? get categoriesError => _categoriesError;
 
@@ -29,6 +33,8 @@ class KnowledgeProvider extends ChangeNotifier {
   List<KnowledgeArticle> get recentArticles => _recentArticles;
   bool _isRecentArticlesLoading = false;
   bool get isRecentArticlesLoading => _isRecentArticlesLoading;
+  bool get isInitialRecentArticlesLoad =>
+      _isRecentArticlesLoading && _recentArticles.isEmpty;
   String? _recentArticlesError;
   String? get recentArticlesError => _recentArticlesError;
 
@@ -37,6 +43,7 @@ class KnowledgeProvider extends ChangeNotifier {
   List<KnowledgeArticle> get articles => _articles;
   bool _isArticlesLoading = false;
   bool get isArticlesLoading => _isArticlesLoading;
+  bool get isInitialArticlesLoad => _isArticlesLoading && _articles.isEmpty;
   String? _articlesError;
   String? get articlesError => _articlesError;
   int _currentPage = 1;

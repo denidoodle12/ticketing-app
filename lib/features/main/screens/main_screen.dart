@@ -239,8 +239,12 @@ class MainScreenState extends State<MainScreen> {
           final notificationProvider = context.read<NotificationProvider>();
           notificationProvider.listenToBackgroundService();
 
-          // Fetch initial notifications and unread count
-          await notificationProvider.refresh();
+          // Fetch only the unread count for the bottom-bar badge.
+          // The full notifications list is loaded by NotificationScreen
+          // itself when the user opens it — that lets the screen's shimmer
+          // show on first open instead of being short-circuited by a
+          // pre-warmed list.
+          await notificationProvider.fetchUnreadCount();
         }
       } catch (_) {}
     });

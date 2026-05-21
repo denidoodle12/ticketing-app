@@ -8,6 +8,7 @@ import '../../../core/network/connectivity_service.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
+import '../../../shared/widgets/home_shimmers.dart';
 import '../../tickets/repositories/ticket_repository.dart';
 import '../models/dashboard_stats_model.dart';
 
@@ -387,11 +388,8 @@ class _TicketActivityChartState extends State<TicketActivityChart> {
   }
 
   Widget _buildContent() {
-    if (_isLoading) {
-      return const SizedBox(
-        height: 200,
-        child: Center(child: CircularProgressIndicator()),
-      );
+    if (_isLoading && _trendData == null) {
+      return const TicketActivityShimmer();
     }
 
     if (_error != null) {

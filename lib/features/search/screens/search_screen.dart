@@ -13,7 +13,7 @@ import '../widgets/priority_filter_section.dart';
 import '../widgets/recent_searches_section.dart';
 import '../widgets/search_results_header.dart';
 import '../widgets/search_tips_card.dart';
-import '../widgets/ticket_card_shimmer.dart';
+import '../../../shared/widgets/ticket_card_shimmer.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
 import '../../../shared/widgets/circle_icon_button.dart';
 

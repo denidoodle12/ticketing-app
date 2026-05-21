@@ -365,7 +365,10 @@ class _KnowledgeScreenState extends State<KnowledgeScreen>
   // ─── Categories Section ────────────────────────────────────────
 
   Widget _buildCategoriesSection(KnowledgeProvider provider) {
-    if (!provider.hasLoadedInitialData || provider.isCategoriesLoading) {
+    // Only show shimmer on the very first load (no cached data yet).
+    // On subsequent visits the cached categories render instantly while a
+    // background refresh runs silently — same UX as the Tickets screen.
+    if (provider.isInitialCategoriesLoad) {
       return _buildCategoriesShimmer();
     }
 
@@ -454,8 +457,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen>
           ],
         ),
         const SizedBox(height: 12),
-        if (!provider.hasLoadedInitialData ||
-            (provider.isRecentArticlesLoading && provider.recentArticles.isEmpty))
+        if (provider.isInitialRecentArticlesLoad)
           _buildArticlesShimmer()
         else if (provider.recentArticlesError != null &&
             provider.recentArticles.isEmpty)

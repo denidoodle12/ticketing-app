@@ -209,7 +209,7 @@ class _KnowledgeCategoryScreenState extends State<KnowledgeCategoryScreen>
   // _buildActionButton replaced by CircleIconButton.
 
   Widget _buildContent(KnowledgeProvider provider) {
-    if (provider.isArticlesLoading && provider.articles.isEmpty) {
+    if (provider.isInitialArticlesLoad) {
       return _buildShimmer();
     }
 

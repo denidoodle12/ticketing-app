@@ -12,6 +12,7 @@ import '../../search/widgets/filter_bottom_sheet.dart';
 import '../models/ticket_model.dart';
 import '../widgets/ticket_card.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
+import '../../../shared/widgets/ticket_card_shimmer.dart';
 
 class TicketsScreen extends StatefulWidget {
   const TicketsScreen({super.key});
@@ -461,11 +462,18 @@ class _TicketsScreenState extends State<TicketsScreen>
                 ),
               ),
               firstPageProgressIndicatorBuilder: (context) =>
-                  const Center(child: CircularProgressIndicator()),
+                  const TicketCardShimmerList(
+                    itemCount: 4,
+                    padding: EdgeInsets.zero,
+                  ),
               newPageProgressIndicatorBuilder: (context) => const Center(
                 child: Padding(
                   padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
               ),
               noItemsFoundIndicatorBuilder: (context) => _buildEmptyState(

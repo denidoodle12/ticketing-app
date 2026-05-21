@@ -50,11 +50,16 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   /// Load notifications — skips API call if offline.
-  void _loadNotifications() async {
+  ///
+  /// Deferred to post-frame because [refresh] synchronously calls
+  /// `notifyListeners()` (via `_isLoading = true`), and triggering that
+  /// during initState/build raises a "setState during build" assertion.
+  void _loadNotifications() {
     if (isOffline) return;
-    if (mounted) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<NotificationProvider>().refresh();
-    }
+    });
   }
 
   void _onScroll() {
@@ -268,7 +273,7 @@ class _NotificationScreenState extends State<NotificationScreen>
       return _buildOfflinePlaceholder();
     }
 
-    if (provider.isLoading) {
+    if (provider.isInitialLoad) {
       return _buildLoadingShimmer();
     }
 

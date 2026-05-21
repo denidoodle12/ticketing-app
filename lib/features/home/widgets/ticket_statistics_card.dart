@@ -1,8 +1,10 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/themes/app_colors.dart';
 import '../../../core/themes/text_styles.dart';
 import '../../../shared/widgets/empty_state_widget.dart';
+import '../../../shared/widgets/home_shimmers.dart';
 
 /// Data model for ticket statistics from API
 class TicketStatsData {
@@ -114,7 +116,11 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard>
   @override
   void didUpdateWidget(covariant TicketStatisticsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.statusCounts != widget.statusCounts) {
+    // Compare contents (not map identity). Provider often hands us a brand
+    // new map instance with identical values after a silent refresh; without
+    // this content check the donut animation would replay every time, making
+    // the chart look like it loads twice on warm visits.
+    if (!mapEquals(oldWidget.statusCounts, widget.statusCounts)) {
       _animController.forward(from: 0);
     }
   }
@@ -127,17 +133,15 @@ class _TicketStatisticsCardState extends State<TicketStatisticsCard>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isLoading) {
+      return const TicketStatisticsShimmer();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildHeader(),
         const SizedBox(height: 20),
-        if (widget.isLoading)
-          const SizedBox(
-            height: 150,
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (_totalCount == 0)
+        if (_totalCount == 0)
           _buildEmptyState()
         else
           _buildChartWithLegend(),
